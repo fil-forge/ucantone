@@ -1,13 +1,19 @@
 package main
 
 import (
-	vdm "github.com/alanshaw/ucantone/errors/datamodel"
+	jsg "github.com/alanshaw/dag-json-gen"
+	edm "github.com/alanshaw/ucantone/errors/datamodel"
 	cbg "github.com/whyrusleeping/cbor-gen"
 )
 
 func main() {
 	if err := cbg.WriteMapEncodersToFile("../cbor_gen.go", "datamodel",
-		vdm.ErrorModel{},
+		edm.ErrorModel{},
+	); err != nil {
+		panic(err)
+	}
+	if err := jsg.WriteMapEncodersToFile("../dag_json_gen.go", "datamodel",
+		edm.ErrorModel{},
 	); err != nil {
 		panic(err)
 	}

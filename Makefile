@@ -6,7 +6,7 @@ cover:
 	go tool cover -html=./coverage/c.out
 
 gen:
-	rm ./errors/datamodel/cbor_gen.go || true
+	rm ./errors/datamodel/*_gen.go || true
 	cd ./errors/datamodel/gen && go run ./main.go
 
 	rm ./examples/types/cbor_gen.go || true
