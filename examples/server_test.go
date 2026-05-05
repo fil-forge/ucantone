@@ -210,3 +210,81 @@ func TestTypedServer(t *testing.T) {
 		panic(err)
 	}
 }
+
+// In tests, you don't have to spin up a HTTP server, you can send invocations
+// directly to the UCAN server by using it as a [http.RoundTripper] in a custom
+// HTTP client.
+func TestServerRoundTripper(t *testing.T) {
+	echoCapability, err := capability.New("/example/echo")
+	if err != nil {
+		panic(err)
+	}
+
+	serviceID, err := ed25519.Generate()
+	if err != nil {
+		panic(err)
+	}
+
+	ucanSrv := server.NewHTTP(serviceID)
+
+	// Register an echo handler that returns the invocation arguments as the result
+	ucanSrv.Handle(echoCapability, func(req execution.Request, res execution.Response) error {
+		inv := req.Invocation()
+		args := inv.Arguments()
+		fmt.Printf("Echo: %s\n", args["message"])
+		return res.SetSuccess(args)
+	})
+
+	// unused dummy URL
+	serviceURL, err := url.Parse("http://test.service.example.com")
+	if err != nil {
+		panic(err)
+	}
+
+	alice, err := ed25519.Generate()
+	if err != nil {
+		panic(err)
+	}
+
+	// Allow alice to invoke the echo capability
+	dlg, err := echoCapability.Delegate(serviceID, alice, serviceID)
+	if err != nil {
+		panic(err)
+	}
+
+	inv, err := echoCapability.Invoke(
+		alice,
+		serviceID,
+		ipld.Map{"message": "Hello, UCAN!"},
+		invocation.WithProofs(dlg.Link()),
+	)
+	if err != nil {
+		panic(err)
+	}
+
+	// Create a client to send the invocation _directly_ to the server, using a
+	// custom HTTP client that uses the server as a [http.RoundTripper].
+	c, err := client.NewHTTP(serviceURL, client.WithHTTPClient(&http.Client{
+		Transport: ucanSrv,
+	}))
+	// Alternatively:
+	// c := client.New(ucanSrv, transport.DefaultHTTPOutboundCodec)
+	if err != nil {
+		panic(err)
+	}
+
+	resp, err := c.Execute(execution.NewRequest(context.Background(), inv, execution.WithProofs(dlg)))
+	if err != nil {
+		panic(err)
+	}
+
+	result.MatchResultR0(
+		resp.Receipt().Out(),
+		func(o ipld.Any) {
+			fmt.Printf("Echo response: %+v\n", o)
+		},
+		func(x ipld.Any) {
+			fmt.Printf("Invocation failed: %v\n", x)
+		},
+	)
+}
