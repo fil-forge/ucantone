@@ -2,6 +2,7 @@ package errors
 
 import (
 	"errors"
+	"fmt"
 
 	edm "github.com/fil-forge/ucantone/errors/datamodel"
 )
@@ -17,7 +18,10 @@ type Named interface {
 	Name() string
 }
 
-func New(name, message string) error {
+func New(name, message string, args ...any) error {
+	if len(args) > 0 {
+		message = fmt.Sprintf(message, args...)
+	}
 	return edm.ErrorModel{
 		ErrorName: name,
 		Message:   message,
