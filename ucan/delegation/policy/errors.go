@@ -4,8 +4,8 @@ import (
 	"bytes"
 	"errors"
 
-	"github.com/alanshaw/ucantone/ucan"
-	pdm "github.com/alanshaw/ucantone/ucan/delegation/policy/datamodel"
+	"github.com/fil-forge/ucantone/ucan"
+	pdm "github.com/fil-forge/ucantone/ucan/delegation/policy/datamodel"
 	cbg "github.com/whyrusleeping/cbor-gen"
 )
 

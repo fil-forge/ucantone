@@ -10,7 +10,7 @@ import (
 	"sort"
 
 	jsg "github.com/alanshaw/dag-json-gen"
-	datamodel "github.com/alanshaw/ucantone/ipld/datamodel"
+	datamodel "github.com/fil-forge/ucantone/ipld/datamodel"
 	cid "github.com/ipfs/go-cid"
 )
 

@@ -1,11 +1,11 @@
 package datamodel
 
 import (
-	"github.com/alanshaw/ucantone/did"
-	"github.com/alanshaw/ucantone/ipld/datamodel"
-	"github.com/alanshaw/ucantone/ucan"
-	"github.com/alanshaw/ucantone/ucan/delegation/policy"
-	edm "github.com/alanshaw/ucantone/ucan/envelope/datamodel"
+	"github.com/fil-forge/ucantone/did"
+	"github.com/fil-forge/ucantone/ipld/datamodel"
+	"github.com/fil-forge/ucantone/ucan"
+	"github.com/fil-forge/ucantone/ucan/delegation/policy"
+	edm "github.com/fil-forge/ucantone/ucan/envelope/datamodel"
 )
 
 const Tag = "ucan/dlg@1.0.0-rc.1"

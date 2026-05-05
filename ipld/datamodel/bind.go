@@ -3,7 +3,7 @@ package datamodel
 import (
 	"bytes"
 
-	"github.com/alanshaw/ucantone/ipld/codec/dagcbor"
+	"github.com/fil-forge/ucantone/ipld/codec/dagcbor"
 )
 
 // Rebind binds the data from one CBOR marshaler type to another CBOR

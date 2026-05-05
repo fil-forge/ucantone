@@ -5,9 +5,9 @@ import (
 	"fmt"
 	"testing"
 
-	"github.com/alanshaw/ucantone/did"
-	"github.com/alanshaw/ucantone/principal/ed25519"
-	"github.com/alanshaw/ucantone/principal/signer"
+	"github.com/fil-forge/ucantone/did"
+	"github.com/fil-forge/ucantone/principal/ed25519"
+	"github.com/fil-forge/ucantone/principal/signer"
 )
 
 func TestParseDIDKey(t *testing.T) {

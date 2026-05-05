@@ -5,7 +5,7 @@ import (
 	"fmt"
 	"testing"
 
-	"github.com/alanshaw/ucantone/result"
+	"github.com/fil-forge/ucantone/result"
 	"github.com/stretchr/testify/require"
 )
 

@@ -5,9 +5,9 @@ import (
 	"strings"
 	"time"
 
-	"github.com/alanshaw/ucantone/did"
-	edm "github.com/alanshaw/ucantone/errors/datamodel"
-	"github.com/alanshaw/ucantone/ucan"
+	"github.com/fil-forge/ucantone/did"
+	edm "github.com/fil-forge/ucantone/errors/datamodel"
+	"github.com/fil-forge/ucantone/ucan"
 )
 
 const UnavailableProofErrorName = "UnavailableProof"

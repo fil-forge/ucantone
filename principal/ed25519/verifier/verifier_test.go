@@ -4,7 +4,7 @@ import (
 	"crypto/ed25519"
 	"testing"
 
-	"github.com/alanshaw/ucantone/principal/ed25519/verifier"
+	"github.com/fil-forge/ucantone/principal/ed25519/verifier"
 	"github.com/stretchr/testify/require"
 )
 

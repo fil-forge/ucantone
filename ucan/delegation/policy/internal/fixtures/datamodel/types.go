@@ -2,7 +2,7 @@ package datamodel
 
 import (
 	jsg "github.com/alanshaw/dag-json-gen"
-	"github.com/alanshaw/ucantone/ucan/delegation/policy"
+	"github.com/fil-forge/ucantone/ucan/delegation/policy"
 )
 
 type FixtureModel struct {

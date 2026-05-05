@@ -13,7 +13,7 @@
 * `DID` is now in string representation (not their binary representation as a string). You can call `Encode` and `Decode` to move to/from binary. Note, it does not have a `Bytes()` method since encoding to bytes may raise an error - you must use `Encode` instead.
 * Receipt is not defined properly in the specs...
 * Signatures
-  * Varsig does not implement anything other than ed25519 signature and dag-cbor payload right now.
+  * Varsig does not implement anything other than ed25519/secp256k1 signature and dag-cbor payload right now.
   * Signatures are now just raw bytes - no multibase prefix since signature info is all communicated in varsig header.
 * Principal
     * No RSA principal implementation.
@@ -21,7 +21,3 @@
     * Renamed `Encode()` method on `Signer` and `Verifier` to `Bytes()`, since it just returns the (multibase prefixed) bytes.
     * Ed25519 signer byte representation is now just the multiformats tagged private key bytes. Go internally uses 64 bytes for the private key which redundantly includes the public key.
 * Server is a HTTP `RoundTripper`
-
-## TODOs
-
-* IPLD layer needs to support floats(?)

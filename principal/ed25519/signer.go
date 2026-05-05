@@ -5,10 +5,10 @@ import (
 	"crypto/rand"
 	"fmt"
 
-	"github.com/alanshaw/ucantone/did"
-	"github.com/alanshaw/ucantone/principal"
-	"github.com/alanshaw/ucantone/principal/ed25519/verifier"
-	"github.com/alanshaw/ucantone/varsig"
+	"github.com/fil-forge/ucantone/did"
+	"github.com/fil-forge/ucantone/principal"
+	"github.com/fil-forge/ucantone/principal/ed25519/verifier"
+	"github.com/fil-forge/ucantone/varsig"
 	"github.com/multiformats/go-multibase"
 	"github.com/multiformats/go-varint"
 )

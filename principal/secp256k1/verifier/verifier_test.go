@@ -3,7 +3,7 @@ package verifier_test
 import (
 	"testing"
 
-	"github.com/alanshaw/ucantone/principal/secp256k1/verifier"
+	"github.com/fil-forge/ucantone/principal/secp256k1/verifier"
 	"github.com/stretchr/testify/require"
 	"gitlab.com/yawning/secp256k1-voi/secec"
 )

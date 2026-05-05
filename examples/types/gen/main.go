@@ -1,7 +1,7 @@
 package main
 
 import (
-	"github.com/alanshaw/ucantone/examples/types"
+	"github.com/fil-forge/ucantone/examples/types"
 	cbg "github.com/whyrusleeping/cbor-gen"
 )
 

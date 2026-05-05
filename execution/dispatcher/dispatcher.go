@@ -3,10 +3,10 @@ package dispatcher
 import (
 	"fmt"
 
-	"github.com/alanshaw/ucantone/execution"
-	"github.com/alanshaw/ucantone/principal"
-	"github.com/alanshaw/ucantone/ucan"
-	"github.com/alanshaw/ucantone/validator"
+	"github.com/fil-forge/ucantone/execution"
+	"github.com/fil-forge/ucantone/principal"
+	"github.com/fil-forge/ucantone/ucan"
+	"github.com/fil-forge/ucantone/validator"
 )
 
 type handler struct {

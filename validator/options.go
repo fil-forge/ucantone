@@ -1,6 +1,6 @@
 package validator
 
-import "github.com/alanshaw/ucantone/ucan"
+import "github.com/fil-forge/ucantone/ucan"
 
 type validationConfig struct {
 	canIssue                   CanIssueFunc

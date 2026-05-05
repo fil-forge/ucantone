@@ -3,8 +3,8 @@ package server
 import (
 	"net/http"
 
-	"github.com/alanshaw/ucantone/transport"
-	"github.com/alanshaw/ucantone/validator"
+	"github.com/fil-forge/ucantone/transport"
+	"github.com/fil-forge/ucantone/validator"
 )
 
 // HTTPOption is an option configuring a UCAN HTTP server.

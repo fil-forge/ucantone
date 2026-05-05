@@ -1,8 +1,8 @@
 package testutil
 
 import (
-	"github.com/alanshaw/ucantone/ucan/delegation/policy"
-	"github.com/alanshaw/ucantone/validator/capability"
+	"github.com/fil-forge/ucantone/ucan/delegation/policy"
+	"github.com/fil-forge/ucantone/validator/capability"
 )
 
 // logs a message to the console

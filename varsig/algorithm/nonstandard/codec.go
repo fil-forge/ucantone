@@ -3,7 +3,7 @@ package nonstandard
 import (
 	"fmt"
 
-	"github.com/alanshaw/ucantone/varsig"
+	"github.com/fil-forge/ucantone/varsig"
 	varint "github.com/multiformats/go-varint"
 )
 

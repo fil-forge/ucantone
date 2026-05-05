@@ -11,7 +11,7 @@ import (
 	"slices"
 
 	jsg "github.com/alanshaw/dag-json-gen"
-	"github.com/alanshaw/ucantone/ipld"
+	"github.com/fil-forge/ucantone/ipld"
 	"github.com/ipfs/go-cid"
 	cbg "github.com/whyrusleeping/cbor-gen"
 )

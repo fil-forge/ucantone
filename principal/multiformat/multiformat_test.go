@@ -3,8 +3,8 @@ package multiformat_test
 import (
 	"testing"
 
-	"github.com/alanshaw/ucantone/principal/multiformat"
-	"github.com/alanshaw/ucantone/testutil"
+	"github.com/fil-forge/ucantone/principal/multiformat"
+	"github.com/fil-forge/ucantone/testutil"
 	"github.com/stretchr/testify/require"
 )
 

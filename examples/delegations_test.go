@@ -3,9 +3,9 @@ package examples
 import (
 	"testing"
 
-	"github.com/alanshaw/ucantone/principal/ed25519"
-	"github.com/alanshaw/ucantone/ucan/delegation"
-	"github.com/alanshaw/ucantone/ucan/delegation/policy"
+	"github.com/fil-forge/ucantone/principal/ed25519"
+	"github.com/fil-forge/ucantone/ucan/delegation"
+	"github.com/fil-forge/ucantone/ucan/delegation/policy"
 )
 
 func TestDelegations(t *testing.T) {

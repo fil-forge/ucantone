@@ -1,8 +1,8 @@
 package secp256k1
 
 import (
-	"github.com/alanshaw/ucantone/varsig"
-	"github.com/alanshaw/ucantone/varsig/algorithm/ecdsa"
+	"github.com/fil-forge/ucantone/varsig"
+	"github.com/fil-forge/ucantone/varsig/algorithm/ecdsa"
 )
 
 const Code = 0xe7

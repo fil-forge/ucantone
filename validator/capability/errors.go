@@ -3,8 +3,8 @@ package capability
 import (
 	"fmt"
 
-	edm "github.com/alanshaw/ucantone/errors/datamodel"
-	"github.com/alanshaw/ucantone/ucan"
+	edm "github.com/fil-forge/ucantone/errors/datamodel"
+	"github.com/fil-forge/ucantone/ucan"
 )
 
 const MalformedArgumentsErrorName = "MalformedArguments"

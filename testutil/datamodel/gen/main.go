@@ -1,7 +1,7 @@
 package main
 
 import (
-	"github.com/alanshaw/ucantone/testutil/datamodel"
+	"github.com/fil-forge/ucantone/testutil/datamodel"
 	cbg "github.com/whyrusleeping/cbor-gen"
 )
 

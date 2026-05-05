@@ -3,9 +3,9 @@ package receipt_test
 import (
 	"testing"
 
-	"github.com/alanshaw/ucantone/result"
-	"github.com/alanshaw/ucantone/testutil"
-	"github.com/alanshaw/ucantone/ucan/receipt"
+	"github.com/fil-forge/ucantone/result"
+	"github.com/fil-forge/ucantone/testutil"
+	"github.com/fil-forge/ucantone/ucan/receipt"
 	"github.com/stretchr/testify/require"
 )
 

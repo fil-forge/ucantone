@@ -4,9 +4,9 @@ import (
 	crand "crypto/rand"
 	"testing"
 
-	"github.com/alanshaw/ucantone/did"
-	"github.com/alanshaw/ucantone/principal"
-	"github.com/alanshaw/ucantone/principal/ed25519"
+	"github.com/fil-forge/ucantone/did"
+	"github.com/fil-forge/ucantone/principal"
+	"github.com/fil-forge/ucantone/principal/ed25519"
 	"github.com/ipfs/go-cid"
 	"github.com/multiformats/go-multihash"
 	"github.com/stretchr/testify/require"

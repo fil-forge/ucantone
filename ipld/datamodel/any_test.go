@@ -5,9 +5,9 @@ import (
 	"fmt"
 	"testing"
 
-	"github.com/alanshaw/ucantone/ipld"
-	"github.com/alanshaw/ucantone/ipld/datamodel"
-	"github.com/alanshaw/ucantone/testutil"
+	"github.com/fil-forge/ucantone/ipld"
+	"github.com/fil-forge/ucantone/ipld/datamodel"
+	"github.com/fil-forge/ucantone/testutil"
 	"github.com/stretchr/testify/require"
 )
 

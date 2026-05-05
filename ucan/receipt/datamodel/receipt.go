@@ -1,7 +1,7 @@
 package datamodel
 
 import (
-	rdm "github.com/alanshaw/ucantone/result/datamodel"
+	rdm "github.com/fil-forge/ucantone/result/datamodel"
 	"github.com/ipfs/go-cid"
 )
 

@@ -3,7 +3,7 @@ package bindexec
 import (
 	"fmt"
 
-	edm "github.com/alanshaw/ucantone/errors/datamodel"
+	edm "github.com/fil-forge/ucantone/errors/datamodel"
 )
 
 const MalformedArgumentsErrorName = "MalformedArguments"

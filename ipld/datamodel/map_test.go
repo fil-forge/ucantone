@@ -6,7 +6,7 @@ import (
 	"slices"
 	"testing"
 
-	"github.com/alanshaw/ucantone/ipld/datamodel"
+	"github.com/fil-forge/ucantone/ipld/datamodel"
 	"github.com/stretchr/testify/require"
 )
 

@@ -3,7 +3,7 @@ package client
 import (
 	"net/http"
 
-	"github.com/alanshaw/ucantone/transport"
+	"github.com/fil-forge/ucantone/transport"
 )
 
 type httpClientConfig struct {

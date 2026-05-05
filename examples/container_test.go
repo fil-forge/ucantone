@@ -4,12 +4,12 @@ import (
 	"fmt"
 	"testing"
 
-	"github.com/alanshaw/ucantone/ipld"
-	"github.com/alanshaw/ucantone/principal/ed25519"
-	"github.com/alanshaw/ucantone/ucan/container"
-	"github.com/alanshaw/ucantone/ucan/delegation"
-	"github.com/alanshaw/ucantone/ucan/delegation/policy"
-	"github.com/alanshaw/ucantone/ucan/invocation"
+	"github.com/fil-forge/ucantone/ipld"
+	"github.com/fil-forge/ucantone/principal/ed25519"
+	"github.com/fil-forge/ucantone/ucan/container"
+	"github.com/fil-forge/ucantone/ucan/delegation"
+	"github.com/fil-forge/ucantone/ucan/delegation/policy"
+	"github.com/fil-forge/ucantone/ucan/invocation"
 )
 
 func TestContainer(t *testing.T) {

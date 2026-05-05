@@ -1,7 +1,7 @@
 package dispatcher
 
 import (
-	"github.com/alanshaw/ucantone/validator"
+	"github.com/fil-forge/ucantone/validator"
 )
 
 // Option is an option configuring a UCAN executor.

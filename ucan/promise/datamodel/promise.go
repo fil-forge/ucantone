@@ -1,6 +1,6 @@
 package datamodel
 
-import "github.com/alanshaw/ucantone/ucan"
+import "github.com/fil-forge/ucantone/ucan"
 
 type AwaitAnyModel struct {
 	AwaitAny ucan.Link `cborgen:"await/*" dagjsongen:"await/*"`

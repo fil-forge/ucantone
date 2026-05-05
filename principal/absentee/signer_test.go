@@ -3,8 +3,8 @@ package absentee_test
 import (
 	"testing"
 
-	"github.com/alanshaw/ucantone/did"
-	"github.com/alanshaw/ucantone/principal/absentee"
+	"github.com/fil-forge/ucantone/did"
+	"github.com/fil-forge/ucantone/principal/absentee"
 	"github.com/stretchr/testify/require"
 )
 

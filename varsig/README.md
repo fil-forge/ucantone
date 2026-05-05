@@ -13,10 +13,10 @@ import (
 	"encoding/base64"
 	"fmt"
 
-	"github.com/alanshaw/ucantone/varsig"
-	"github.com/alanshaw/ucantone/varsig/algorithm/ed25519"
-	"github.com/alanshaw/ucantone/varsig/common"
-	"github.com/alanshaw/ucantone/varsig/payload/dagcbor"
+	"github.com/fil-forge/ucantone/varsig"
+	"github.com/fil-forge/ucantone/varsig/algorithm/ed25519"
+	"github.com/fil-forge/ucantone/varsig/common"
+	"github.com/fil-forge/ucantone/varsig/payload/dagcbor"
 )
 
 func main() {
@@ -48,7 +48,7 @@ func main() {
 
 ## Contributing
 
-Feel free to join in. All welcome. Please [open an issue](https://github.com/alanshaw/ucantone/issues)!
+Feel free to join in. All welcome. Please [open an issue](https://github.com/fil-forge/ucantone/issues)!
 
 ## License
 

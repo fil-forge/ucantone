@@ -3,7 +3,7 @@ package errors
 import (
 	"errors"
 
-	edm "github.com/alanshaw/ucantone/errors/datamodel"
+	edm "github.com/fil-forge/ucantone/errors/datamodel"
 )
 
 var (

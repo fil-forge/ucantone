@@ -5,8 +5,8 @@ import (
 	"net/http"
 	"net/url"
 
-	"github.com/alanshaw/ucantone/execution"
-	"github.com/alanshaw/ucantone/transport"
+	"github.com/fil-forge/ucantone/execution"
+	"github.com/fil-forge/ucantone/transport"
 )
 
 type HTTPClient struct {

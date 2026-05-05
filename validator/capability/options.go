@@ -1,8 +1,8 @@
 package capability
 
 import (
-	"github.com/alanshaw/ucantone/ucan"
-	"github.com/alanshaw/ucantone/ucan/delegation/policy"
+	"github.com/fil-forge/ucantone/ucan"
+	"github.com/fil-forge/ucantone/ucan/delegation/policy"
 )
 
 type capabilityConfig struct {

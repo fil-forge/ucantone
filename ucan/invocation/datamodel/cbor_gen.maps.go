@@ -8,9 +8,9 @@ import (
 	"math"
 	"sort"
 
-	did "github.com/alanshaw/ucantone/did"
-	datamodel "github.com/alanshaw/ucantone/ipld/datamodel"
-	command "github.com/alanshaw/ucantone/ucan/command"
+	did "github.com/fil-forge/ucantone/did"
+	datamodel "github.com/fil-forge/ucantone/ipld/datamodel"
+	command "github.com/fil-forge/ucantone/ucan/command"
 	cid "github.com/ipfs/go-cid"
 	cbg "github.com/whyrusleeping/cbor-gen"
 	xerrors "golang.org/x/xerrors"

@@ -7,10 +7,10 @@ import (
 	"reflect"
 	"strings"
 
-	"github.com/alanshaw/ucantone/ipld/datamodel"
-	"github.com/alanshaw/ucantone/ucan"
-	pdm "github.com/alanshaw/ucantone/ucan/delegation/policy/datamodel"
-	"github.com/alanshaw/ucantone/ucan/delegation/policy/selector"
+	"github.com/fil-forge/ucantone/ipld/datamodel"
+	"github.com/fil-forge/ucantone/ucan"
+	pdm "github.com/fil-forge/ucantone/ucan/delegation/policy/datamodel"
+	"github.com/fil-forge/ucantone/ucan/delegation/policy/selector"
 	"github.com/gobwas/glob"
 )
 

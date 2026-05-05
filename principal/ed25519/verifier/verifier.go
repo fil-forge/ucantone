@@ -6,10 +6,10 @@ import (
 	"fmt"
 	"strings"
 
-	"github.com/alanshaw/ucantone/did"
-	"github.com/alanshaw/ucantone/principal"
-	"github.com/alanshaw/ucantone/principal/multiformat"
-	varsig_ed25519 "github.com/alanshaw/ucantone/varsig/algorithm/ed25519"
+	"github.com/fil-forge/ucantone/did"
+	"github.com/fil-forge/ucantone/principal"
+	"github.com/fil-forge/ucantone/principal/multiformat"
+	varsig_ed25519 "github.com/fil-forge/ucantone/varsig/algorithm/ed25519"
 	"github.com/multiformats/go-multibase"
 	"github.com/multiformats/go-varint"
 )

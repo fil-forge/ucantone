@@ -1,7 +1,7 @@
 package signature
 
 import (
-	"github.com/alanshaw/ucantone/varsig"
+	"github.com/fil-forge/ucantone/varsig"
 )
 
 type Signature struct {

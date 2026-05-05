@@ -6,9 +6,9 @@ import (
 	"os"
 	"testing"
 
-	"github.com/alanshaw/ucantone/ipld/datamodel"
-	"github.com/alanshaw/ucantone/ucan/delegation/policy"
-	fdm "github.com/alanshaw/ucantone/ucan/delegation/policy/internal/fixtures/datamodel"
+	"github.com/fil-forge/ucantone/ipld/datamodel"
+	"github.com/fil-forge/ucantone/ucan/delegation/policy"
+	fdm "github.com/fil-forge/ucantone/ucan/delegation/policy/internal/fixtures/datamodel"
 	"github.com/stretchr/testify/require"
 )
 

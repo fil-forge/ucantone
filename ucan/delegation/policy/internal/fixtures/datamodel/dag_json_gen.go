@@ -10,7 +10,7 @@ import (
 	"sort"
 
 	jsg "github.com/alanshaw/dag-json-gen"
-	policy "github.com/alanshaw/ucantone/ucan/delegation/policy"
+	policy "github.com/fil-forge/ucantone/ucan/delegation/policy"
 	cid "github.com/ipfs/go-cid"
 )
 

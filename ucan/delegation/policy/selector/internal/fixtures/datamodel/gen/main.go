@@ -2,7 +2,7 @@ package main
 
 import (
 	jsg "github.com/alanshaw/dag-json-gen"
-	"github.com/alanshaw/ucantone/ucan/delegation/policy/selector/internal/fixtures/datamodel"
+	"github.com/fil-forge/ucantone/ucan/delegation/policy/selector/internal/fixtures/datamodel"
 )
 
 func main() {

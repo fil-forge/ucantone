@@ -4,9 +4,9 @@ import (
 	"errors"
 	"io"
 
-	"github.com/alanshaw/ucantone/ipld/datamodel"
-	"github.com/alanshaw/ucantone/ucan"
-	pdm "github.com/alanshaw/ucantone/ucan/promise/datamodel"
+	"github.com/fil-forge/ucantone/ipld/datamodel"
+	"github.com/fil-forge/ucantone/ucan"
+	pdm "github.com/fil-forge/ucantone/ucan/promise/datamodel"
 	"github.com/ipfs/go-cid"
 )
 

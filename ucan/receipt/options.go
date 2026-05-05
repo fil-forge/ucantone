@@ -1,6 +1,6 @@
 package receipt
 
-import "github.com/alanshaw/ucantone/ucan/invocation"
+import "github.com/fil-forge/ucantone/ucan/invocation"
 
 type Option = invocation.Option
 

@@ -3,9 +3,9 @@ package testutil
 import (
 	"testing"
 
-	"github.com/alanshaw/ucantone/ipld"
-	"github.com/alanshaw/ucantone/ipld/datamodel"
-	hdm "github.com/alanshaw/ucantone/testutil/datamodel"
+	"github.com/fil-forge/ucantone/ipld"
+	"github.com/fil-forge/ucantone/ipld/datamodel"
+	hdm "github.com/fil-forge/ucantone/testutil/datamodel"
 	"github.com/stretchr/testify/require"
 )
 

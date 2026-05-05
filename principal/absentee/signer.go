@@ -1,10 +1,10 @@
 package absentee
 
 import (
-	"github.com/alanshaw/ucantone/did"
-	"github.com/alanshaw/ucantone/ucan"
-	"github.com/alanshaw/ucantone/varsig"
-	"github.com/alanshaw/ucantone/varsig/algorithm/nonstandard"
+	"github.com/fil-forge/ucantone/did"
+	"github.com/fil-forge/ucantone/ucan"
+	"github.com/fil-forge/ucantone/varsig"
+	"github.com/fil-forge/ucantone/varsig/algorithm/nonstandard"
 )
 
 var SignatureAlgorithm = nonstandard.New()

@@ -3,13 +3,13 @@ package ucan
 import (
 	"time"
 
-	"github.com/alanshaw/ucantone/did"
-	"github.com/alanshaw/ucantone/ipld"
-	"github.com/alanshaw/ucantone/result"
-	"github.com/alanshaw/ucantone/ucan/command"
-	"github.com/alanshaw/ucantone/ucan/crypto"
-	"github.com/alanshaw/ucantone/ucan/crypto/signature"
-	"github.com/alanshaw/ucantone/varsig"
+	"github.com/fil-forge/ucantone/did"
+	"github.com/fil-forge/ucantone/ipld"
+	"github.com/fil-forge/ucantone/result"
+	"github.com/fil-forge/ucantone/ucan/command"
+	"github.com/fil-forge/ucantone/ucan/crypto"
+	"github.com/fil-forge/ucantone/ucan/crypto/signature"
+	"github.com/fil-forge/ucantone/varsig"
 	"github.com/ipfs/go-cid"
 )
 

@@ -3,8 +3,8 @@ package examples
 import (
 	"testing"
 
-	"github.com/alanshaw/ucantone/ipld"
-	"github.com/alanshaw/ucantone/ucan/delegation/policy"
+	"github.com/fil-forge/ucantone/ipld"
+	"github.com/fil-forge/ucantone/ucan/delegation/policy"
 )
 
 func TestParsePolicy(t *testing.T) {

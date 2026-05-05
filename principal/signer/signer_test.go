@@ -3,8 +3,8 @@ package signer_test
 import (
 	"testing"
 
-	"github.com/alanshaw/ucantone/principal/ed25519"
-	"github.com/alanshaw/ucantone/principal/signer"
+	"github.com/fil-forge/ucantone/principal/ed25519"
+	"github.com/fil-forge/ucantone/principal/signer"
 	"github.com/stretchr/testify/require"
 )
 

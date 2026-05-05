@@ -1,5 +1,5 @@
 <div align="center">
-  <a href="https://github.com/alanshaw/ucantone" target="_blank">
+  <a href="https://github.com/fil-forge/ucantone" target="_blank">
     <img src="https://github.com/user-attachments/assets/4f541813-b946-4dbc-a170-709b6ae4f05e" alt="ucantone logo" height="250" />
   </a>
   <h1 align="center">ucantone</h1>
@@ -10,7 +10,7 @@
 
 ### API Reference
 
-[pkg.go.dev/github.com/alanshaw/ucantone](https://pkg.go.dev/github.com/alanshaw/ucantone)
+[pkg.go.dev/github.com/fil-forge/ucantone](https://pkg.go.dev/github.com/fil-forge/ucantone)
 
 ### Examples
 
@@ -175,7 +175,7 @@ if x != nil {
 
 ## Contributing
 
-Feel free to join in. All welcome. Please [open an issue](https://github.com/alanshaw/ucantone/issues)!
+Feel free to join in. All welcome. Please [open an issue](https://github.com/fil-forge/ucantone/issues)!
 
 ## License
 

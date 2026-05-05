@@ -4,11 +4,11 @@ import (
 	"bytes"
 	"fmt"
 
-	"github.com/alanshaw/ucantone/ipld"
-	"github.com/alanshaw/ucantone/ipld/codec/dagcbor"
-	"github.com/alanshaw/ucantone/ipld/datamodel"
-	"github.com/alanshaw/ucantone/ucan"
-	idm "github.com/alanshaw/ucantone/ucan/invocation/datamodel"
+	"github.com/fil-forge/ucantone/ipld"
+	"github.com/fil-forge/ucantone/ipld/codec/dagcbor"
+	"github.com/fil-forge/ucantone/ipld/datamodel"
+	"github.com/fil-forge/ucantone/ucan"
+	idm "github.com/fil-forge/ucantone/ucan/invocation/datamodel"
 	cid "github.com/ipfs/go-cid"
 	multihash "github.com/multiformats/go-multihash/core"
 )

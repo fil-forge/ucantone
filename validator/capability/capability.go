@@ -4,13 +4,13 @@ import (
 	"errors"
 	"fmt"
 
-	"github.com/alanshaw/ucantone/ipld"
-	"github.com/alanshaw/ucantone/ucan"
-	"github.com/alanshaw/ucantone/ucan/command"
-	"github.com/alanshaw/ucantone/ucan/delegation"
-	"github.com/alanshaw/ucantone/ucan/delegation/policy"
-	"github.com/alanshaw/ucantone/ucan/invocation"
-	verrs "github.com/alanshaw/ucantone/validator/errors"
+	"github.com/fil-forge/ucantone/ipld"
+	"github.com/fil-forge/ucantone/ucan"
+	"github.com/fil-forge/ucantone/ucan/command"
+	"github.com/fil-forge/ucantone/ucan/delegation"
+	"github.com/fil-forge/ucantone/ucan/delegation/policy"
+	"github.com/fil-forge/ucantone/ucan/invocation"
+	verrs "github.com/fil-forge/ucantone/validator/errors"
 	"github.com/ipfs/go-cid"
 )
 

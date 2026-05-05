@@ -5,7 +5,7 @@ import (
 	"crypto/sha256"
 	"testing"
 
-	secp256k1 "github.com/alanshaw/ucantone/principal/secp256k1"
+	secp256k1 "github.com/fil-forge/ucantone/principal/secp256k1"
 	"github.com/stretchr/testify/require"
 	"gitlab.com/yawning/secp256k1-voi/secec"
 )

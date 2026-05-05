@@ -5,9 +5,9 @@ import (
 	"io"
 	"net/http"
 
-	"github.com/alanshaw/ucantone/ipld/codec/dagcbor"
-	"github.com/alanshaw/ucantone/ucan"
-	"github.com/alanshaw/ucantone/ucan/container"
+	"github.com/fil-forge/ucantone/ipld/codec/dagcbor"
+	"github.com/fil-forge/ucantone/ucan"
+	"github.com/fil-forge/ucantone/ucan/container"
 )
 
 var (

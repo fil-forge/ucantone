@@ -1,4 +1,4 @@
-module github.com/alanshaw/ucantone
+module github.com/fil-forge/ucantone
 
 go 1.25
 

@@ -1,9 +1,9 @@
 package invocation
 
 import (
-	"github.com/alanshaw/ucantone/did"
-	"github.com/alanshaw/ucantone/ipld"
-	"github.com/alanshaw/ucantone/ucan"
+	"github.com/fil-forge/ucantone/did"
+	"github.com/fil-forge/ucantone/ipld"
+	"github.com/fil-forge/ucantone/ucan"
 	"github.com/ipfs/go-cid"
 )
 

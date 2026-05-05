@@ -1,6 +1,6 @@
 package types
 
-import "github.com/alanshaw/ucantone/ucan/promise"
+import "github.com/fil-forge/ucantone/ucan/promise"
 
 type MessageSendArguments struct {
 	To      []string `cborgen:"to"`

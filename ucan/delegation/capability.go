@@ -1,6 +1,6 @@
 package delegation
 
-import "github.com/alanshaw/ucantone/ucan"
+import "github.com/fil-forge/ucantone/ucan"
 
 type Capability struct {
 	sub ucan.Subject

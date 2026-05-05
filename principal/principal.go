@@ -1,7 +1,7 @@
 package principal
 
 import (
-	"github.com/alanshaw/ucantone/ucan"
+	"github.com/fil-forge/ucantone/ucan"
 )
 
 // Signer is the principal that can issue UCANs (and sign payloads). While it's

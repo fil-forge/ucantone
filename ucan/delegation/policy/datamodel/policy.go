@@ -6,7 +6,7 @@ import (
 	"io"
 
 	jsg "github.com/alanshaw/dag-json-gen"
-	"github.com/alanshaw/ucantone/ipld/datamodel"
+	"github.com/fil-forge/ucantone/ipld/datamodel"
 	cbg "github.com/whyrusleeping/cbor-gen"
 )
 

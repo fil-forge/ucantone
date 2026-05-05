@@ -4,10 +4,10 @@ import (
 	"encoding/base64"
 	"testing"
 
-	"github.com/alanshaw/ucantone/varsig"
-	"github.com/alanshaw/ucantone/varsig/algorithm/ed25519"
-	"github.com/alanshaw/ucantone/varsig/algorithm/secp256k1"
-	"github.com/alanshaw/ucantone/varsig/payload/dagcbor"
+	"github.com/fil-forge/ucantone/varsig"
+	"github.com/fil-forge/ucantone/varsig/algorithm/ed25519"
+	"github.com/fil-forge/ucantone/varsig/algorithm/secp256k1"
+	"github.com/fil-forge/ucantone/varsig/payload/dagcbor"
 	"github.com/stretchr/testify/require"
 )
 

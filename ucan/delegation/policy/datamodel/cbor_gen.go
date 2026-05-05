@@ -8,7 +8,7 @@ import (
 	"math"
 	"sort"
 
-	datamodel "github.com/alanshaw/ucantone/ipld/datamodel"
+	datamodel "github.com/fil-forge/ucantone/ipld/datamodel"
 	cid "github.com/ipfs/go-cid"
 	cbg "github.com/whyrusleeping/cbor-gen"
 	xerrors "golang.org/x/xerrors"

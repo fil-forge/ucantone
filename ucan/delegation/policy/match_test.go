@@ -3,9 +3,9 @@ package policy_test
 import (
 	"testing"
 
-	"github.com/alanshaw/ucantone/ipld"
-	"github.com/alanshaw/ucantone/testutil"
-	"github.com/alanshaw/ucantone/ucan/delegation/policy"
+	"github.com/fil-forge/ucantone/ipld"
+	"github.com/fil-forge/ucantone/testutil"
+	"github.com/fil-forge/ucantone/ucan/delegation/policy"
 	"github.com/ipfs/go-cid"
 	"github.com/stretchr/testify/require"
 )

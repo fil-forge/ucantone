@@ -1,8 +1,8 @@
 package ed25519
 
 import (
-	"github.com/alanshaw/ucantone/varsig"
-	"github.com/alanshaw/ucantone/varsig/algorithm/eddsa"
+	"github.com/fil-forge/ucantone/varsig"
+	"github.com/fil-forge/ucantone/varsig/algorithm/eddsa"
 )
 
 const Code = 0xED

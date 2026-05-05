@@ -4,7 +4,7 @@ import (
 	"fmt"
 	"strings"
 
-	sdm "github.com/alanshaw/ucantone/ucan/delegation/policy/selector/datamodel"
+	sdm "github.com/fil-forge/ucantone/ucan/delegation/policy/selector/datamodel"
 )
 
 const ResolutionErrorName = "ResolutionError"

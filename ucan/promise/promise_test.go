@@ -5,10 +5,10 @@ import (
 	"fmt"
 	"testing"
 
-	"github.com/alanshaw/ucantone/ipld/codec/dagcbor"
-	"github.com/alanshaw/ucantone/ipld/codec/dagjson"
-	"github.com/alanshaw/ucantone/testutil"
-	"github.com/alanshaw/ucantone/ucan/promise"
+	"github.com/fil-forge/ucantone/ipld/codec/dagcbor"
+	"github.com/fil-forge/ucantone/ipld/codec/dagjson"
+	"github.com/fil-forge/ucantone/testutil"
+	"github.com/fil-forge/ucantone/ucan/promise"
 	"github.com/stretchr/testify/require"
 )
 
