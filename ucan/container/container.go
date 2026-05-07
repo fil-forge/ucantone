@@ -266,7 +266,7 @@ func Decode(input []byte) (*Container, error) {
 	case Base64url, Base64urlGzip:
 		r, err := base64.RawURLEncoding.DecodeString(string(input[1:]))
 		if err != nil {
-			return nil, fmt.Errorf("decoding base64: %w", err)
+			return nil, fmt.Errorf("decoding base64url: %w", err)
 		}
 		compressed = r
 	default:
