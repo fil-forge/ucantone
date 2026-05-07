@@ -74,6 +74,10 @@ func (s *HTTPServer) Handle(capability validator.Capability, fn execution.Handle
 	s.executor.Handle(capability, fn)
 }
 
+func (s *HTTPServer) Execute(req execution.Request) (execution.Response, error) {
+	return s.executor.Execute(req)
+}
+
 func (s *HTTPServer) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	resp, err := s.RoundTrip(r)
 	if err != nil {
