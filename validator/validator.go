@@ -26,8 +26,6 @@ import (
 type Capability interface {
 	// Command is the command the capability matches against.
 	Command() ucan.Command
-	// Policy is the base policy for the capability.
-	Policy() ucan.Policy
 	// Match an invocation against the capability, resulting in a match, which is
 	// the task from the invocation, verified to be matching with delegation
 	// policies.

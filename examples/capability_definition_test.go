@@ -7,7 +7,6 @@ import (
 	"github.com/fil-forge/ucantone/examples/types"
 	"github.com/fil-forge/ucantone/ipld"
 	"github.com/fil-forge/ucantone/principal/ed25519"
-	"github.com/fil-forge/ucantone/ucan/delegation/policy"
 	"github.com/fil-forge/ucantone/ucan/invocation"
 	"github.com/fil-forge/ucantone/validator/bindcap"
 	"github.com/fil-forge/ucantone/validator/capability"
@@ -16,9 +15,6 @@ import (
 func TestCapabilityDefinition(t *testing.T) {
 	messageSendCapability, err := capability.New(
 		"/message/send",
-		capability.WithPolicyBuilder(
-			policy.NotEqual(".to", []string{}),
-		),
 	)
 	if err != nil {
 		panic(err)
@@ -69,9 +65,6 @@ func TestTypedCapabilityDefinition(t *testing.T) {
 	// i.e. the args parameter for this method is the type you define here.
 	messageSendCapability, err := bindcap.New[*types.MessageSendArguments](
 		"/message/send",
-		capability.WithPolicyBuilder(
-			policy.NotEqual(".to", []string{}),
-		),
 	)
 	if err != nil {
 		panic(err)
