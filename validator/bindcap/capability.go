@@ -27,8 +27,8 @@ type Capability[A Arguments] struct {
 
 // New creates a new capability definition that can be used to validate an
 // invocation against proof policies.
-func New[A Arguments](cmd ucan.Command, options ...capability.Option) (*Capability[A], error) {
-	cap, err := capability.New(cmd, options...)
+func New[A Arguments](cmd ucan.Command) (*Capability[A], error) {
+	cap, err := capability.New(cmd)
 	if err != nil {
 		return nil, err
 	}
@@ -57,10 +57,6 @@ func (c *Capability[A]) Match(inv ucan.Invocation, proofs map[cid.Cid]ucan.Deleg
 
 func (c *Capability[A]) Command() ucan.Command {
 	return c.cap.Command()
-}
-
-func (c *Capability[A]) Policy() ucan.Policy {
-	return c.cap.Policy()
 }
 
 func (c *Capability[A]) Delegate(issuer ucan.Signer, audience did.DID, subject did.DID, options ...delegation.Option) (*delegation.Delegation, error) {
