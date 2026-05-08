@@ -9,6 +9,7 @@ import (
 	"github.com/fil-forge/ucantone/ucan"
 	"github.com/fil-forge/ucantone/ucan/command"
 	"github.com/fil-forge/ucantone/ucan/invocation"
+	"github.com/fil-forge/ucantone/ucan/token"
 	"github.com/stretchr/testify/require"
 )
 
@@ -175,7 +176,7 @@ func TestInvoke(t *testing.T) {
 		decoded, err := invocation.Decode(encoded)
 		require.NoError(t, err)
 
-		ok, err := invocation.VerifySignature(decoded, issuer.Verifier())
+		ok, err := token.VerifySignature(decoded, issuer.Verifier())
 		require.NoError(t, err)
 		require.True(t, ok)
 	})

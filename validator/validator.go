@@ -14,7 +14,7 @@ import (
 	"github.com/fil-forge/ucantone/ucan"
 	"github.com/fil-forge/ucantone/ucan/delegation"
 	"github.com/fil-forge/ucantone/ucan/delegation/policy"
-	"github.com/fil-forge/ucantone/ucan/invocation"
+	"github.com/fil-forge/ucantone/ucan/token"
 	"github.com/fil-forge/ucantone/validator/capability"
 	verrs "github.com/fil-forge/ucantone/validator/errors"
 	"github.com/fil-forge/ucantone/varsig/algorithm/nonstandard"
@@ -256,11 +256,11 @@ func VerifyAuthorization(
 		if err != nil {
 			return verrs.NewUnverifiableSignatureError(inv, err)
 		}
-		if err := VerifyInvocationSignature(inv, verifier); err != nil {
+		if err := VerifyTokenSignature(inv, verifier); err != nil {
 			return err
 		}
 	} else if inv.Issuer().DID() == authority.DID() {
-		if err := VerifyInvocationSignature(inv, authority); err != nil {
+		if err := VerifyTokenSignature(inv, authority); err != nil {
 			return err
 		}
 	} else if inv.Signature().Header().SignatureAlgorithm().Code() == nonstandard.Code {
@@ -287,7 +287,7 @@ func VerifyAuthorization(
 				verifyErr = err
 				continue
 			}
-			err = VerifyInvocationSignature(inv, wvfr)
+			err = VerifyTokenSignature(inv, wvfr)
 			if err != nil {
 				verifyErr = err
 				continue
@@ -349,11 +349,11 @@ func VerifyAuthorization(
 				if err != nil {
 					return verrs.NewUnverifiableSignatureError(prf, err)
 				}
-				if err := VerifyDelegationSignature(prf, verifier); err != nil {
+				if err := VerifyTokenSignature(prf, verifier); err != nil {
 					return err
 				}
 			} else if issuer == authority.DID() {
-				if err := VerifyDelegationSignature(prf, authority); err != nil {
+				if err := VerifyTokenSignature(prf, authority); err != nil {
 					return err
 				}
 			} else if prf.Signature().Header().SignatureAlgorithm().Code() == nonstandard.Code {
@@ -380,7 +380,7 @@ func VerifyAuthorization(
 						verifyErr = err
 						continue
 					}
-					err = VerifyDelegationSignature(prf, wvfr)
+					err = VerifyTokenSignature(prf, wvfr)
 					if err != nil {
 						verifyErr = err
 						continue
@@ -403,26 +403,14 @@ func VerifyAuthorization(
 	return nil
 }
 
-// VerifyInvocationSignature verifies the invocation was signed by the passed verifier.
-func VerifyInvocationSignature(inv ucan.Invocation, verifier ucan.Verifier) error {
-	ok, err := invocation.VerifySignature(inv, verifier)
+// VerifyTokenSignature verifies the token was signed by the passed verifier.
+func VerifyTokenSignature(tok ucan.Token, verifier ucan.Verifier) error {
+	ok, err := token.VerifySignature(tok, verifier)
 	if err != nil {
 		return err
 	}
 	if !ok {
-		return verrs.NewInvalidSignatureError(inv, verifier)
-	}
-	return nil
-}
-
-// VerifyDelegationSignature verifies the delegation was signed by the passed verifier.
-func VerifyDelegationSignature(dlg ucan.Delegation, verifier ucan.Verifier) error {
-	ok, err := delegation.VerifySignature(dlg, verifier)
-	if err != nil {
-		return err
-	}
-	if !ok {
-		return verrs.NewInvalidSignatureError(dlg, verifier)
+		return verrs.NewInvalidSignatureError(tok, verifier)
 	}
 	return nil
 }

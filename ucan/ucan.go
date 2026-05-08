@@ -5,6 +5,7 @@ import (
 
 	"github.com/fil-forge/ucantone/did"
 	"github.com/fil-forge/ucantone/ipld"
+	"github.com/fil-forge/ucantone/ipld/codec/dagcbor"
 	"github.com/fil-forge/ucantone/result"
 	"github.com/fil-forge/ucantone/ucan/command"
 	"github.com/fil-forge/ucantone/ucan/crypto"
@@ -65,6 +66,8 @@ type Verifier interface {
 // Link is an IPLD link to a UCAN token.
 type Link = cid.Cid
 
+// Token is the common ancestor of elements of UCAN which make claims, including
+// [Delegation], [Invocation], and [Receipt].
 type Token interface {
 	ipld.Block
 	// Issuer DID (sender).
@@ -97,6 +100,11 @@ type Token interface {
 	Expiration() *UTCUnixTimestamp
 	// Signature of the UCAN issuer.
 	Signature() Signature
+	// Payload which the signature is over. UCAN payloads are canonically encoded
+	// with DAG-CBOR for signing.
+	//
+	// https://github.com/ucan-wg/spec/blob/main/README.md#encoding
+	SigPayload() (dagcbor.Marshaler, error)
 }
 
 // Every statement MUST take the form [operator, selector, argument] except for
