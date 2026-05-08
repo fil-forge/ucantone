@@ -125,7 +125,7 @@ func (inv *Invocation) Envelope() *edm.EnvelopeModel {
 }
 
 // SigPayload returns the decoded signature payload (varsig header + token payload).
-func (inv *Invocation) SigPayload() *idm.SigPayloadModel {
+func (inv *Invocation) SigPayload() cbg.CBORMarshaler {
 	return inv.sigPayload
 }
 
@@ -461,15 +461,4 @@ func marshalArgs(args cbg.CBORMarshaler) ([]byte, error) {
 		return nil, fmt.Errorf("args must encode as a CBOR map, got major type %d", raw[0]>>5)
 	}
 	return raw, nil
-}
-
-// VerifySignature verifies the invocation's signature against the literal
-// signed-payload bytes preserved on decode. No reconstruction of the signing
-// payload from typed fields — verification operates on the exact bytes the
-// issuer signed, per the UCAN spec.
-func VerifySignature(inv ucan.Invocation, verifier ucan.Verifier) (bool, error) {
-	if inv.Issuer() != verifier.DID() {
-		return false, nil
-	}
-	return verifier.Verify(inv.SignedBytes(), inv.Signature().Bytes()), nil
 }

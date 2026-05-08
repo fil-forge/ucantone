@@ -46,6 +46,9 @@ func FormatCodec(codec byte) string {
 	}
 }
 
+// Container contains any number of UCAN [ucan.Token]s of any kind.
+//
+// https://github.com/ucan-wg/container
 type Container struct {
 	invs  []ucan.Invocation
 	rcpts []ucan.Receipt

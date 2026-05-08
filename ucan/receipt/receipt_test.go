@@ -12,6 +12,7 @@ import (
 	"github.com/fil-forge/ucantone/ucan/invocation"
 	"github.com/fil-forge/ucantone/ucan/receipt"
 	rdm "github.com/fil-forge/ucantone/ucan/receipt/datamodel"
+	"github.com/fil-forge/ucantone/ucan/token"
 )
 
 func TestIssueOK(t *testing.T) {
@@ -169,7 +170,7 @@ func TestWireFormatIsInvocation(t *testing.T) {
 	require.Equal(t, rcpt.SignedBytes(), inv.SignedBytes())
 
 	// The bytes verify as a signed invocation — not merely parse as one.
-	verified, err := invocation.VerifySignature(inv, executor.Verifier())
+	verified, err := token.VerifySignature(inv, executor.Verifier())
 	require.NoError(t, err)
 	require.True(t, verified, "receipt bytes must verify through the invocation path")
 

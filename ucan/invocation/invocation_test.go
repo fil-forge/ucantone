@@ -12,6 +12,7 @@ import (
 	"github.com/fil-forge/ucantone/ucan/command"
 	"github.com/fil-forge/ucantone/ucan/invocation"
 	"github.com/fil-forge/ucantone/ucan/receipt"
+	"github.com/fil-forge/ucantone/ucan/token"
 	"github.com/stretchr/testify/require"
 	cbg "github.com/whyrusleeping/cbor-gen"
 )
@@ -182,7 +183,7 @@ func TestInvoke(t *testing.T) {
 		decoded, err := invocation.Decode(encoded)
 		require.NoError(t, err)
 
-		ok, err := invocation.VerifySignature(decoded, issuer.Verifier())
+		ok, err := token.VerifySignature(decoded, issuer.Verifier())
 		require.NoError(t, err)
 		require.True(t, ok)
 	})
@@ -222,7 +223,7 @@ func TestArgsBytesRoundTrip(t *testing.T) {
 
 	// 3. Signature verification on the decoded invocation must succeed
 	//    (this exercises the Raw-bytes path through VerifySignature).
-	ok, err := invocation.VerifySignature(decoded, issuer.Verifier())
+	ok, err := token.VerifySignature(decoded, issuer.Verifier())
 	require.NoError(t, err)
 	require.True(t, ok, "signature must verify after decode/re-encode")
 }

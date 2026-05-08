@@ -8,6 +8,7 @@ import (
 
 	"github.com/ipfs/go-cid"
 	multihash "github.com/multiformats/go-multihash/core"
+	cbg "github.com/whyrusleeping/cbor-gen"
 
 	"github.com/fil-forge/ucantone/did"
 	"github.com/fil-forge/ucantone/ipld/codec/dagcbor"
@@ -86,7 +87,7 @@ func (d *Delegation) Envelope() *edm.EnvelopeModel {
 }
 
 // SigPayload returns the decoded signature payload (varsig header + token payload).
-func (d *Delegation) SigPayload() *ddm.SigPayloadModel {
+func (d *Delegation) SigPayload() cbg.CBORMarshaler {
 	return d.sigPayload
 }
 
@@ -337,15 +338,4 @@ func Delegate(
 		envelope:   &envelope,
 		sigPayload: &sigPayload,
 	}, nil
-}
-
-// VerifySignature verifies the delegation's signature against the literal
-// signed-payload bytes preserved on decode. No reconstruction of the signing
-// payload from typed fields — verification operates on the exact bytes the
-// issuer signed, per the UCAN spec.
-func VerifySignature(dlg ucan.Delegation, verifier ucan.Verifier) (bool, error) {
-	if dlg.Issuer() != verifier.DID() {
-		return false, nil
-	}
-	return verifier.Verify(dlg.SignedBytes(), dlg.Signature().Bytes()), nil
 }
