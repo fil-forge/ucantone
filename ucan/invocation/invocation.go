@@ -288,9 +288,24 @@ func Decode(b []byte) (*Invocation, error) {
 	return &inv, err
 }
 
+// InvokeMap is a convenience wrapper around [Invoke] that accepts an ad-hoc
+// args map. Equivalent to calling Invoke with datamodel.Map(args). Use Invoke
+// directly when the args have a typed cborgen schema; use InvokeMap when you
+// just want to pass a Go map literal.
+func InvokeMap(
+	issuer ucan.Signer,
+	subject ucan.Subject,
+	command ucan.Command,
+	args map[string]any,
+	options ...Option,
+) (*Invocation, error) {
+	return Invoke(issuer, subject, command, datamodel.Map(args), options...)
+}
+
 // Invoke constructs a signed invocation. The args parameter is any
 // cborgen-marshalable value whose schema matches what the command's executor
-// expects. Pass nil to encode an empty CBOR map.
+// expects, and which encodes as a CBOR map (per the UCAN spec).
+// Pass nil to encode an empty CBOR map.
 func Invoke(
 	issuer ucan.Signer,
 	subject ucan.Subject,
@@ -426,6 +441,10 @@ func Invoke(
 // marshalArgs encodes the args via cborgen, falling back to an empty CBOR map
 // (0xa0) when args is nil. Returns CBOR bytes suitable for storing in
 // [datamodel.Raw].
+//
+// Per the UCAN spec, args MUST encode as a CBOR map (`{String : Any}`).
+// This function enforces that contract by inspecting the major type of the
+// produced bytes and rejecting anything that isn't a map.
 func marshalArgs(args cbg.CBORMarshaler) ([]byte, error) {
 	if args == nil {
 		return []byte{0xa0}, nil
@@ -437,7 +456,11 @@ func marshalArgs(args cbg.CBORMarshaler) ([]byte, error) {
 	if buf.Len() == 0 {
 		return []byte{0xa0}, nil
 	}
-	return buf.Bytes(), nil
+	raw := buf.Bytes()
+	if (raw[0] >> 5) != cbg.MajMap {
+		return nil, fmt.Errorf("args must encode as a CBOR map, got major type %d", raw[0]>>5)
+	}
+	return raw, nil
 }
 
 // VerifySignature verifies the invocation's signature against the literal

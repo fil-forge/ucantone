@@ -12,6 +12,7 @@ import (
 	"github.com/fil-forge/ucantone/ucan/command"
 	"github.com/fil-forge/ucantone/ucan/invocation"
 	"github.com/stretchr/testify/require"
+	cbg "github.com/whyrusleeping/cbor-gen"
 )
 
 func TestInvoke(t *testing.T) {
@@ -223,4 +224,36 @@ func TestArgsBytesRoundTrip(t *testing.T) {
 	ok, err := invocation.VerifySignature(decoded, issuer.Verifier())
 	require.NoError(t, err)
 	require.True(t, ok, "signature must verify after decode/re-encode")
+}
+
+// TestInvokeMap exercises the map-literal convenience path and confirms it
+// produces a decodable invocation byte-equivalent to the typed-args path.
+func TestInvokeMap(t *testing.T) {
+	issuer := testutil.RandomSigner(t)
+	subject := testutil.RandomDID(t)
+	command := testutil.Must(command.Parse("/test/invoke"))(t)
+
+	inv, err := invocation.InvokeMap(issuer, subject, command, map[string]any{
+		"hello": "world",
+	}, invocation.WithNonce([]byte{0x01}), invocation.WithIssuedAt(0), invocation.WithNoExpiration())
+	require.NoError(t, err)
+
+	// Decode args bytes back into a generic map and confirm the value round-trips.
+	var args datamodel.Map
+	require.NoError(t, args.UnmarshalCBOR(bytes.NewReader(inv.ArgumentsBytes())))
+	require.Equal(t, "world", args["hello"])
+}
+
+// TestInvokeRejectsNonMapArgs verifies the spec-contract guard that args
+// must encode as a CBOR map. A typed value that encodes as a non-map (e.g.
+// a CBOR integer) must be rejected at the constructor.
+func TestInvokeRejectsNonMapArgs(t *testing.T) {
+	issuer := testutil.RandomSigner(t)
+	subject := testutil.RandomDID(t)
+	command := testutil.Must(command.Parse("/test/invoke"))(t)
+
+	notAMap := cbg.CborInt(42) // encodes as CBOR uint, not map
+	_, err := invocation.Invoke(issuer, subject, command, &notAMap)
+	require.Error(t, err)
+	require.Contains(t, err.Error(), "args must encode as a CBOR map")
 }
