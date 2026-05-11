@@ -26,13 +26,13 @@ func TestHTTPServer(t *testing.T) {
 		server := server.NewHTTP(service, server.WithReceiptTimestamps(true))
 
 		var messages []ipld.Any
-		server.Handle(testutil.ConsoleLogCapability, func(req execution.Request, res execution.Response) error {
+		server.Handle(testutil.ConsoleLogCapability.Command(), func(req execution.Request, res execution.Response) error {
 			msg := req.Invocation().Arguments()["message"]
 			t.Log(msg)
 			messages = append(messages, msg)
 			return res.SetSuccess(ipld.Map{})
 		})
-		server.Handle(testutil.TestEchoCapability, func(req execution.Request, res execution.Response) error {
+		server.Handle(testutil.TestEchoCapability.Command(), func(req execution.Request, res execution.Response) error {
 			inv := req.Invocation()
 			return res.SetSuccess(inv.Arguments())
 		})
