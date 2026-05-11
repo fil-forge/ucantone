@@ -14,6 +14,8 @@ func TestParse(t *testing.T) {
 		d, err := did.Parse(str)
 		require.NoError(t, err)
 		require.Equal(t, str, d.String())
+		require.Equal(t, "key", d.Method())
+		require.Equal(t, "z6Mkod5Jr3yd5SC7UDueqK4dAAw5xYJYjksy722tA9Boxc4z", d.ID())
 	})
 
 	t.Run("did:web", func(t *testing.T) {
@@ -21,6 +23,17 @@ func TestParse(t *testing.T) {
 		d, err := did.Parse(str)
 		require.NoError(t, err)
 		require.Equal(t, str, d.String())
+		require.Equal(t, "web", d.Method())
+		require.Equal(t, "up.storacha.network", d.ID())
+	})
+
+	t.Run("did:example", func(t *testing.T) {
+		str := "did:example:abc123"
+		d, err := did.Parse(str)
+		require.NoError(t, err)
+		require.Equal(t, str, d.String())
+		require.Equal(t, "example", d.Method())
+		require.Equal(t, "abc123", d.ID())
 	})
 }
 

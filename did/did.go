@@ -44,6 +44,30 @@ func (d DID) String() string {
 	return d.str
 }
 
+// Method returns the method of the DID, which is the part between the first and
+// second colon. For example, for
+// "did:key:z6Mkod5Jr3yd5SC7UDueqK4dAAw5xYJYjksy722tA9Boxc4z", the method is
+// "key".
+func (d DID) Method() string {
+	parts := strings.SplitN(d.str, ":", 3)
+	if len(parts) < 3 {
+		return ""
+	}
+	return parts[1]
+}
+
+// ID returns the method-specific identifier of the DID, which is the part after
+// the second colon. For example, for
+// "did:key:z6Mkod5Jr3yd5SC7UDueqK4dAAw5xYJYjksy722tA9Boxc4z", the identifier is
+// "z6Mkod5Jr3yd5SC7UDueqK4dAAw5xYJYjksy722tA9Boxc4z".
+func (d DID) ID() string {
+	parts := strings.SplitN(d.str, ":", 3)
+	if len(parts) < 3 {
+		return ""
+	}
+	return parts[2]
+}
+
 func (d DID) MarshalJSON() ([]byte, error) {
 	var buf bytes.Buffer
 	err := d.MarshalDagJSON(&buf)
