@@ -7,7 +7,6 @@ import (
 	"io"
 
 	"github.com/fil-forge/ucantone/did"
-	"github.com/fil-forge/ucantone/ipld"
 	"github.com/fil-forge/ucantone/ipld/codec/dagcbor"
 	"github.com/fil-forge/ucantone/ipld/datamodel"
 	"github.com/fil-forge/ucantone/ucan"
@@ -69,14 +68,15 @@ func (d *Delegation) Link() cid.Cid {
 	return d.link
 }
 
-// A map of arbitrary metadata, facts, and proofs of knowledge.
+// MetadataBytes returns the raw CBOR bytes of the meta field, or nil if
+// metadata is not set.
 //
 // https://github.com/ucan-wg/spec/blob/main/README.md#metadata
-func (d *Delegation) Metadata() ipld.Map {
+func (d *Delegation) MetadataBytes() []byte {
 	if d.model.SigPayload.TokenPayload1_0_0_rc1.Meta == nil {
 		return nil
 	}
-	return d.model.SigPayload.TokenPayload1_0_0_rc1.Meta.Map
+	return d.model.SigPayload.TokenPayload1_0_0_rc1.Meta.Bytes()
 }
 
 // The datamodel this delegation is built from.
@@ -247,10 +247,15 @@ func Delegate(
 		return nil, fmt.Errorf("parsing command: %w", err)
 	}
 
-	var meta *datamodel.MapWrapper
+	var meta *datamodel.Raw
 	if cfg.meta != nil {
-		mw := datamodel.MapWrapper{Map: datamodel.Map(cfg.meta)}
-		meta = &mw
+		var metaBuf bytes.Buffer
+		mp := datamodel.Map(cfg.meta)
+		if err := mp.MarshalCBOR(&metaBuf); err != nil {
+			return nil, fmt.Errorf("marshaling meta: %w", err)
+		}
+		r := datamodel.NewRaw(metaBuf.Bytes())
+		meta = &r
 	}
 
 	nnc := cfg.nnc
@@ -330,10 +335,10 @@ func VerifySignature(dlg ucan.Delegation, verifier ucan.Verifier) (bool, error) 
 		sub = dlg.Subject().DID()
 	}
 
-	var meta *datamodel.MapWrapper
-	if dlg.Metadata() != nil {
-		mw := datamodel.MapWrapper{Map: datamodel.Map(dlg.Metadata())}
-		meta = &mw
+	var meta *datamodel.Raw
+	if raw := dlg.MetadataBytes(); len(raw) > 0 {
+		r := datamodel.NewRaw(raw)
+		meta = &r
 	}
 
 	var pol policy.Policy

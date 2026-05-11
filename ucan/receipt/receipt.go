@@ -54,7 +54,7 @@ func (rcpt *Receipt) UnmarshalCBOR(r io.Reader) error {
 	}
 
 	var receiptArgs rdm.ArgsModel
-	err = datamodel.Rebind(datamodel.Map(inv.Arguments()), &receiptArgs)
+	err = receiptArgs.UnmarshalCBOR(bytes.NewReader(inv.ArgumentsBytes()))
 	if err != nil {
 		return fmt.Errorf("decoding receipt arguments: %w", err)
 	}
@@ -111,18 +111,12 @@ func Issue[O, X ipld.Any](
 		return nil, fmt.Errorf("encoding result: %w", err)
 	}
 
-	var args datamodel.Map
-	err = datamodel.Rebind(&rdm.ArgsModel{
-		Ran: ran,
-		Out: outModel,
-	}, &args)
-	if err != nil {
-		return nil, fmt.Errorf("rebinding args model: %w", err)
-	}
-
 	options = append(options, invocation.WithAudience(executor))
 
-	inv, err := invocation.Invoke(executor, executor.DID(), Command, args, options...)
+	inv, err := invocation.Invoke(executor, executor.DID(), Command, &rdm.ArgsModel{
+		Ran: ran,
+		Out: outModel,
+	}, options...)
 	if err != nil {
 		return nil, err
 	}

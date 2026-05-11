@@ -83,10 +83,11 @@ type Token interface {
 	//
 	// https://github.com/ucan-wg/spec/blob/main/README.md#command
 	Command() Command
-	// Arbitrary metadata.
+	// MetadataBytes returns the raw CBOR bytes of the metadata field, or nil
+	// if no metadata is present. Decode into a typed cborgen struct directly.
 	//
 	// https://github.com/ucan-wg/spec/blob/main/README.md#metadata
-	Metadata() ipld.Map
+	MetadataBytes() []byte
 	// A unique, random nonce.
 	//
 	// https://github.com/ucan-wg/spec/blob/main/README.md#nonce
@@ -167,10 +168,14 @@ type Task interface {
 	//
 	// https://github.com/ucan-wg/invocation/blob/main/README.md#subject
 	Subject() Principal
-	// Parameters expected by the command.
+	// ArgumentsBytes returns the raw CBOR bytes of the args field. Decode
+	// into a typed cborgen struct directly:
+	//
+	//	var args MyArgs
+	//	err := args.UnmarshalCBOR(bytes.NewReader(t.ArgumentsBytes()))
 	//
 	// https://github.com/ucan-wg/invocation/blob/main/README.md#arguments
-	Arguments() ipld.Map
+	ArgumentsBytes() []byte
 	// A unique, random nonce. It ensures that multiple (non-idempotent)
 	// invocations are unique. The nonce SHOULD be empty (0x) for commands that
 	// are idempotent (such as deterministic Wasm modules or standards-abiding

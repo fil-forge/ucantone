@@ -8,7 +8,6 @@ import (
 	"time"
 
 	"github.com/fil-forge/ucantone/did"
-	"github.com/fil-forge/ucantone/ipld"
 	"github.com/fil-forge/ucantone/ipld/codec/dagcbor"
 	"github.com/fil-forge/ucantone/ipld/datamodel"
 	"github.com/fil-forge/ucantone/ucan"
@@ -20,6 +19,7 @@ import (
 	varsig_dagcbor "github.com/fil-forge/ucantone/varsig/payload/dagcbor"
 	cid "github.com/ipfs/go-cid"
 	multihash "github.com/multiformats/go-multihash/core"
+	cbg "github.com/whyrusleeping/cbor-gen"
 )
 
 // Validity is the time an invocation is valid for by default.
@@ -37,11 +37,15 @@ type Invocation struct {
 	task  *Task
 }
 
-// Parameters expected by the command.
+// ArgumentsBytes returns the raw CBOR bytes of the args field. Decode directly
+// into the typed cborgen struct that corresponds to the invocation's command:
+//
+//	var args MyArgs
+//	err := args.UnmarshalCBOR(bytes.NewReader(inv.ArgumentsBytes()))
 //
 // https://github.com/ucan-wg/invocation/blob/main/README.md#arguments
-func (inv *Invocation) Arguments() ipld.Map {
-	return inv.model.SigPayload.TokenPayload1_0_0_rc1.Args.Map
+func (inv *Invocation) ArgumentsBytes() []byte {
+	return inv.model.SigPayload.TokenPayload1_0_0_rc1.Args.Bytes()
 }
 
 // The DID of the intended Executor if different from the Subject.
@@ -102,14 +106,15 @@ func (inv *Invocation) Link() cid.Cid {
 	return inv.link
 }
 
-// Arbitrary metadata or extensible fields.
+// MetadataBytes returns the raw CBOR bytes of the meta field, or nil if
+// metadata is not set.
 //
 // https://github.com/ucan-wg/invocation/blob/main/README.md#metadata
-func (inv *Invocation) Metadata() ipld.Map {
+func (inv *Invocation) MetadataBytes() []byte {
 	if inv.model.SigPayload.TokenPayload1_0_0_rc1.Meta == nil {
 		return nil
 	}
-	return inv.model.SigPayload.TokenPayload1_0_0_rc1.Meta.Map
+	return inv.model.SigPayload.TokenPayload1_0_0_rc1.Meta.Bytes()
 }
 
 // The datamodel this invocation is built from.
@@ -178,7 +183,7 @@ func (inv *Invocation) UnmarshalCBOR(r io.Reader) error {
 	task, err := NewTask(
 		model.SigPayload.TokenPayload1_0_0_rc1.Sub,
 		model.SigPayload.TokenPayload1_0_0_rc1.Cmd,
-		model.SigPayload.TokenPayload1_0_0_rc1.Args.Map,
+		model.SigPayload.TokenPayload1_0_0_rc1.Args.Bytes(),
 		model.SigPayload.TokenPayload1_0_0_rc1.Nonce,
 	)
 	if err != nil {
@@ -221,7 +226,7 @@ func (inv *Invocation) UnmarshalDagJSON(r io.Reader) error {
 	task, err := NewTask(
 		model.SigPayload.TokenPayload1_0_0_rc1.Sub,
 		model.SigPayload.TokenPayload1_0_0_rc1.Cmd,
-		model.SigPayload.TokenPayload1_0_0_rc1.Args.Map,
+		model.SigPayload.TokenPayload1_0_0_rc1.Args.Bytes(),
 		model.SigPayload.TokenPayload1_0_0_rc1.Nonce,
 	)
 	if err != nil {
@@ -262,11 +267,14 @@ func Decode(b []byte) (*Invocation, error) {
 	return &inv, err
 }
 
+// Invoke constructs a signed invocation. The args parameter is any
+// cborgen-marshalable value whose schema matches what the command's executor
+// expects. Pass nil to encode an empty CBOR map.
 func Invoke(
 	issuer ucan.Signer,
 	subject ucan.Subject,
 	command ucan.Command,
-	arguments ipld.Map,
+	args cbg.CBORMarshaler,
 	options ...Option,
 ) (*Invocation, error) {
 	cfg := invocationConfig{}
@@ -289,10 +297,20 @@ func Invoke(
 		return nil, fmt.Errorf("parsing command: %w", err)
 	}
 
-	var meta *datamodel.MapWrapper
+	argsBytes, err := marshalArgs(args)
+	if err != nil {
+		return nil, fmt.Errorf("marshaling args: %w", err)
+	}
+
+	var meta *datamodel.Raw
 	if cfg.meta != nil {
-		mw := datamodel.MapWrapper{Map: datamodel.Map(cfg.meta)}
-		meta = &mw
+		var metaBuf bytes.Buffer
+		mp := datamodel.Map(cfg.meta)
+		if err := mp.MarshalCBOR(&metaBuf); err != nil {
+			return nil, fmt.Errorf("marshaling meta: %w", err)
+		}
+		r := datamodel.NewRaw(metaBuf.Bytes())
+		meta = &r
 	}
 
 	nnc := cfg.nnc
@@ -325,7 +343,7 @@ func Invoke(
 		Sub:   subject.DID(),
 		Aud:   cfg.aud,
 		Cmd:   cmd,
-		Args:  datamodel.MapWrapper{Map: datamodel.Map(arguments)},
+		Args:  datamodel.NewRaw(argsBytes),
 		Prf:   cfg.prf,
 		Meta:  meta,
 		Nonce: nnc,
@@ -356,7 +374,7 @@ func Invoke(
 	task, err := NewTask(
 		tokenPayload.Sub,
 		tokenPayload.Cmd,
-		arguments,
+		argsBytes,
 		tokenPayload.Nonce,
 	)
 	if err != nil {
@@ -385,6 +403,23 @@ func Invoke(
 	}, nil
 }
 
+// marshalArgs encodes the args via cborgen, falling back to an empty CBOR map
+// (0xa0) when args is nil. Returns CBOR bytes suitable for storing in
+// [datamodel.Raw].
+func marshalArgs(args cbg.CBORMarshaler) ([]byte, error) {
+	if args == nil {
+		return []byte{0xa0}, nil
+	}
+	var buf bytes.Buffer
+	if err := args.MarshalCBOR(&buf); err != nil {
+		return nil, err
+	}
+	if buf.Len() == 0 {
+		return []byte{0xa0}, nil
+	}
+	return buf.Bytes(), nil
+}
+
 func VerifySignature(inv ucan.Invocation, verifier ucan.Verifier) (bool, error) {
 	var sub did.DID
 	if inv.Subject() != nil {
@@ -396,10 +431,10 @@ func VerifySignature(inv ucan.Invocation, verifier ucan.Verifier) (bool, error) 
 		aud = &a
 	}
 
-	var meta *datamodel.MapWrapper
-	if inv.Metadata() != nil {
-		mw := datamodel.MapWrapper{Map: datamodel.Map(inv.Metadata())}
-		meta = &mw
+	var meta *datamodel.Raw
+	if mb := inv.MetadataBytes(); len(mb) > 0 {
+		r := datamodel.NewRaw(mb)
+		meta = &r
 	}
 
 	tokenPayload := &idm.TokenPayloadModel1_0_0_rc1{
@@ -407,7 +442,7 @@ func VerifySignature(inv ucan.Invocation, verifier ucan.Verifier) (bool, error) 
 		Sub:   sub,
 		Aud:   aud,
 		Cmd:   inv.Command(),
-		Args:  datamodel.MapWrapper{Map: datamodel.Map(inv.Arguments())},
+		Args:  datamodel.NewRaw(inv.ArgumentsBytes()),
 		Prf:   inv.Proofs(),
 		Meta:  meta,
 		Nonce: inv.Nonce(),
