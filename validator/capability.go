@@ -1,9 +1,10 @@
-package validator2
+package validator
 
 import (
 	"errors"
 	"fmt"
 
+	"github.com/fil-forge/ucantone/did"
 	"github.com/fil-forge/ucantone/ipld"
 	"github.com/fil-forge/ucantone/ucan"
 	"github.com/fil-forge/ucantone/ucan/command"
@@ -12,12 +13,12 @@ import (
 
 // https://github.com/ucan-wg/spec#capability
 type Capability struct {
-	sub ucan.Subject
+	sub did.DID
 	cmd ucan.Command
 	pol ucan.Policy
 }
 
-func NewCapability(sub ucan.Subject) Capability {
+func NewCapability(sub did.DID) Capability {
 	return Capability{
 		sub: sub,
 		cmd: command.Top(),
@@ -25,7 +26,7 @@ func NewCapability(sub ucan.Subject) Capability {
 	}
 }
 
-func (c Capability) Subject() ucan.Subject {
+func (c Capability) Subject() did.DID {
 	return c.sub
 }
 
@@ -59,9 +60,9 @@ func (c Capability) Constrain(cmd ucan.Command, pol ucan.Policy) (Capability, er
 	return c, nil
 }
 
-func (c Capability) Allows(sub ucan.Subject, cmd ucan.Command, args ipld.Map) (bool, error) {
-	if c.sub.DID() != sub.DID() {
-		return false, fmt.Errorf("capability subject %s does not match given subject %s", c.sub.DID(), sub.DID())
+func (c Capability) Allows(sub did.DID, cmd ucan.Command, args ipld.Map) (bool, error) {
+	if c.sub != sub {
+		return false, fmt.Errorf("capability subject %s does not match given subject %s", c.sub, sub)
 	}
 	if !c.cmd.Proves(cmd) {
 		return false, fmt.Errorf("capability command %s does not prove given command %s", c.cmd, cmd)

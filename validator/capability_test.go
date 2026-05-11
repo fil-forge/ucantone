@@ -1,4 +1,4 @@
-package validator2_test
+package validator_test
 
 import (
 	"strings"
@@ -9,12 +9,12 @@ import (
 	"github.com/fil-forge/ucantone/ucan"
 	"github.com/fil-forge/ucantone/ucan/command"
 	"github.com/fil-forge/ucantone/ucan/delegation/policy"
-	"github.com/fil-forge/ucantone/validator2"
+	"github.com/fil-forge/ucantone/validator"
 	"github.com/stretchr/testify/require"
 )
 
 func TestCapability(t *testing.T) {
-	cap := validator2.NewCapability(
+	cap := validator.NewCapability(
 		testutil.Must(did.Parse("did:example:alice"))(t),
 	)
 

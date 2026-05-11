@@ -3,6 +3,7 @@ package verifier
 import (
 	"errors"
 	"fmt"
+	"strings"
 
 	"github.com/fil-forge/ucantone/did"
 	"github.com/fil-forge/ucantone/principal"
