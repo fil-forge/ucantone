@@ -1,11 +1,16 @@
 package validator2_test
 
 import (
+	"context"
+	"errors"
 	"fmt"
 	"testing"
 
+	"github.com/stretchr/testify/require"
+
 	"github.com/fil-forge/ucantone/did"
 	"github.com/fil-forge/ucantone/ipld"
+	"github.com/fil-forge/ucantone/principal/absentee"
 	"github.com/fil-forge/ucantone/principal/ed25519"
 	"github.com/fil-forge/ucantone/principal/secp256k1"
 	"github.com/fil-forge/ucantone/testutil"
@@ -15,7 +20,6 @@ import (
 	"github.com/fil-forge/ucantone/ucan/delegation"
 	"github.com/fil-forge/ucantone/ucan/invocation"
 	"github.com/fil-forge/ucantone/validator2"
-	"github.com/stretchr/testify/require"
 )
 
 const (
@@ -325,6 +329,75 @@ func TestValidate(t *testing.T) {
 			),
 		)
 		require.Error(t, err)
+	})
+
+	t.Run("with non-standard signature in chain", func(t *testing.T) {
+		subject := testutil.RandomSigner(t)
+		alice := absentee.From(testutil.Must(did.Parse("did:mailto:web.mail:alice"))(t))
+		bob := testutil.RandomSigner(t)
+
+		del1, err := delegation.Delegate(subject, alice, subject, crankWidget)
+		require.NoError(t, err)
+		// del2 is "signed" by alice, who is an absentee signer and produces a
+		// non-standard signature.
+		del2, err := delegation.Delegate(alice, bob, nil, crankWidget)
+		require.NoError(t, err)
+
+		inv, err := invocation.Invoke(
+			bob,
+			subject,
+			crankWidget,
+			ipld.Map{},
+			invocation.WithProofs(del1.Link(), del2.Link()),
+		)
+		require.NoError(t, err)
+
+		resolveProof := validator2.ProofsFromContainer(
+			container.New(container.WithDelegations(del1, del2)),
+		)
+
+		t.Run("rejects by default", func(t *testing.T) {
+			err = validator2.ValidateInvocation(
+				t.Context(),
+				inv,
+				validator2.WithProofResolver(resolveProof),
+				validator2.WithVerifierResolver(func(ctx context.Context, did did.DID) (ucan.Verifier, error) {
+					require.NotEqual(t, "did:mailto:web.mail:alice", did.String(), "shouldn't try to resolve a verifier for a non-standard signature")
+					return validator2.ResolveDIDKeyVerifier(ctx, did)
+				}),
+			)
+			require.ErrorContains(t, err, "no non-standard signature verifier configured")
+		})
+
+		t.Run("rejects according to non-standard signature verifier", func(t *testing.T) {
+			err = validator2.ValidateInvocation(
+				t.Context(),
+				inv,
+				validator2.WithProofResolver(resolveProof),
+				validator2.WithNonStandardSignatureVerifier(
+					func(ctx context.Context, token ucan.Token, meta ucan.Container) error {
+						require.Equal(t, del2.Link(), token.Link(), "should be asked to verify the non-standard signature for the correct token")
+						return errors.New("non-standard error failed as expected")
+					},
+				),
+			)
+			require.ErrorContains(t, err, "non-standard error failed as expected")
+		})
+
+		t.Run("validates according to non-standard signature verifier", func(t *testing.T) {
+			err = validator2.ValidateInvocation(
+				t.Context(),
+				inv,
+				validator2.WithProofResolver(resolveProof),
+				validator2.WithNonStandardSignatureVerifier(
+					func(ctx context.Context, token ucan.Token, meta ucan.Container) error {
+						require.Equal(t, del2.Link(), token.Link(), "should be asked to verify the non-standard signature for the correct token")
+						return nil
+					},
+				),
+			)
+			require.NoError(t, err)
+		})
 	})
 }
 
