@@ -198,6 +198,60 @@ func (d *Delegation) UnmarshalDagJSON(r io.Reader) error {
 	return nil
 }
 
+func (d *Delegation) SigPayload() (dagcbor.Marshaler, error) {
+	var sub did.DID
+	if d.Subject() != nil {
+		sub = d.Subject().DID()
+	}
+
+	var meta *datamodel.MapWrapper
+	if d.Metadata() != nil {
+		mw := datamodel.MapWrapper{Map: datamodel.Map(d.Metadata())}
+		meta = &mw
+	}
+
+	var pol policy.Policy
+	if p, ok := d.Policy().(policy.Policy); ok {
+		pol = p
+	} else {
+		mp, ok := d.Policy().(cbg.CBORMarshaler)
+		if !ok {
+			return nil, errors.New("policy is not CBOR marshaler")
+		}
+		var buf bytes.Buffer
+		err := mp.MarshalCBOR(&buf)
+		if err != nil {
+			return nil, fmt.Errorf("marshaling policy CBOR: %w", err)
+		}
+		err = pol.UnmarshalCBOR(&buf)
+		if err != nil {
+			return nil, fmt.Errorf("unmarshaling policy CBOR: %w", err)
+		}
+	}
+
+	tokenPayload := &ddm.TokenPayloadModel1_0_0_rc1{
+		Iss:   d.Issuer().DID(),
+		Aud:   d.Audience().DID(),
+		Sub:   sub,
+		Cmd:   d.Command(),
+		Pol:   pol,
+		Nonce: d.Nonce(),
+		Meta:  meta,
+		Nbf:   d.NotBefore(),
+		Exp:   d.Expiration(),
+	}
+
+	h, err := varsig.Encode(d.Signature().Header())
+	if err != nil {
+		return nil, fmt.Errorf("encoding varsig header: %w", err)
+	}
+
+	return &ddm.SigPayloadModel{
+		Header:                h,
+		TokenPayload1_0_0_rc1: tokenPayload,
+	}, nil
+}
+
 var _ ucan.Delegation = (*Delegation)(nil)
 
 // Encode delegation to CBOR.
@@ -322,66 +376,4 @@ func Delegate(
 		sig:   sig,
 		model: &model,
 	}, nil
-}
-
-func VerifySignature(dlg ucan.Delegation, verifier ucan.Verifier) (bool, error) {
-	var sub did.DID
-	if dlg.Subject() != nil {
-		sub = dlg.Subject().DID()
-	}
-
-	var meta *datamodel.MapWrapper
-	if dlg.Metadata() != nil {
-		mw := datamodel.MapWrapper{Map: datamodel.Map(dlg.Metadata())}
-		meta = &mw
-	}
-
-	var pol policy.Policy
-	if p, ok := dlg.Policy().(policy.Policy); ok {
-		pol = p
-	} else {
-		mp, ok := dlg.Policy().(cbg.CBORMarshaler)
-		if !ok {
-			return false, errors.New("policy is not CBOR marshaler")
-		}
-		var buf bytes.Buffer
-		err := mp.MarshalCBOR(&buf)
-		if err != nil {
-			return false, fmt.Errorf("marshaling policy CBOR: %w", err)
-		}
-		err = pol.UnmarshalCBOR(&buf)
-		if err != nil {
-			return false, fmt.Errorf("unmarshaling policy CBOR: %w", err)
-		}
-	}
-
-	tokenPayload := &ddm.TokenPayloadModel1_0_0_rc1{
-		Iss:   dlg.Issuer().DID(),
-		Aud:   dlg.Audience().DID(),
-		Sub:   sub,
-		Cmd:   dlg.Command(),
-		Pol:   pol,
-		Nonce: dlg.Nonce(),
-		Meta:  meta,
-		Nbf:   dlg.NotBefore(),
-		Exp:   dlg.Expiration(),
-	}
-
-	h, err := varsig.Encode(dlg.Signature().Header())
-	if err != nil {
-		return false, fmt.Errorf("encoding varsig header: %w", err)
-	}
-
-	sigPayload := ddm.SigPayloadModel{
-		Header:                h,
-		TokenPayload1_0_0_rc1: tokenPayload,
-	}
-
-	var sigBuf bytes.Buffer
-	err = sigPayload.MarshalCBOR(&sigBuf)
-	if err != nil {
-		return false, fmt.Errorf("marshaling signature payload: %w", err)
-	}
-
-	return dlg.Issuer().DID() == verifier.DID() && verifier.Verify(sigBuf.Bytes(), dlg.Signature().Bytes()), nil
 }

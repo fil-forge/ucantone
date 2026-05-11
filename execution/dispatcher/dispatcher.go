@@ -9,16 +9,11 @@ import (
 	"github.com/fil-forge/ucantone/validator"
 )
 
-type handler struct {
-	Func       execution.HandlerFunc
-	Capability validator.Capability
-}
-
 // Dispatcher executes UCAN invocations by dispatching them to registered
 // handlers.
 type Dispatcher struct {
 	authority         principal.Signer
-	handlers          map[ucan.Command]handler
+	handlers          map[ucan.Command]execution.HandlerFunc
 	validationOpts    []validator.Option
 	receiptTimestamps bool
 }
@@ -35,14 +30,14 @@ func New(authority principal.Signer, options ...Option) *Dispatcher {
 	}
 	return &Dispatcher{
 		authority:         authority,
-		handlers:          map[ucan.Command]handler{},
+		handlers:          map[ucan.Command]execution.HandlerFunc{},
 		validationOpts:    cfg.validationOpts,
 		receiptTimestamps: cfg.receiptTimestamps,
 	}
 }
 
-func (d *Dispatcher) Handle(capability validator.Capability, fn execution.HandlerFunc) {
-	d.handlers[capability.Command()] = handler{Func: fn, Capability: capability}
+func (d *Dispatcher) Handle(command ucan.Command, fn execution.HandlerFunc) {
+	d.handlers[command] = fn
 }
 
 func (d *Dispatcher) Execute(req execution.Request) (execution.Response, error) {
@@ -73,13 +68,11 @@ func (d *Dispatcher) Execute(req execution.Request) (execution.Response, error) 
 	opts := []validator.Option{validator.WithMetadata(req.Metadata())}
 	opts = append(opts, d.validationOpts...)
 	if req.Metadata() != nil {
-		opts = append(opts, validator.WithProofs(req.Metadata().Delegations()...))
+		opts = append(opts, validator.WithProofResolver(validator.ProofsFromContainer(req.Metadata())))
 	}
 
-	_, err := validator.Access(
+	err := validator.ValidateInvocation(
 		req.Context(),
-		d.authority.Verifier(),
-		handler.Capability,
 		req.Invocation(),
 		opts...,
 	)
@@ -101,7 +94,7 @@ func (d *Dispatcher) Execute(req execution.Request) (execution.Response, error) 
 		return nil, fmt.Errorf("failed to create response: %w", err)
 	}
 
-	err = handler.Func(req, res)
+	err = handler(req, res)
 	if err != nil {
 		return execution.NewResponse(
 			req.Invocation().Task().Link(),

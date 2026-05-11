@@ -154,6 +154,10 @@ func (inv *Invocation) Task() ucan.Task {
 	return inv.task
 }
 
+func (inv *Invocation) Payload() dagcbor.Marshaler {
+	return inv.model
+}
+
 func (inv *Invocation) MarshalCBOR(w io.Writer) error {
 	_, err := w.Write(inv.Bytes())
 	return err
@@ -246,6 +250,48 @@ func (inv *Invocation) UnmarshalDagJSON(r io.Reader) error {
 	inv.model = &model
 	inv.task = task
 	return nil
+}
+
+func (inv *Invocation) SigPayload() (dagcbor.Marshaler, error) {
+	var sub did.DID
+	if inv.Subject() != nil {
+		sub = inv.Subject().DID()
+	}
+	var aud *did.DID
+	if inv.Audience() != nil {
+		a := inv.Audience().DID()
+		aud = &a
+	}
+
+	var meta *datamodel.MapWrapper
+	if inv.Metadata() != nil {
+		mw := datamodel.MapWrapper{Map: datamodel.Map(inv.Metadata())}
+		meta = &mw
+	}
+
+	tokenPayload := &idm.TokenPayloadModel1_0_0_rc1{
+		Iss:   inv.Issuer().DID(),
+		Sub:   sub,
+		Aud:   aud,
+		Cmd:   inv.Command(),
+		Args:  datamodel.MapWrapper{Map: datamodel.Map(inv.Arguments())},
+		Prf:   inv.Proofs(),
+		Meta:  meta,
+		Nonce: inv.Nonce(),
+		Exp:   inv.Expiration(),
+		Iat:   inv.IssuedAt(),
+		Cause: inv.Cause(),
+	}
+
+	h, err := varsig.Encode(inv.Signature().Header())
+	if err != nil {
+		return nil, fmt.Errorf("encoding varsig header: %w", err)
+	}
+
+	return &idm.SigPayloadModel{
+		Header:                h,
+		TokenPayload1_0_0_rc1: tokenPayload,
+	}, nil
 }
 
 var _ ucan.Invocation = (*Invocation)(nil)
@@ -383,54 +429,4 @@ func Invoke(
 		model: &model,
 		task:  task,
 	}, nil
-}
-
-func VerifySignature(inv ucan.Invocation, verifier ucan.Verifier) (bool, error) {
-	var sub did.DID
-	if inv.Subject() != nil {
-		sub = inv.Subject().DID()
-	}
-	var aud *did.DID
-	if inv.Audience() != nil {
-		a := inv.Audience().DID()
-		aud = &a
-	}
-
-	var meta *datamodel.MapWrapper
-	if inv.Metadata() != nil {
-		mw := datamodel.MapWrapper{Map: datamodel.Map(inv.Metadata())}
-		meta = &mw
-	}
-
-	tokenPayload := &idm.TokenPayloadModel1_0_0_rc1{
-		Iss:   inv.Issuer().DID(),
-		Sub:   sub,
-		Aud:   aud,
-		Cmd:   inv.Command(),
-		Args:  datamodel.MapWrapper{Map: datamodel.Map(inv.Arguments())},
-		Prf:   inv.Proofs(),
-		Meta:  meta,
-		Nonce: inv.Nonce(),
-		Exp:   inv.Expiration(),
-		Iat:   inv.IssuedAt(),
-		Cause: inv.Cause(),
-	}
-
-	h, err := varsig.Encode(inv.Signature().Header())
-	if err != nil {
-		return false, fmt.Errorf("encoding varsig header: %w", err)
-	}
-
-	sigPayload := idm.SigPayloadModel{
-		Header:                h,
-		TokenPayload1_0_0_rc1: tokenPayload,
-	}
-
-	var sigBuf bytes.Buffer
-	err = sigPayload.MarshalCBOR(&sigBuf)
-	if err != nil {
-		return false, fmt.Errorf("marshaling signature payload: %w", err)
-	}
-
-	return inv.Issuer().DID() == verifier.DID() && verifier.Verify(sigBuf.Bytes(), inv.Signature().Bytes()), nil
 }

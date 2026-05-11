@@ -1,11 +1,16 @@
 package verifier
 
 import (
+	"errors"
 	"fmt"
 	"strings"
 
 	"github.com/fil-forge/ucantone/did"
 	"github.com/fil-forge/ucantone/principal"
+	ed25519 "github.com/fil-forge/ucantone/principal/ed25519/verifier"
+	secp256k1 "github.com/fil-forge/ucantone/principal/secp256k1/verifier"
+	"github.com/multiformats/go-multibase"
+	"github.com/multiformats/go-varint"
 )
 
 type Unwrapper interface {
@@ -54,4 +59,31 @@ func Wrap(key principal.Verifier, id did.DID) (*WrappedVerifier, error) {
 
 func Format(verifier principal.Verifier) string {
 	return verifier.DID().String()
+}
+
+func Parse(str string) (principal.Verifier, error) {
+	if !strings.HasPrefix(str, did.KeyPrefix) {
+		return nil, fmt.Errorf("must start with '%s'", did.KeyPrefix)
+	}
+	code, bytes, err := multibase.Decode(str[len(did.KeyPrefix):])
+	if err != nil {
+		return nil, err
+	}
+	if code != multibase.Base58BTC {
+		return nil, errors.New("not Base58BTC encoded")
+	}
+
+	keyTypeCode, _, err := varint.FromUvarint(bytes)
+	if err != nil {
+		return nil, fmt.Errorf("reading uvarint: %w", err)
+	}
+
+	switch keyTypeCode {
+	case ed25519.Code:
+		return ed25519.Decode(bytes)
+	case secp256k1.Code:
+		return secp256k1.Decode(bytes)
+	default:
+		return nil, fmt.Errorf("unsupported key type code: 0x%x", keyTypeCode)
+	}
 }

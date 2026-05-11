@@ -13,7 +13,6 @@ import (
 	"github.com/fil-forge/ucantone/transport"
 	"github.com/fil-forge/ucantone/ucan"
 	"github.com/fil-forge/ucantone/ucan/container"
-	"github.com/fil-forge/ucantone/validator"
 )
 
 type HTTPServer struct {
@@ -70,8 +69,8 @@ func (s *HTTPServer) emitResponseEncode(ctx context.Context, ct ucan.Container) 
 	return errs
 }
 
-func (s *HTTPServer) Handle(capability validator.Capability, fn execution.HandlerFunc) {
-	s.executor.Handle(capability, fn)
+func (s *HTTPServer) Handle(command ucan.Command, fn execution.HandlerFunc) {
+	s.executor.Handle(command, fn)
 }
 
 func (s *HTTPServer) Execute(req execution.Request) (execution.Response, error) {

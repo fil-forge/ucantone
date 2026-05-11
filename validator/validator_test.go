@@ -3,219 +3,631 @@ package validator_test
 import (
 	"context"
 	"errors"
-	"os"
+	"fmt"
 	"testing"
 
+	"github.com/stretchr/testify/require"
+
 	"github.com/fil-forge/ucantone/did"
-	"github.com/fil-forge/ucantone/ipld/datamodel"
+	"github.com/fil-forge/ucantone/ipld"
 	"github.com/fil-forge/ucantone/principal/absentee"
 	"github.com/fil-forge/ucantone/principal/ed25519"
+	"github.com/fil-forge/ucantone/principal/secp256k1"
 	"github.com/fil-forge/ucantone/testutil"
 	"github.com/fil-forge/ucantone/ucan"
 	"github.com/fil-forge/ucantone/ucan/command"
 	"github.com/fil-forge/ucantone/ucan/container"
 	"github.com/fil-forge/ucantone/ucan/delegation"
+	"github.com/fil-forge/ucantone/ucan/delegation/policy"
 	"github.com/fil-forge/ucantone/ucan/invocation"
 	"github.com/fil-forge/ucantone/validator"
-	"github.com/fil-forge/ucantone/validator/capability"
-	verrs "github.com/fil-forge/ucantone/validator/errors"
-	fdm "github.com/fil-forge/ucantone/validator/internal/fixtures/datamodel"
-	"github.com/stretchr/testify/require"
 )
 
-type NamedError interface {
-	error
-	Name() string
+const (
+	past   ucan.UTCUnixTimestamp = 1000000000 // 2001-09-09
+	future ucan.UTCUnixTimestamp = 9999999999 // 2286-11-20
+	now    ucan.UTCUnixTimestamp = 1746748800 // 2025-05-09 (fixed validation time for tests)
+)
+
+// badSigner is a Signer that produces invalid signatures, for testing purposes.
+type badSigner struct{ ucan.Signer }
+
+func (b badSigner) Sign(msg []byte) []byte {
+	sig := b.Signer.Sign(msg)
+	sig[0] ^= 0xff // flip a bit
+	return sig
 }
 
-func TestFixtures(t *testing.T) {
-	fixturesFile, err := os.Open("./internal/fixtures/invocations.json")
-	require.NoError(t, err)
+func TestValidate(t *testing.T) {
+	crankWidget := testutil.Must(command.Parse("/widget/crank"))(t)
 
-	var fixtures fdm.FixturesModel
-	err = fixtures.UnmarshalDagJSON(fixturesFile)
-	require.NoError(t, err)
-
-	for _, vector := range fixtures.Valid {
-		t.Run("valid "+vector.Name, func(t *testing.T) {
-			inv, err := invocation.Decode(vector.Invocation)
-			require.NoError(t, err)
-			t.Log("invocation", inv.Link())
-
-			proofs := decodeProofs(t, vector.Proofs)
-			authority, err := ed25519.Generate()
-			require.NoError(t, err)
-			vrf := authority.Verifier()
-
-			// TODO: capability details in the vector?
-			cmd, err := command.Parse("/msg/send")
-			require.NoError(t, err)
-
-			opts := []validator.Option{
-				validator.WithValidationTime(vector.Time),
-				validator.WithProofResolver(newMapProofResolver(proofs)),
-			}
-			cap, err := capability.New(cmd)
-			require.NoError(t, err)
-
-			_, err = validator.Access(t.Context(), vrf, cap, inv, opts...)
-			require.NoError(t, err, "validation should have passed for invocation with %s", vector.Description)
-		})
-	}
-
-	for _, vector := range fixtures.Invalid {
-		t.Run("invalid "+vector.Name, func(t *testing.T) {
-			inv, err := invocation.Decode(vector.Invocation)
-			require.NoError(t, err)
-			t.Log("invocation", inv.Link())
-
-			proofs := decodeProofs(t, vector.Proofs)
-			authority, err := ed25519.Generate()
-			require.NoError(t, err)
-			vrf := authority.Verifier()
-
-			// TODO: capability details in the vector?
-			cmd, err := command.Parse("/msg/send")
-			require.NoError(t, err)
-
-			opts := []validator.Option{
-				validator.WithValidationTime(vector.Time),
-				validator.WithProofResolver(newMapProofResolver(proofs)),
-			}
-			cap, err := capability.New(cmd)
-			require.NoError(t, err)
-
-			_, err = validator.Access(t.Context(), vrf, cap, inv, opts...)
-			require.Error(t, err, "validation should not have passed for invocation because %s", vector.Description)
-			t.Log(err)
-
-			var namedErr NamedError
-			require.True(t, errors.As(err, &namedErr))
-			require.Equal(t, vector.Error.Name, namedErr.Name())
-		})
-	}
-}
-
-func TestNonStandardSignatureVerification(t *testing.T) {
-	space := testutil.RandomSigner(t)
-	account := absentee.From(testutil.Must(did.Parse("did:mailto:web.mail:alice"))(t))
-	service := testutil.RandomSigner(t)
-
-	BlobAdd, err := capability.New("/blob/add")
-	require.NoError(t, err)
-
-	// space -> account
-	accountDlg, err := BlobAdd.Delegate(space, account, space)
-	require.NoError(t, err)
-
-	inv, err := BlobAdd.Invoke(
-		account,
-		space,
-		datamodel.Map{"digest": []byte(testutil.RandomDigest(t))},
-		invocation.WithAudience(service),
-		invocation.WithProofs(accountDlg.Link()),
-	)
-	require.NoError(t, err)
-
-	auth, err := validator.Access(
-		t.Context(),
-		service.Verifier(),
-		BlobAdd,
-		inv,
-		validator.WithProofs(accountDlg),
-		validator.WithNonStandardSignatureVerifier(
-			func(ctx context.Context, token ucan.Token, meta ucan.Container) error {
-				if token.Link() != inv.Link() {
-					return verrs.NewUnverifiableSignatureError(token, errors.New("unexpected verification token"))
-				}
-				return nil
-			},
-		),
-	)
-	require.NoError(t, err)
-	t.Log(auth)
-}
-
-func TestNonStandardSignatureVerificationViaAttestation(t *testing.T) {
-	space := testutil.RandomSigner(t)
-	account := absentee.From(testutil.Must(did.Parse("did:mailto:web.mail:alice"))(t))
-	service := testutil.RandomSigner(t)
-	agent := testutil.RandomSigner(t)
-
-	BlobAdd, err := capability.New("/blob/add")
-	require.NoError(t, err)
-
-	Attest, err := capability.New("/ucan/attest")
-	require.NoError(t, err)
-
-	// space -> account
-	accountDlg, err := BlobAdd.Delegate(space, account, space)
-	require.NoError(t, err)
-
-	// account -> agent
-	agentDlg, err := BlobAdd.Delegate(account, agent, space)
-	require.NoError(t, err)
-
-	// service attests to the delegation from the account to the agent
-	args := datamodel.Map{"proof": agentDlg.Link()}
-	attestation, err := Attest.Invoke(service, agent, args)
-	require.NoError(t, err)
-
-	inv, err := BlobAdd.Invoke(
-		agent,
-		space,
-		datamodel.Map{"digest": []byte(testutil.RandomDigest(t))},
-		invocation.WithAudience(service),
-		invocation.WithProofs(accountDlg.Link(), agentDlg.Link()),
-	)
-	require.NoError(t, err)
-
-	auth, err := validator.Access(
-		t.Context(),
-		service.Verifier(),
-		BlobAdd,
-		inv,
-		validator.WithProofs(accountDlg, agentDlg),
-		// include the attestation when validating
-		validator.WithMetadata(container.New(container.WithInvocations(attestation))),
-		validator.WithNonStandardSignatureVerifier(
-			// This is a contrived example of a non-standard signature verification
-			// function that checks for the presence of a trusted attestation in the
-			// validation metadata instead of verifying a cryptographic signature.
-			func(ctx context.Context, token ucan.Token, meta ucan.Container) error {
-				for _, inv := range meta.Invocations() {
-					// Typically one would validate the attestation invocation's signature
-					// and check its claims, but for this example we'll just check that it
-					// attests to the token we're trying to verify.
-					if inv.Command() == Attest.Command() && inv.Arguments()["proof"] == token.Link() {
-						return nil
-					}
-				}
-				return verrs.NewUnverifiableSignatureError(token, errors.New("no matching attestation found"))
-			},
-		),
-	)
-	require.NoError(t, err)
-	t.Log(auth)
-}
-
-func newMapProofResolver(proofs map[ucan.Link]ucan.Delegation) validator.ProofResolverFunc {
-	return func(_ context.Context, link ucan.Link) (ucan.Delegation, error) {
-		dlg, ok := proofs[link]
-		if !ok {
-			return nil, verrs.NewUnavailableProofError(link, errors.New("not provided"))
-		}
-		return dlg, nil
-	}
-}
-
-func decodeProofs(t *testing.T, vectorProofs [][]byte) map[ucan.Link]ucan.Delegation {
-	proofs := map[ucan.Link]ucan.Delegation{}
-	for _, p := range vectorProofs {
-		dlg, err := delegation.Decode(p)
+	t.Run("validates with root authority", func(t *testing.T) {
+		subject := testutil.RandomSigner(t)
+		inv, err := invocation.Invoke(subject, subject, crankWidget, ipld.Map{})
 		require.NoError(t, err)
-		proofs[dlg.Link()] = dlg
-		t.Log("proof", dlg.Link())
-	}
-	return proofs
+
+		err = validator.ValidateInvocation(t.Context(), inv)
+		require.NoError(t, err)
+	})
+
+	t.Run("rejects with a bad signature", func(t *testing.T) {
+		subject := badSigner{testutil.RandomSigner(t)}
+		inv, err := invocation.Invoke(subject, subject, crankWidget, ipld.Map{})
+		require.NoError(t, err)
+
+		err = validator.ValidateInvocation(t.Context(), inv)
+		require.Error(t, err)
+	})
+
+	t.Run("rejects with unauthorized invoker", func(t *testing.T) {
+		subject := testutil.RandomSigner(t)
+		invoker := testutil.RandomSigner(t)
+
+		inv, err := invocation.Invoke(subject, invoker, crankWidget, ipld.Map{})
+		require.NoError(t, err)
+
+		err = validator.ValidateInvocation(t.Context(), inv)
+		require.Error(t, err)
+	})
+
+	t.Run("validates with subject → invoker", func(t *testing.T) {
+		subject := testutil.RandomSigner(t)
+		invoker := testutil.RandomSigner(t)
+
+		del, err := delegation.Delegate(subject, invoker, subject, crankWidget)
+		require.NoError(t, err)
+
+		inv, err := invocation.Invoke(
+			invoker,
+			subject,
+			crankWidget,
+			ipld.Map{},
+			invocation.WithProofs(del.Link()),
+		)
+		require.NoError(t, err)
+
+		err = validator.ValidateInvocation(
+			t.Context(),
+			inv,
+			validator.WithProofResolver(
+				validator.ProofsFromContainer(
+					container.New(container.WithDelegations(del)),
+				),
+			),
+		)
+		require.NoError(t, err)
+	})
+
+	t.Run("rejects an expired invocation", func(t *testing.T) {
+		subject := testutil.RandomSigner(t)
+		inv, err := invocation.Invoke(subject, subject, crankWidget, ipld.Map{},
+			invocation.WithExpiration(past),
+		)
+		require.NoError(t, err)
+
+		err = validator.ValidateInvocation(t.Context(), inv, validator.WithValidationTime(now))
+		require.Error(t, err)
+	})
+
+	t.Run("accepts an invocation with a future expiry", func(t *testing.T) {
+		subject := testutil.RandomSigner(t)
+		inv, err := invocation.Invoke(subject, subject, crankWidget, ipld.Map{},
+			invocation.WithExpiration(future),
+		)
+		require.NoError(t, err)
+
+		err = validator.ValidateInvocation(t.Context(), inv, validator.WithValidationTime(now))
+		require.NoError(t, err)
+	})
+
+	t.Run("rejects a proof that is not yet valid", func(t *testing.T) {
+		subject := testutil.RandomSigner(t)
+		invoker := testutil.RandomSigner(t)
+
+		del, err := delegation.Delegate(subject, invoker, subject, crankWidget,
+			delegation.WithNotBefore(future),
+		)
+		require.NoError(t, err)
+
+		inv, err := invocation.Invoke(
+			invoker,
+			subject,
+			crankWidget,
+			ipld.Map{},
+			invocation.WithProofs(del.Link()),
+		)
+		require.NoError(t, err)
+
+		err = validator.ValidateInvocation(
+			t.Context(),
+			inv,
+			validator.WithValidationTime(now),
+			validator.WithProofResolver(
+				validator.ProofsFromContainer(
+					container.New(container.WithDelegations(del)),
+				),
+			),
+		)
+		require.Error(t, err)
+	})
+
+	t.Run("rejects when final proof audience does not match invoker", func(t *testing.T) {
+		subject := testutil.RandomSigner(t)
+		invoker := testutil.RandomSigner(t)
+		other := testutil.RandomSigner(t)
+
+		// Delegation goes to other, but invoker invokes
+		del, err := delegation.Delegate(subject, other, subject, crankWidget)
+		require.NoError(t, err)
+
+		inv, err := invocation.Invoke(
+			invoker,
+			subject,
+			crankWidget,
+			ipld.Map{},
+			invocation.WithProofs(del.Link()),
+		)
+		require.NoError(t, err)
+
+		err = validator.ValidateInvocation(
+			t.Context(),
+			inv,
+			validator.WithProofResolver(
+				validator.ProofsFromContainer(
+					container.New(container.WithDelegations(del)),
+				),
+			),
+		)
+		require.Error(t, err)
+	})
+
+	t.Run("rejects a broken mid-chain (issuer mismatch)", func(t *testing.T) {
+		subject := testutil.RandomSigner(t)
+		alice := testutil.RandomSigner(t)
+		bob := testutil.RandomSigner(t)
+		eve := testutil.RandomSigner(t)
+
+		del1, err := delegation.Delegate(subject, alice, subject, crankWidget)
+		require.NoError(t, err)
+		// del2 is from eve, not alice — breaks the chain
+		del2, err := delegation.Delegate(eve, bob, subject, crankWidget)
+		require.NoError(t, err)
+
+		inv, err := invocation.Invoke(
+			bob,
+			subject,
+			crankWidget,
+			ipld.Map{},
+			invocation.WithProofs(del1.Link(), del2.Link()),
+		)
+		require.NoError(t, err)
+
+		err = validator.ValidateInvocation(
+			t.Context(),
+			inv,
+			validator.WithProofResolver(
+				validator.ProofsFromContainer(
+					container.New(container.WithDelegations(del1, del2)),
+				),
+			),
+		)
+		require.Error(t, err)
+	})
+
+	t.Run("validates with subject → alice → bob", func(t *testing.T) {
+		subject := testutil.RandomSigner(t)
+		alice := testutil.RandomSigner(t)
+		bob := testutil.RandomSigner(t)
+
+		del1, err := delegation.Delegate(subject, alice, subject, crankWidget)
+		require.NoError(t, err)
+		del2, err := delegation.Delegate(alice, bob, subject, crankWidget)
+		require.NoError(t, err)
+
+		inv, err := invocation.Invoke(
+			bob,
+			subject,
+			crankWidget,
+			ipld.Map{},
+			invocation.WithProofs(del1.Link(), del2.Link()),
+		)
+		require.NoError(t, err)
+
+		err = validator.ValidateInvocation(
+			t.Context(),
+			inv,
+			validator.WithProofResolver(
+				validator.ProofsFromContainer(
+					container.New(container.WithDelegations(del1, del2)),
+				),
+			),
+		)
+		require.NoError(t, err)
+	})
+
+	t.Run("rejects when a referenced proof cannot be resolved", func(t *testing.T) {
+		subject := testutil.RandomSigner(t)
+		invoker := testutil.RandomSigner(t)
+
+		del, err := delegation.Delegate(subject, invoker, subject, crankWidget)
+		require.NoError(t, err)
+
+		inv, err := invocation.Invoke(
+			invoker,
+			subject,
+			crankWidget,
+			ipld.Map{},
+			invocation.WithProofs(del.Link()),
+		)
+		require.NoError(t, err)
+
+		// No WithProofResolver — default ProofUnavailable fires
+		err = validator.ValidateInvocation(t.Context(), inv)
+		require.Error(t, err)
+	})
+
+	// https://github.com/ucan-wg/delegation#powerline
+	t.Run("validates with powerline delegation in chain", func(t *testing.T) {
+		subject := testutil.RandomSigner(t)
+		alice := testutil.RandomSigner(t)
+		bob := testutil.RandomSigner(t)
+
+		del1, err := delegation.Delegate(subject, alice, subject, crankWidget)
+		require.NoError(t, err)
+		// del2 is a powerline delegation, where alice delegates `/widget/crank` to
+		// bob for any subject she herself is authorized to `/widget/crank`.
+		del2, err := delegation.Delegate(alice, bob, nil, crankWidget)
+		require.NoError(t, err)
+
+		inv, err := invocation.Invoke(
+			bob,
+			subject,
+			crankWidget,
+			ipld.Map{},
+			invocation.WithProofs(del1.Link(), del2.Link()),
+		)
+		require.NoError(t, err)
+
+		err = validator.ValidateInvocation(
+			t.Context(),
+			inv,
+			validator.WithProofResolver(
+				validator.ProofsFromContainer(
+					container.New(container.WithDelegations(del1, del2)),
+				),
+			),
+		)
+		require.NoError(t, err)
+	})
+
+	// Explicitly disallowed by spec:
+	// https://github.com/ucan-wg/delegation#powerline
+	t.Run("rejects a powerline delegation at root of chain", func(t *testing.T) {
+		subject := testutil.RandomSigner(t)
+		invoker := testutil.RandomSigner(t)
+
+		// Root delegation has nil subject — invalid per spec.
+		del, err := delegation.Delegate(subject, invoker, nil, crankWidget)
+		require.NoError(t, err)
+
+		inv, err := invocation.Invoke(
+			invoker,
+			subject,
+			crankWidget,
+			ipld.Map{},
+			invocation.WithProofs(del.Link()),
+		)
+		require.NoError(t, err)
+
+		err = validator.ValidateInvocation(
+			t.Context(),
+			inv,
+			validator.WithProofResolver(
+				validator.ProofsFromContainer(
+					container.New(container.WithDelegations(del)),
+				),
+			),
+		)
+		require.Error(t, err)
+	})
+
+	t.Run("accepts a proof with a NotBefore in the past", func(t *testing.T) {
+		subject := testutil.RandomSigner(t)
+		invoker := testutil.RandomSigner(t)
+
+		del, err := delegation.Delegate(subject, invoker, subject, crankWidget,
+			delegation.WithNotBefore(past),
+		)
+		require.NoError(t, err)
+
+		inv, err := invocation.Invoke(
+			invoker,
+			subject,
+			crankWidget,
+			ipld.Map{},
+			invocation.WithProofs(del.Link()),
+		)
+		require.NoError(t, err)
+
+		err = validator.ValidateInvocation(
+			t.Context(),
+			inv,
+			validator.WithValidationTime(now),
+			validator.WithProofResolver(
+				validator.ProofsFromContainer(
+					container.New(container.WithDelegations(del)),
+				),
+			),
+		)
+		require.NoError(t, err)
+	})
+
+	t.Run("with a policy on a delegation", func(t *testing.T) {
+		subject := testutil.RandomSigner(t)
+		invoker := testutil.RandomSigner(t)
+
+		del, err := delegation.Delegate(subject, invoker, subject, crankWidget,
+			delegation.WithPolicyBuilder(policy.Equal(".answer", 42)),
+		)
+		require.NoError(t, err)
+
+		resolveProof := validator.ProofsFromContainer(
+			container.New(container.WithDelegations(del)),
+		)
+
+		t.Run("accepts an invocation whose arguments satisfy the policy", func(t *testing.T) {
+			inv, err := invocation.Invoke(
+				invoker,
+				subject,
+				crankWidget,
+				ipld.Map{"answer": 42},
+				invocation.WithProofs(del.Link()),
+			)
+			require.NoError(t, err)
+
+			err = validator.ValidateInvocation(
+				t.Context(),
+				inv,
+				validator.WithProofResolver(resolveProof),
+			)
+			require.NoError(t, err)
+		})
+
+		t.Run("rejects an invocation whose arguments violate the policy", func(t *testing.T) {
+			inv, err := invocation.Invoke(
+				invoker,
+				subject,
+				crankWidget,
+				ipld.Map{"answer": 41},
+				invocation.WithProofs(del.Link()),
+			)
+			require.NoError(t, err)
+
+			err = validator.ValidateInvocation(
+				t.Context(),
+				inv,
+				validator.WithProofResolver(resolveProof),
+			)
+			require.Error(t, err)
+		})
+	})
+
+	t.Run("rejects with incorrect subject in chain", func(t *testing.T) {
+		subject := testutil.RandomSigner(t)
+		alice := testutil.RandomSigner(t)
+		bob := testutil.RandomSigner(t)
+		unrelatedSubject := testutil.RandomSigner(t)
+
+		del1, err := delegation.Delegate(subject, alice, subject, crankWidget)
+		require.NoError(t, err)
+		// del2 is about the wrong subject.
+		del2, err := delegation.Delegate(alice, bob, unrelatedSubject, crankWidget)
+		require.NoError(t, err)
+
+		inv, err := invocation.Invoke(
+			bob,
+			subject,
+			crankWidget,
+			ipld.Map{},
+			invocation.WithProofs(del1.Link(), del2.Link()),
+		)
+		require.NoError(t, err)
+
+		err = validator.ValidateInvocation(
+			t.Context(),
+			inv,
+			validator.WithProofResolver(
+				validator.ProofsFromContainer(
+					container.New(container.WithDelegations(del1, del2)),
+				),
+			),
+		)
+		require.Error(t, err)
+	})
+
+	t.Run("with non-standard signature in chain", func(t *testing.T) {
+		subject := testutil.RandomSigner(t)
+		alice := absentee.From(testutil.Must(did.Parse("did:mailto:web.mail:alice"))(t))
+		bob := testutil.RandomSigner(t)
+
+		del1, err := delegation.Delegate(subject, alice, subject, crankWidget)
+		require.NoError(t, err)
+		// del2 is "signed" by alice, who is an absentee signer and produces a
+		// non-standard signature.
+		del2, err := delegation.Delegate(alice, bob, nil, crankWidget)
+		require.NoError(t, err)
+
+		inv, err := invocation.Invoke(
+			bob,
+			subject,
+			crankWidget,
+			ipld.Map{},
+			invocation.WithProofs(del1.Link(), del2.Link()),
+		)
+		require.NoError(t, err)
+
+		resolveProof := validator.ProofsFromContainer(
+			container.New(container.WithDelegations(del1, del2)),
+		)
+
+		t.Run("rejects by default", func(t *testing.T) {
+			err = validator.ValidateInvocation(
+				t.Context(),
+				inv,
+				validator.WithProofResolver(resolveProof),
+				validator.WithVerifierResolver(func(ctx context.Context, did did.DID) (ucan.Verifier, error) {
+					require.NotEqual(t, "did:mailto:web.mail:alice", did.String(), "shouldn't try to resolve a verifier for a non-standard signature")
+					return validator.ResolveDIDKeyVerifier(ctx, did)
+				}),
+			)
+			require.ErrorContains(t, err, "no non-standard signature verifier configured")
+		})
+
+		t.Run("rejects according to non-standard signature verifier", func(t *testing.T) {
+			err = validator.ValidateInvocation(
+				t.Context(),
+				inv,
+				validator.WithProofResolver(resolveProof),
+				validator.WithNonStandardSignatureVerifier(
+					func(ctx context.Context, token ucan.Token, meta ucan.Container) error {
+						require.Equal(t, del2.Link(), token.Link(), "should be asked to verify the non-standard signature for the correct token")
+						return errors.New("non-standard error failed as expected")
+					},
+				),
+			)
+			require.ErrorContains(t, err, "non-standard error failed as expected")
+		})
+
+		t.Run("validates according to non-standard signature verifier", func(t *testing.T) {
+			err = validator.ValidateInvocation(
+				t.Context(),
+				inv,
+				validator.WithProofResolver(resolveProof),
+				validator.WithNonStandardSignatureVerifier(
+					func(ctx context.Context, token ucan.Token, meta ucan.Container) error {
+						require.Equal(t, del2.Link(), token.Link(), "should be asked to verify the non-standard signature for the correct token")
+						return nil
+					},
+				),
+			)
+			require.NoError(t, err)
+		})
+	})
+}
+
+func TestNewProofChainError(t *testing.T) {
+	crankWidget := testutil.Must(command.Parse("/widget/crank"))(t)
+
+	t.Run("no prior proofs", func(t *testing.T) {
+		sub := testutil.RandomSigner(t)
+		eve := testutil.RandomSigner(t)
+		mallory := testutil.RandomSigner(t)
+
+		badPrf, err := delegation.Delegate(eve, mallory, eve, crankWidget)
+		require.NoError(t, err)
+
+		got := validator.NewProofChainError(sub, nil, badPrf)
+		want := fmt.Sprintf("Proof chain is broken (%s, next proof is %s → %s)",
+			sub.DID(), eve.DID(), mallory.DID())
+		require.EqualError(t, got, want)
+	})
+
+	t.Run("one prior proof", func(t *testing.T) {
+		sub := testutil.RandomSigner(t)
+		bob := testutil.RandomSigner(t)
+		eve := testutil.RandomSigner(t)
+		mallory := testutil.RandomSigner(t)
+
+		prf1, err := delegation.Delegate(sub, bob, sub, crankWidget)
+		require.NoError(t, err)
+		badPrf, err := delegation.Delegate(eve, mallory, eve, crankWidget)
+		require.NoError(t, err)
+
+		got := validator.NewProofChainError(sub, []ucan.Delegation{prf1}, badPrf)
+		want := fmt.Sprintf("Proof chain is broken (%s → %s, next proof is %s → %s)",
+			sub.DID(), bob.DID(), eve.DID(), mallory.DID())
+		require.EqualError(t, got, want)
+	})
+
+	t.Run("two prior proofs", func(t *testing.T) {
+		sub := testutil.RandomSigner(t)
+		bob := testutil.RandomSigner(t)
+		carol := testutil.RandomSigner(t)
+		eve := testutil.RandomSigner(t)
+		mallory := testutil.RandomSigner(t)
+
+		prf1, err := delegation.Delegate(sub, bob, sub, crankWidget)
+		require.NoError(t, err)
+		prf2, err := delegation.Delegate(bob, carol, sub, crankWidget)
+		require.NoError(t, err)
+		badPrf, err := delegation.Delegate(eve, mallory, eve, crankWidget)
+		require.NoError(t, err)
+
+		got := validator.NewProofChainError(sub, []ucan.Delegation{prf1, prf2}, badPrf)
+		want := fmt.Sprintf("Proof chain is broken (%s → %s → %s, next proof is %s → %s)",
+			sub.DID(), bob.DID(), carol.DID(), eve.DID(), mallory.DID())
+		require.EqualError(t, got, want)
+	})
+}
+
+func TestResolveDIDKeyVerifier(t *testing.T) {
+	t.Run("ed25519 did:key returns a verifier matching the DID", func(t *testing.T) {
+		signer, err := ed25519.Generate()
+		require.NoError(t, err)
+		d := signer.Verifier().DID()
+
+		v, err := validator.ResolveDIDKeyVerifier(t.Context(), d)
+		require.NoError(t, err)
+		require.NotNil(t, v)
+		require.Equal(t, d, v.DID())
+	})
+
+	t.Run("ed25519 verifier verifies a signature from the corresponding signer", func(t *testing.T) {
+		signer, err := ed25519.Generate()
+		require.NoError(t, err)
+		d := signer.Verifier().DID()
+
+		v, err := validator.ResolveDIDKeyVerifier(t.Context(), d)
+		require.NoError(t, err)
+		require.NotNil(t, v)
+
+		msg := []byte("hello, world")
+		sig := signer.Sign(msg)
+
+		require.True(t, v.Verify(msg, sig), "verifier should accept a valid signature")
+
+		tampered := []byte("hello, worle")
+		require.False(t, v.Verify(tampered, sig), "verifier should reject a signature over a different message")
+	})
+
+	t.Run("secp256k1 did:key returns a verifier matching the DID", func(t *testing.T) {
+		signer, err := secp256k1.Generate()
+		require.NoError(t, err)
+		d := signer.Verifier().DID()
+
+		v, err := validator.ResolveDIDKeyVerifier(t.Context(), d)
+		require.NoError(t, err)
+		require.NotNil(t, v)
+		require.Equal(t, d, v.DID())
+
+		msg := []byte("hello, world")
+		sig := signer.Sign(msg)
+		require.True(t, v.Verify(msg, sig))
+	})
+
+	t.Run("rejects non-did:key DIDs", func(t *testing.T) {
+		for _, didStr := range []string{
+			"did:web:example.com",
+			"did:dns:example.com",
+		} {
+			t.Run(didStr, func(t *testing.T) {
+				d, err := did.Parse(didStr)
+				require.NoError(t, err)
+
+				v, err := validator.ResolveDIDKeyVerifier(t.Context(), d)
+				require.Error(t, err)
+				require.Nil(t, v)
+			})
+		}
+	})
 }
