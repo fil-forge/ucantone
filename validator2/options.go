@@ -3,9 +3,11 @@ package validator2
 import "github.com/fil-forge/ucantone/ucan"
 
 type validationConfig struct {
-	resolveProof       ProofResolverFunc
-	resolveDIDVerifier DIDVerifierResolverFunc
-	validationTime     ucan.UTCUnixTimestamp
+	resolveProof               ProofResolverFunc
+	resolveDIDVerifier         DIDVerifierResolverFunc
+	validationTime             ucan.UTCUnixTimestamp
+	verifyNonStandardSignature NonStandardSignatureVerifierFunc
+	metadata                   ucan.Container
 }
 
 // Option is an option configuring the validator.
@@ -17,7 +19,7 @@ func WithProofResolver(resolveProof ProofResolverFunc) Option {
 	}
 }
 
-func WithDIDResolver(resolveDIDKey DIDVerifierResolverFunc) Option {
+func WithVerifierResolver(resolveDIDKey DIDVerifierResolverFunc) Option {
 	return func(vc *validationConfig) {
 		vc.resolveDIDVerifier = resolveDIDKey
 	}
@@ -26,5 +28,20 @@ func WithDIDResolver(resolveDIDKey DIDVerifierResolverFunc) Option {
 func WithValidationTime(now ucan.UTCUnixTimestamp) Option {
 	return func(vc *validationConfig) {
 		vc.validationTime = now
+	}
+}
+
+// WithNonStandardSignatureVerifier sets the function to be used for verifying
+// non-standard signature algorithms.
+func WithNonStandardSignatureVerifier(verifyNonStandardSignature NonStandardSignatureVerifierFunc) Option {
+	return func(vc *validationConfig) {
+		vc.verifyNonStandardSignature = verifyNonStandardSignature
+	}
+}
+
+// WithMetadata sets additional metadata that may be used during validation.
+func WithMetadata(meta ucan.Container) Option {
+	return func(vc *validationConfig) {
+		vc.metadata = meta
 	}
 }

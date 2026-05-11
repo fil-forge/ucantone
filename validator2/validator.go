@@ -16,6 +16,7 @@ import (
 	"github.com/fil-forge/ucantone/ucan/token"
 	"github.com/fil-forge/ucantone/validator"
 	verrs "github.com/fil-forge/ucantone/validator/errors"
+	"github.com/fil-forge/ucantone/varsig/algorithm/nonstandard"
 )
 
 // TK: Should Validate return something?
@@ -27,14 +28,13 @@ import (
 func ValidateInvocation(
 	ctx context.Context,
 	invocation ucan.Invocation,
-	// authority ucan.Verifier,
 	options ...Option,
 ) error {
 	cfg := validationConfig{
-		resolveProof:       ProofUnavailable,
-		resolveDIDVerifier: ResolveDIDKeyVerifier,
-		validationTime:     ucan.UTCUnixTimestamp(time.Now().Unix()),
-		// verifyNonStandardSignature: FailNonStandardSignatureVerification,
+		resolveProof:               ProofUnavailable,
+		resolveDIDVerifier:         ResolveDIDKeyVerifier,
+		validationTime:             ucan.UTCUnixTimestamp(time.Now().Unix()),
+		verifyNonStandardSignature: FailNonStandardSignatureVerification,
 	}
 	for _, opt := range options {
 		opt(&cfg)
@@ -75,7 +75,7 @@ func ValidateInvocation(
 // invocation, if its proof chain is insufficient.
 func ValidateToken(ctx context.Context, tok ucan.Token, cfg validationConfig) error {
 	// To be valid, a token must have a valid signature from its issuer...
-	err := verifyTokenSignature(ctx, tok, cfg.resolveDIDVerifier)
+	err := verifyTokenSignature(ctx, tok, cfg)
 	if err != nil {
 		return err
 	}
@@ -103,8 +103,12 @@ func ValidateToken(ctx context.Context, tok ucan.Token, cfg validationConfig) er
 }
 
 // verifyTokenSignature verifies the token was signed by the passed verifier.
-func verifyTokenSignature(ctx context.Context, tok ucan.Token, resolveDIDVerifier DIDVerifierResolverFunc) error {
-	verifier, err := resolveDIDVerifier(ctx, tok.Issuer().DID())
+func verifyTokenSignature(ctx context.Context, tok ucan.Token, cfg validationConfig) error {
+	if tok.Signature().Header().SignatureAlgorithm().Code() == nonstandard.Code {
+		return cfg.verifyNonStandardSignature(ctx, tok, cfg.metadata)
+	}
+
+	verifier, err := cfg.resolveDIDVerifier(ctx, tok.Issuer().DID())
 	if err != nil {
 		return err
 	}
@@ -176,11 +180,22 @@ type ProofResolverFunc func(ctx context.Context, link ucan.Link) (ucan.Delegatio
 // DIDVerifierResolverFunc is used to resolve the verification methods of a
 // DID. It returns a [ucan.Verifier] that can verify signatures from the given
 // DID.
-type DIDVerifierResolverFunc func(ctx context.Context, nonDIDKey did.DID) (ucan.Verifier, error)
+type DIDVerifierResolverFunc func(ctx context.Context, did did.DID) (ucan.Verifier, error)
+
+// NonStandardSignatureVerifierFunc is used to verify signatures from
+// non-standard signature algorithms. It can be passed into a UCAN validator in
+// order to support delegations signed with non-standard signature algorithms.
+type NonStandardSignatureVerifierFunc func(ctx context.Context, token ucan.Token, meta ucan.Container) error
 
 // ProofUnavailable is a [ProofResolverFunc] that always fails.
 func ProofUnavailable(ctx context.Context, p ucan.Link) (ucan.Delegation, error) {
 	return nil, verrs.NewUnavailableProofError(p, errors.New("no proof resolver configured"))
+}
+
+// FailNonStandardSignatureVerification is a [NonStandardSignatureVerifierFunc]
+// that always fails.
+func FailNonStandardSignatureVerification(ctx context.Context, token ucan.Token, meta ucan.Container) error {
+	return verrs.NewUnverifiableSignatureError(token, errors.New("no non-standard signature verifier configured"))
 }
 
 func ProofsFromContainer(c *container.Container) ProofResolverFunc {
