@@ -40,7 +40,7 @@ func (t *ResultModel) MarshalCBOR(w io.Writer) error {
 		return err
 	}
 
-	// t.Ok (datamodel.Any) (struct)
+	// t.Ok (datamodel.Raw) (struct)
 	if t.Ok != nil {
 
 		if len("ok") > 8192 {
@@ -59,7 +59,7 @@ func (t *ResultModel) MarshalCBOR(w io.Writer) error {
 		}
 	}
 
-	// t.Err (datamodel.Any) (struct)
+	// t.Err (datamodel.Raw) (struct)
 	if t.Err != nil {
 
 		if len("error") > 8192 {
@@ -121,7 +121,7 @@ func (t *ResultModel) UnmarshalCBOR(r io.Reader) (err error) {
 		}
 
 		switch string(nameBuf[:nameLen]) {
-		// t.Ok (datamodel.Any) (struct)
+		// t.Ok (datamodel.Raw) (struct)
 		case "ok":
 
 			{
@@ -134,14 +134,14 @@ func (t *ResultModel) UnmarshalCBOR(r io.Reader) (err error) {
 					if err := cr.UnreadByte(); err != nil {
 						return err
 					}
-					t.Ok = new(datamodel.Any)
+					t.Ok = new(datamodel.Raw)
 					if err := t.Ok.UnmarshalCBOR(cr); err != nil {
 						return xerrors.Errorf("unmarshaling t.Ok pointer: %w", err)
 					}
 				}
 
 			}
-			// t.Err (datamodel.Any) (struct)
+			// t.Err (datamodel.Raw) (struct)
 		case "error":
 
 			{
@@ -154,7 +154,7 @@ func (t *ResultModel) UnmarshalCBOR(r io.Reader) (err error) {
 					if err := cr.UnreadByte(); err != nil {
 						return err
 					}
-					t.Err = new(datamodel.Any)
+					t.Err = new(datamodel.Raw)
 					if err := t.Err.UnmarshalCBOR(cr); err != nil {
 						return xerrors.Errorf("unmarshaling t.Err pointer: %w", err)
 					}

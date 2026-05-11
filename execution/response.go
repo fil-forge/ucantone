@@ -4,13 +4,11 @@ import (
 	"fmt"
 
 	"github.com/fil-forge/ucantone/errors"
-	"github.com/fil-forge/ucantone/ipld"
-	"github.com/fil-forge/ucantone/ipld/codec/dagcbor"
 	"github.com/fil-forge/ucantone/ipld/datamodel"
-	"github.com/fil-forge/ucantone/result"
 	"github.com/fil-forge/ucantone/ucan"
 	"github.com/fil-forge/ucantone/ucan/receipt"
 	"github.com/ipfs/go-cid"
+	cbg "github.com/whyrusleeping/cbor-gen"
 )
 
 type ExecResponse struct {
@@ -48,7 +46,7 @@ func WithReceiptTimestamp(enabled bool) ResponseOption {
 }
 
 // WithSuccess issues and sets a receipt for a successful execution of a task.
-func WithSuccess(o ipld.Any) ResponseOption {
+func WithSuccess(o cbg.CBORMarshaler) ResponseOption {
 	return func(resp *ExecResponse) error {
 		return resp.SetSuccess(o)
 	}
@@ -93,26 +91,24 @@ func (r *ExecResponse) SetFailure(x error) error {
 	if r.signer == nil {
 		return fmt.Errorf("cannot issue receipt: missing signer")
 	}
-	m := datamodel.Map{}
-	if cmx, ok := x.(dagcbor.Marshaler); ok {
-		err := datamodel.Rebind(cmx, &m)
-		if err != nil {
-			return err
-		}
+	var errVal cbg.CBORMarshaler
+	if cmx, ok := x.(cbg.CBORMarshaler); ok {
+		errVal = cmx
 	} else {
 		name := "UnknownError"
 		if nx, ok := x.(errors.Named); ok {
 			name = nx.Name()
 		}
-		m["name"] = name
-		m["message"] = x.Error()
+		errVal = datamodel.Map{
+			"name":    name,
+			"message": x.Error(),
+		}
 	}
-	out := result.Error[ipld.Any, ipld.Any](ipld.Map(m))
-	receipt, err := receipt.Issue(r.signer, r.task, out)
+	rcpt, err := receipt.IssueErr(r.signer, r.task, errVal)
 	if err != nil {
 		return err
 	}
-	r.receipt = receipt
+	r.receipt = rcpt
 	return nil
 }
 
@@ -134,16 +130,15 @@ func (r *ExecResponse) SetSigner(signer ucan.Signer) error {
 	return nil
 }
 
-func (r *ExecResponse) SetSuccess(o ipld.Any) error {
+func (r *ExecResponse) SetSuccess(ok cbg.CBORMarshaler) error {
 	if r.signer == nil {
 		return fmt.Errorf("cannot issue receipt: missing signer")
 	}
-	out := result.OK[ipld.Any, ipld.Any](o)
-	receipt, err := receipt.Issue(r.signer, r.task, out)
+	rcpt, err := receipt.IssueOK(r.signer, r.task, ok)
 	if err != nil {
 		return err
 	}
-	r.receipt = receipt
+	r.receipt = rcpt
 	return nil
 }
 

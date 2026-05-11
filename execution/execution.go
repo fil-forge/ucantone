@@ -3,8 +3,8 @@ package execution
 import (
 	"context"
 
-	"github.com/fil-forge/ucantone/ipld"
 	"github.com/fil-forge/ucantone/ucan"
+	cbg "github.com/whyrusleeping/cbor-gen"
 )
 
 type Request interface {
@@ -20,11 +20,13 @@ type Response interface {
 	Receipt() ucan.Receipt
 	// SetReceipt sets the receipt for the executed task.
 	SetReceipt(ucan.Receipt) error
-	// SetSuccess issues a receipt with a successful result for the executed task
+	// SetSuccess issues a receipt with a successful result for the executed
+	// task and sets it on the response. The ok value is any
+	// cborgen-marshalable type whose schema matches what the task expects to
+	// produce.
+	SetSuccess(ok cbg.CBORMarshaler) error
+	// SetFailure issues a receipt with a failure result for the executed task
 	// and sets it on the response.
-	SetSuccess(ipld.Any) error
-	// SetFailure issues a receipt with a failure result for the executed task and
-	// sets it on the response.
 	SetFailure(error) error
 	// Metadata provides additional information about the response.
 	Metadata() ucan.Container

@@ -6,7 +6,6 @@ import (
 
 	"github.com/fil-forge/ucantone/execution"
 	"github.com/fil-forge/ucantone/ipld/codec/dagcbor"
-	"github.com/fil-forge/ucantone/ipld/datamodel"
 	"github.com/fil-forge/ucantone/ucan"
 	"github.com/ipfs/go-cid"
 )
@@ -176,12 +175,7 @@ func (r *Response[O]) SetReceipt(receipt ucan.Receipt) error {
 }
 
 func (r *Response[O]) SetSuccess(o O) error {
-	m := datamodel.Map{}
-	err := datamodel.Rebind(o, &m)
-	if err != nil {
-		return err
-	}
-	return r.res.SetSuccess(m)
+	return r.res.SetSuccess(o)
 }
 
 type HandlerFunc[A Arguments, O Success] = func(*Request[A], *Response[O]) error

@@ -51,12 +51,6 @@ func (r *Raw) UnmarshalCBOR(rd io.Reader) error {
 	if err := d.UnmarshalCBOR(rd); err != nil {
 		return err
 	}
-	if len(d.Raw) > 0 && d.Raw[0] != cbg.CborNull[0] {
-		maj := d.Raw[0] >> 5
-		if maj != cbg.MajMap {
-			return fmt.Errorf("Raw: expected CBOR map, got major type %d", maj)
-		}
-	}
 	r.cbor = d.Raw
 	return nil
 }

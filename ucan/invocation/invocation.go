@@ -7,6 +7,10 @@ import (
 	"io"
 	"time"
 
+	"github.com/ipfs/go-cid"
+	multihash "github.com/multiformats/go-multihash/core"
+	cbg "github.com/whyrusleeping/cbor-gen"
+
 	"github.com/fil-forge/ucantone/ipld/codec/dagcbor"
 	"github.com/fil-forge/ucantone/ipld/datamodel"
 	"github.com/fil-forge/ucantone/ucan"
@@ -17,9 +21,6 @@ import (
 	"github.com/fil-forge/ucantone/ucan/nonce"
 	"github.com/fil-forge/ucantone/varsig"
 	varsig_dagcbor "github.com/fil-forge/ucantone/varsig/payload/dagcbor"
-	cid "github.com/ipfs/go-cid"
-	multihash "github.com/multiformats/go-multihash/core"
-	cbg "github.com/whyrusleeping/cbor-gen"
 )
 
 // Validity is the time an invocation is valid for by default.

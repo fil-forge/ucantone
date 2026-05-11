@@ -6,7 +6,6 @@ import (
 	"fmt"
 	"io"
 
-	"github.com/fil-forge/ucantone/ipld"
 	"github.com/fil-forge/ucantone/ipld/datamodel"
 	"github.com/fil-forge/ucantone/result"
 	rsdm "github.com/fil-forge/ucantone/result/datamodel"
@@ -15,18 +14,36 @@ import (
 	"github.com/fil-forge/ucantone/ucan/invocation"
 	rdm "github.com/fil-forge/ucantone/ucan/receipt/datamodel"
 	cid "github.com/ipfs/go-cid"
+	cbg "github.com/whyrusleeping/cbor-gen"
 )
 
 const Command = command.Command("/ucan/assert/receipt")
 
+// Receipt is a signed attestation that a task was executed and produced a
+// particular result. The result is held as raw CBOR bytes — typed callers
+// decode via [Receipt.Out] and UnmarshalCBOR into the schema expected for
+// the receipt's task.
 type Receipt struct {
 	invocation.Invocation
 	ran cid.Cid
-	out result.Result[ipld.Any, ipld.Any]
+	out result.Result[[]byte, []byte]
 }
 
-// Out is the attested result of the execution of the task.
-func (rcpt *Receipt) Out() result.Result[ipld.Any, ipld.Any] {
+// Out is the attested result of the execution of the task. The Result's
+// Ok and Err branches hold raw CBOR bytes; decode into the typed cborgen
+// struct that matches the executed task's expected output:
+//
+//	result.MatchResultR0(rcpt.Out(),
+//	    func(ok []byte) {
+//	        var v MyResult
+//	        v.UnmarshalCBOR(bytes.NewReader(ok))
+//	        // ...
+//	    },
+//	    func(err []byte) {
+//	        // ...
+//	    },
+//	)
+func (rcpt *Receipt) Out() result.Result[[]byte, []byte] {
 	return rcpt.out
 }
 
@@ -44,8 +61,7 @@ func (rcpt *Receipt) UnmarshalCBOR(r io.Reader) error {
 	*rcpt = Receipt{}
 
 	inv := invocation.Invocation{}
-	err := inv.UnmarshalCBOR(r)
-	if err != nil {
+	if err := inv.UnmarshalCBOR(r); err != nil {
 		return err
 	}
 
@@ -54,17 +70,17 @@ func (rcpt *Receipt) UnmarshalCBOR(r io.Reader) error {
 	}
 
 	var receiptArgs rdm.ArgsModel
-	err = receiptArgs.UnmarshalCBOR(bytes.NewReader(inv.ArgumentsBytes()))
-	if err != nil {
+	if err := receiptArgs.UnmarshalCBOR(bytes.NewReader(inv.ArgumentsBytes())); err != nil {
 		return fmt.Errorf("decoding receipt arguments: %w", err)
 	}
 
-	var out result.Result[ipld.Any, ipld.Any]
-	if receiptArgs.Out.Ok != nil {
-		out = result.OK[ipld.Any, ipld.Any](receiptArgs.Out.Ok.Value)
-	} else if receiptArgs.Out.Err != nil {
-		out = result.Error[ipld.Any](receiptArgs.Out.Err.Value)
-	} else {
+	var out result.Result[[]byte, []byte]
+	switch {
+	case receiptArgs.Out.Ok != nil:
+		out = result.OK[[]byte, []byte](receiptArgs.Out.Ok.Bytes())
+	case receiptArgs.Out.Err != nil:
+		out = result.Error[[]byte](receiptArgs.Out.Err.Bytes())
+	default:
 		return errors.New("invalid result, neither ok nor error")
 	}
 
@@ -88,27 +104,40 @@ func Decode(b []byte) (*Receipt, error) {
 	return &rcpt, err
 }
 
-// Issue creates a new receipt: an attestation that a task was run and it
-// resulted in the passed output.
-func Issue[O, X ipld.Any](
-	executor ucan.Signer,
-	ran cid.Cid,
-	out result.Result[O, X],
-	options ...Option,
-) (*Receipt, error) {
-	outModel, err := result.MatchResultR2(
-		out,
-		func(o O) (rsdm.ResultModel, error) {
-			a := datamodel.NewAny(o)
-			return rsdm.ResultModel{Ok: a}, nil
-		},
-		func(x X) (rsdm.ResultModel, error) {
-			a := datamodel.NewAny(x)
-			return rsdm.ResultModel{Err: a}, nil
-		},
-	)
-	if err != nil {
-		return nil, fmt.Errorf("encoding result: %w", err)
+// IssueOK creates a receipt attesting to a successful execution. The ok value
+// is any cborgen-marshalable type whose schema matches what the executed
+// task's command expects to produce.
+func IssueOK(executor ucan.Signer, ran cid.Cid, ok cbg.CBORMarshaler, options ...Option) (*Receipt, error) {
+	return issue(executor, ran, ok, nil, options...)
+}
+
+// IssueErr creates a receipt attesting to a failed execution. The err value
+// is any cborgen-marshalable type representing the failure.
+func IssueErr(executor ucan.Signer, ran cid.Cid, err cbg.CBORMarshaler, options ...Option) (*Receipt, error) {
+	return issue(executor, ran, nil, err, options...)
+}
+
+func issue(executor ucan.Signer, ran cid.Cid, ok, errVal cbg.CBORMarshaler, options ...Option) (*Receipt, error) {
+	if (ok == nil) == (errVal == nil) {
+		return nil, errors.New("issue requires exactly one of ok or err to be non-nil")
+	}
+
+	var outModel rsdm.ResultModel
+	var outBytes []byte
+	if ok != nil {
+		raw, err := marshalToRaw(ok)
+		if err != nil {
+			return nil, fmt.Errorf("marshaling ok: %w", err)
+		}
+		outModel.Ok = &raw
+		outBytes = raw.Bytes()
+	} else {
+		raw, err := marshalToRaw(errVal)
+		if err != nil {
+			return nil, fmt.Errorf("marshaling err: %w", err)
+		}
+		outModel.Err = &raw
+		outBytes = raw.Bytes()
 	}
 
 	options = append(options, invocation.WithAudience(executor))
@@ -121,13 +150,24 @@ func Issue[O, X ipld.Any](
 		return nil, err
 	}
 
+	var out result.Result[[]byte, []byte]
+	if ok != nil {
+		out = result.OK[[]byte, []byte](outBytes)
+	} else {
+		out = result.Error[[]byte](outBytes)
+	}
+
 	return &Receipt{
 		Invocation: *inv,
 		ran:        ran,
-		out: result.MapResultR0(
-			out,
-			func(o O) any { return o },
-			func(x X) any { return x },
-		),
+		out:        out,
 	}, nil
+}
+
+func marshalToRaw(m cbg.CBORMarshaler) (datamodel.Raw, error) {
+	var buf bytes.Buffer
+	if err := m.MarshalCBOR(&buf); err != nil {
+		return datamodel.Raw{}, err
+	}
+	return datamodel.NewRaw(buf.Bytes()), nil
 }

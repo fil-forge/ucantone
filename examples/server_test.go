@@ -1,6 +1,7 @@
 package examples
 
 import (
+	"bytes"
 	"context"
 	"fmt"
 	"net"
@@ -12,7 +13,6 @@ import (
 	"github.com/fil-forge/ucantone/examples/types"
 	"github.com/fil-forge/ucantone/execution"
 	"github.com/fil-forge/ucantone/execution/bindexec"
-	"github.com/fil-forge/ucantone/ipld"
 	"github.com/fil-forge/ucantone/ipld/datamodel"
 	"github.com/fil-forge/ucantone/principal/ed25519"
 	"github.com/fil-forge/ucantone/result"
@@ -100,11 +100,11 @@ func TestServer(t *testing.T) {
 
 	result.MatchResultR0(
 		resp.Receipt().Out(),
-		func(o ipld.Any) {
-			fmt.Printf("Echo response: %+v\n", o)
+		func(o []byte) {
+			fmt.Printf("Echo response: %+v\n", testutil.ResultMap(t, o))
 		},
-		func(x ipld.Any) {
-			fmt.Printf("Invocation failed: %v\n", x)
+		func(x []byte) {
+			fmt.Printf("Invocation failed: %v\n", testutil.ResultMap(t, x))
 		},
 	)
 
@@ -192,16 +192,15 @@ func TestTypedServer(t *testing.T) {
 
 	result.MatchResultR0(
 		resp.Receipt().Out(),
-		func(o ipld.Any) {
+		func(o []byte) {
 			args := types.EchoArguments{}
-			err := datamodel.Rebind(datamodel.NewAny(o), &args)
-			if err != nil {
+			if err := args.UnmarshalCBOR(bytes.NewReader(o)); err != nil {
 				panic(err)
 			}
 			fmt.Printf("Echo response: %+v\n", args)
 		},
-		func(x ipld.Any) {
-			fmt.Printf("Invocation failed: %v\n", x)
+		func(x []byte) {
+			fmt.Printf("Invocation failed: %v\n", testutil.ResultMap(t, x))
 		},
 	)
 
@@ -279,11 +278,11 @@ func TestServerRoundTripper(t *testing.T) {
 
 	result.MatchResultR0(
 		resp.Receipt().Out(),
-		func(o ipld.Any) {
-			fmt.Printf("Echo response: %+v\n", o)
+		func(o []byte) {
+			fmt.Printf("Echo response: %+v\n", testutil.ResultMap(t, o))
 		},
-		func(x ipld.Any) {
-			fmt.Printf("Invocation failed: %v\n", x)
+		func(x []byte) {
+			fmt.Printf("Invocation failed: %v\n", testutil.ResultMap(t, x))
 		},
 	)
 }

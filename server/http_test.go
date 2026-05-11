@@ -30,7 +30,7 @@ func TestHTTPServer(t *testing.T) {
 			msg := testutil.ArgsMap(t, req.Invocation())["message"]
 			t.Log(msg)
 			messages = append(messages, msg)
-			return res.SetSuccess(ipld.Map{})
+			return res.SetSuccess(datamodel.Map{})
 		})
 		server.Handle(testutil.TestEchoCapability, func(req execution.Request, res execution.Response) error {
 			return res.SetSuccess(testutil.ArgsMap(t, req.Invocation()))
@@ -109,6 +109,6 @@ func TestHTTPServer(t *testing.T) {
 		t.Log(o)
 
 		require.Len(t, messages, 1) // should not have changed
-		require.Equal(t, "echo!", o.(ipld.Map)["message"])
+		require.Equal(t, "echo!", testutil.ResultMap(t, o)["message"])
 	})
 }

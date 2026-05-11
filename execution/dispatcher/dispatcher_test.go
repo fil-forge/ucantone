@@ -27,7 +27,7 @@ func TestDispatcher(t *testing.T) {
 			msg := testutil.ArgsMap(t, req.Invocation())["message"]
 			t.Log(msg)
 			messages = append(messages, msg)
-			return res.SetSuccess(ipld.Map{})
+			return res.SetSuccess(datamodel.Map{})
 		})
 		executor.Handle(testutil.TestEchoCapability, func(req execution.Request, res execution.Response) error {
 			return res.SetSuccess(testutil.ArgsMap(t, req.Invocation()))
@@ -67,7 +67,7 @@ func TestDispatcher(t *testing.T) {
 		t.Log(o)
 
 		require.Len(t, messages, 1) // should not have changed
-		require.Equal(t, "echo!", o.(ipld.Map)["message"])
+		require.Equal(t, "echo!", testutil.ResultMap(t, o)["message"])
 	})
 
 	t.Run("handler not found", func(t *testing.T) {
@@ -89,7 +89,7 @@ func TestDispatcher(t *testing.T) {
 		require.NotNil(t, x)
 		t.Log(x)
 
-		require.Equal(t, dispatcher.HandlerNotFoundErrorName, x.(ipld.Map)["name"])
+		require.Equal(t, dispatcher.HandlerNotFoundErrorName, testutil.ResultMap(t, x)["name"])
 	})
 
 	t.Run("invalid audience", func(t *testing.T) {
@@ -111,7 +111,7 @@ func TestDispatcher(t *testing.T) {
 		require.NotNil(t, x)
 		t.Log(x)
 
-		require.Equal(t, execution.InvalidAudienceErrorName, x.(ipld.Map)["name"])
+		require.Equal(t, execution.InvalidAudienceErrorName, testutil.ResultMap(t, x)["name"])
 	})
 
 	t.Run("handler execution error", func(t *testing.T) {
@@ -137,7 +137,7 @@ func TestDispatcher(t *testing.T) {
 		require.NotNil(t, x)
 		t.Log(x)
 
-		require.Equal(t, execution.HandlerExecutionErrorName, x.(ipld.Map)["name"])
+		require.Equal(t, execution.HandlerExecutionErrorName, testutil.ResultMap(t, x)["name"])
 	})
 
 	t.Run("validation error", func(t *testing.T) {
@@ -162,6 +162,6 @@ func TestDispatcher(t *testing.T) {
 		require.NotNil(t, x)
 		t.Log(x)
 
-		require.Equal(t, verrs.InvalidClaimErrorName, x.(ipld.Map)["name"])
+		require.Equal(t, verrs.InvalidClaimErrorName, testutil.ResultMap(t, x)["name"])
 	})
 }

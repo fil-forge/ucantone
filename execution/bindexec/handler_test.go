@@ -1,6 +1,7 @@
 package bindexec_test
 
 import (
+	"bytes"
 	"testing"
 
 	"github.com/fil-forge/ucantone/execution"
@@ -39,8 +40,11 @@ func TestHandler(t *testing.T) {
 	require.NoError(t, err)
 	require.NotNil(t, res)
 
-	o, x := result.Unwrap(res.Receipt().Out())
-	require.Nil(t, x)
-	require.NotNil(t, o)
-	require.Equal(t, "testy", o.(datamodel.Map)["str"])
+	okBytes, errBytes := result.Unwrap(res.Receipt().Out())
+	require.Nil(t, errBytes)
+	require.NotNil(t, okBytes)
+
+	var got tdm.TestObject2
+	require.NoError(t, got.UnmarshalCBOR(bytes.NewReader(okBytes)))
+	require.Equal(t, "testy", got.Str)
 }

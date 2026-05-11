@@ -223,8 +223,10 @@ type Receipt interface {
 	Invocation
 	// Ran is the CID of the executed task the receipt is for.
 	Ran() cid.Cid
-	// Out is the attested result of the execution of the task.
-	Out() result.Result[ipld.Any, ipld.Any]
+	// Out is the attested result of the execution of the task. The Result's
+	// Ok and Err branches hold raw CBOR bytes; consumers decode into the
+	// typed cborgen struct that matches the task's expected output.
+	Out() result.Result[[]byte, []byte]
 }
 
 // Container is a format for transmitting one or more UCAN tokens as bytes,
