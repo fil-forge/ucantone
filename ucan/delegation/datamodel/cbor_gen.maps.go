@@ -176,7 +176,7 @@ func (t *TokenPayloadModel1_0_0_rc1) MarshalCBOR(w io.Writer) error {
 		return err
 	}
 
-	// t.Meta (datamodel.MapWrapper) (struct)
+	// t.Meta (datamodel.Raw) (struct)
 	if t.Meta != nil {
 
 		if len("meta") > 8192 {
@@ -364,7 +364,7 @@ func (t *TokenPayloadModel1_0_0_rc1) UnmarshalCBOR(r io.Reader) (err error) {
 				}
 
 			}
-			// t.Meta (datamodel.MapWrapper) (struct)
+			// t.Meta (datamodel.Raw) (struct)
 		case "meta":
 
 			{
@@ -377,7 +377,7 @@ func (t *TokenPayloadModel1_0_0_rc1) UnmarshalCBOR(r io.Reader) (err error) {
 					if err := cr.UnreadByte(); err != nil {
 						return err
 					}
-					t.Meta = new(datamodel.MapWrapper)
+					t.Meta = new(datamodel.Raw)
 					if err := t.Meta.UnmarshalCBOR(cr); err != nil {
 						return xerrors.Errorf("unmarshaling t.Meta pointer: %w", err)
 					}

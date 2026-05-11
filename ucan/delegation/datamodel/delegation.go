@@ -25,7 +25,7 @@ type TokenPayloadModel1_0_0_rc1 struct {
 	// A unique, random nonce.
 	Nonce ucan.Nonce `cborgen:"nonce" dagjsongen:"nonce"`
 	// Arbitrary metadata.
-	Meta *datamodel.MapWrapper `cborgen:"meta,omitempty" dagjsongen:"meta,omitempty"`
+	Meta *datamodel.Raw `cborgen:"meta,omitempty" dagjsongen:"meta,omitempty"`
 	// "Not before" UTC Unix Timestamp in seconds (valid from).
 	Nbf *ucan.UTCUnixTimestamp `cborgen:"nbf,omitempty" dagjsongen:"nbf,omitempty"`
 	// Expiration UTC Unix Timestamp in seconds (valid until).
