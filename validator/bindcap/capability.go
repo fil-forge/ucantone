@@ -4,17 +4,18 @@ import (
 	"bytes"
 	"reflect"
 
-	"github.com/fil-forge/ucantone/ipld/codec/dagcbor"
 	"github.com/fil-forge/ucantone/ucan"
 	"github.com/fil-forge/ucantone/ucan/delegation"
 	"github.com/fil-forge/ucantone/ucan/invocation"
 	"github.com/fil-forge/ucantone/validator/capability"
 	verrs "github.com/fil-forge/ucantone/validator/errors"
 	"github.com/ipfs/go-cid"
+	cbg "github.com/whyrusleeping/cbor-gen"
 )
 
 type Arguments interface {
-	dagcbor.Marshalable
+	cbg.CBORMarshaler
+	cbg.CBORUnmarshaler
 }
 
 // Capability that can be used to validate an invocation against proof policies.

@@ -5,17 +5,17 @@ import (
 	"fmt"
 
 	"github.com/fil-forge/ucantone/execution"
-	"github.com/fil-forge/ucantone/ipld/codec/dagcbor"
 	"github.com/fil-forge/ucantone/ucan"
 	"github.com/ipfs/go-cid"
+	cbg "github.com/whyrusleeping/cbor-gen"
 )
 
 type Arguments interface {
-	dagcbor.Unmarshaler
+	cbg.CBORUnmarshaler
 }
 
 type Success interface {
-	dagcbor.Marshaler
+	cbg.CBORMarshaler
 }
 
 type requestConfig struct {
