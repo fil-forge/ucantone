@@ -14,7 +14,6 @@ import (
 	"github.com/fil-forge/ucantone/ucan"
 	"github.com/fil-forge/ucantone/ucan/container"
 	"github.com/fil-forge/ucantone/ucan/token"
-	"github.com/fil-forge/ucantone/validator"
 	verrs "github.com/fil-forge/ucantone/validator/errors"
 	"github.com/fil-forge/ucantone/varsig/algorithm/nonstandard"
 )
@@ -81,7 +80,7 @@ func ValidateToken(ctx context.Context, tok ucan.Token, cfg validationConfig) er
 	}
 
 	// ...and not be expired...
-	err = validator.ValidateNotExpired(tok, cfg.validationTime)
+	err = ValidateNotExpired(tok, cfg.validationTime)
 	if err != nil {
 		return err
 	}
@@ -93,7 +92,7 @@ func ValidateToken(ctx context.Context, tok ucan.Token, cfg validationConfig) er
 		// them, so this check is left in this function for now.
 		//
 		// https://github.com/ucan-wg/invocation/issues/45
-		err = validator.ValidateNotTooEarly(dlg, cfg.validationTime)
+		err = ValidateNotTooEarly(dlg, cfg.validationTime)
 		if err != nil {
 			return err
 		}
@@ -144,7 +143,14 @@ func capabilityFromProofChain(ctx context.Context, inv ucan.Invocation, cfg vali
 			return Capability{}, NewProofChainError(inv.Subject(), prfs[:i], prf)
 		}
 
-		// Subjects must match, or subject must be nil (powerline delegation).
+		// The root proof must have a subject (powerline is not allowed as root).
+		// Subsequent proofs may have a nil subject (powerline delegation).
+		if i == 0 && prf.Subject() == nil {
+			return Capability{}, NewProofChainError(inv.Subject(), prfs[:i], prf)
+		}
+
+		// Every proof's subject must match the invocation's subject, or be nil
+		// (powerline delegation).
 		if prf.Subject() != nil && prf.Subject().DID() != inv.Subject().DID() {
 			return Capability{}, NewProofChainError(inv.Subject(), prfs[:i], prf)
 		}
@@ -212,4 +218,26 @@ func ProofsFromContainer(c *container.Container) ProofResolverFunc {
 // DIDs and returns an error for any other DID method.
 func ResolveDIDKeyVerifier(ctx context.Context, d did.DID) (ucan.Verifier, error) {
 	return verifier.Parse(d.String())
+}
+
+func ValidateNotExpired(token ucan.Token, now ucan.UTCUnixTimestamp) error {
+	exp := token.Expiration()
+	if exp == nil {
+		return nil
+	}
+	if *exp <= now {
+		return verrs.NewExpiredError(token)
+	}
+	return nil
+}
+
+func ValidateNotTooEarly(dlg ucan.Delegation, now ucan.UTCUnixTimestamp) error {
+	nbf := dlg.NotBefore()
+	if nbf == nil {
+		return nil
+	}
+	if *nbf != 0 && now <= *nbf {
+		return verrs.NewTooEarlyError(dlg)
+	}
+	return nil
 }

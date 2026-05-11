@@ -18,6 +18,7 @@ import (
 	"github.com/fil-forge/ucantone/ucan/command"
 	"github.com/fil-forge/ucantone/ucan/container"
 	"github.com/fil-forge/ucantone/ucan/delegation"
+	"github.com/fil-forge/ucantone/ucan/delegation/policy"
 	"github.com/fil-forge/ucantone/ucan/invocation"
 	"github.com/fil-forge/ucantone/validator2"
 )
@@ -265,6 +266,7 @@ func TestValidate(t *testing.T) {
 		require.Error(t, err)
 	})
 
+	// https://github.com/ucan-wg/delegation#powerline
 	t.Run("validates with powerline delegation in chain", func(t *testing.T) {
 		subject := testutil.RandomSigner(t)
 		alice := testutil.RandomSigner(t)
@@ -296,6 +298,118 @@ func TestValidate(t *testing.T) {
 			),
 		)
 		require.NoError(t, err)
+	})
+
+	// Explicitly disallowed by spec:
+	// https://github.com/ucan-wg/delegation#powerline
+	t.Run("rejects a powerline delegation at root of chain", func(t *testing.T) {
+		subject := testutil.RandomSigner(t)
+		invoker := testutil.RandomSigner(t)
+
+		// Root delegation has nil subject — invalid per spec.
+		del, err := delegation.Delegate(subject, invoker, nil, crankWidget)
+		require.NoError(t, err)
+
+		inv, err := invocation.Invoke(
+			invoker,
+			subject,
+			crankWidget,
+			ipld.Map{},
+			invocation.WithProofs(del.Link()),
+		)
+		require.NoError(t, err)
+
+		err = validator2.ValidateInvocation(
+			t.Context(),
+			inv,
+			validator2.WithProofResolver(
+				validator2.ProofsFromContainer(
+					container.New(container.WithDelegations(del)),
+				),
+			),
+		)
+		require.Error(t, err)
+	})
+
+	t.Run("accepts a proof with a NotBefore in the past", func(t *testing.T) {
+		subject := testutil.RandomSigner(t)
+		invoker := testutil.RandomSigner(t)
+
+		del, err := delegation.Delegate(subject, invoker, subject, crankWidget,
+			delegation.WithNotBefore(past),
+		)
+		require.NoError(t, err)
+
+		inv, err := invocation.Invoke(
+			invoker,
+			subject,
+			crankWidget,
+			ipld.Map{},
+			invocation.WithProofs(del.Link()),
+		)
+		require.NoError(t, err)
+
+		err = validator2.ValidateInvocation(
+			t.Context(),
+			inv,
+			validator2.WithValidationTime(now),
+			validator2.WithProofResolver(
+				validator2.ProofsFromContainer(
+					container.New(container.WithDelegations(del)),
+				),
+			),
+		)
+		require.NoError(t, err)
+	})
+
+	t.Run("with a policy on a delegation", func(t *testing.T) {
+		subject := testutil.RandomSigner(t)
+		invoker := testutil.RandomSigner(t)
+
+		del, err := delegation.Delegate(subject, invoker, subject, crankWidget,
+			delegation.WithPolicyBuilder(policy.Equal(".answer", 42)),
+		)
+		require.NoError(t, err)
+
+		resolveProof := validator2.ProofsFromContainer(
+			container.New(container.WithDelegations(del)),
+		)
+
+		t.Run("accepts an invocation whose arguments satisfy the policy", func(t *testing.T) {
+			inv, err := invocation.Invoke(
+				invoker,
+				subject,
+				crankWidget,
+				ipld.Map{"answer": 42},
+				invocation.WithProofs(del.Link()),
+			)
+			require.NoError(t, err)
+
+			err = validator2.ValidateInvocation(
+				t.Context(),
+				inv,
+				validator2.WithProofResolver(resolveProof),
+			)
+			require.NoError(t, err)
+		})
+
+		t.Run("rejects an invocation whose arguments violate the policy", func(t *testing.T) {
+			inv, err := invocation.Invoke(
+				invoker,
+				subject,
+				crankWidget,
+				ipld.Map{"answer": 41},
+				invocation.WithProofs(del.Link()),
+			)
+			require.NoError(t, err)
+
+			err = validator2.ValidateInvocation(
+				t.Context(),
+				inv,
+				validator2.WithProofResolver(resolveProof),
+			)
+			require.Error(t, err)
+		})
 	})
 
 	t.Run("rejects with incorrect subject in chain", func(t *testing.T) {
