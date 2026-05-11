@@ -4,7 +4,6 @@ import (
 	"github.com/fil-forge/ucantone/did"
 	"github.com/fil-forge/ucantone/ipld/datamodel"
 	"github.com/fil-forge/ucantone/ucan"
-	edm "github.com/fil-forge/ucantone/ucan/envelope/datamodel"
 	"github.com/ipfs/go-cid"
 )
 
@@ -48,5 +47,3 @@ type SigPayloadModel struct {
 	// The UCAN token payload.
 	TokenPayload1_0_0_rc1 *TokenPayloadModel1_0_0_rc1 `cborgen:"ucan/inv@1.0.0-rc.1,omitempty" dagjsongen:"ucan/inv@1.0.0-rc.1,omitempty"`
 }
-
-type EnvelopeModel edm.EnvelopeModel[SigPayloadModel]

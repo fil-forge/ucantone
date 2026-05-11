@@ -21,6 +21,9 @@ gen:
 	rm ./ucan/container/datamodel/*_gen.go || true
 	cd ./ucan/container/datamodel/gen && go run ./main.go
 
+	rm ./ucan/envelope/datamodel/*_gen.go || true
+	cd ./ucan/envelope/datamodel/gen && go run ./main.go
+
 	rm ./ucan/delegation/datamodel/*_gen.*.go || true
 	cd ./ucan/delegation/datamodel/gen && go run ./main.go
 

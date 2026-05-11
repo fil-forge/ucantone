@@ -15,6 +15,7 @@ import (
 	"github.com/fil-forge/ucantone/ucan/delegation"
 	ddm "github.com/fil-forge/ucantone/ucan/delegation/datamodel"
 	"github.com/fil-forge/ucantone/ucan/delegation/policy"
+	edm "github.com/fil-forge/ucantone/ucan/envelope/datamodel"
 	"github.com/fil-forge/ucantone/ucan/invocation"
 	idm "github.com/fil-forge/ucantone/ucan/invocation/datamodel"
 	verrs "github.com/fil-forge/ucantone/validator/errors"
@@ -649,13 +650,16 @@ func makeInvalidProofSignatureFixture() fdm.InvalidModel {
 		TokenPayload1_0_0_rc1: tokenPayload,
 	}
 
-	model := ddm.EnvelopeModel{
+	var spBuf bytes.Buffer
+	must0(sigPayload.MarshalCBOR(&spBuf))
+
+	envelope := edm.EnvelopeModel{
 		Signature:  []byte{1, 2, 3},
-		SigPayload: sigPayload,
+		SigPayload: datamodel.NewRaw(spBuf.Bytes()),
 	}
 
 	var dlg0Buf bytes.Buffer
-	must0(model.MarshalCBOR(&dlg0Buf))
+	must0(envelope.MarshalCBOR(&dlg0Buf))
 	dlg0Link := must(cid.V1Builder{
 		Codec:  dagcbor.Code,
 		MhType: multihash.SHA2_256,
@@ -700,13 +704,16 @@ func makeInvalidInvocationSignatureFixture() fdm.InvalidModel {
 		TokenPayload1_0_0_rc1: tokenPayload,
 	}
 
-	model := idm.EnvelopeModel{
+	var spBuf bytes.Buffer
+	must0(sigPayload.MarshalCBOR(&spBuf))
+
+	envelope := edm.EnvelopeModel{
 		Signature:  []byte{1, 2, 3},
-		SigPayload: sigPayload,
+		SigPayload: datamodel.NewRaw(spBuf.Bytes()),
 	}
 
 	var envBuf bytes.Buffer
-	must0(model.MarshalCBOR(&envBuf))
+	must0(envelope.MarshalCBOR(&envBuf))
 
 	return fdm.InvalidModel{
 		Name:        "invalid invocation signature",

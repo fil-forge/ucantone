@@ -7,12 +7,12 @@ import (
 	"io"
 	"time"
 
-	"github.com/fil-forge/ucantone/did"
 	"github.com/fil-forge/ucantone/ipld/codec/dagcbor"
 	"github.com/fil-forge/ucantone/ipld/datamodel"
 	"github.com/fil-forge/ucantone/ucan"
 	cmd "github.com/fil-forge/ucantone/ucan/command"
 	"github.com/fil-forge/ucantone/ucan/crypto/signature"
+	edm "github.com/fil-forge/ucantone/ucan/envelope/datamodel"
 	idm "github.com/fil-forge/ucantone/ucan/invocation/datamodel"
 	"github.com/fil-forge/ucantone/ucan/nonce"
 	"github.com/fil-forge/ucantone/varsig"
@@ -30,11 +30,12 @@ const Validity = 30 * time.Second
 //
 // https://github.com/ucan-wg/invocation/blob/main/README.md
 type Invocation struct {
-	link  cid.Cid
-	bytes []byte
-	sig   *signature.Signature
-	model *idm.EnvelopeModel
-	task  *Task
+	link       cid.Cid
+	bytes      []byte
+	sig        *signature.Signature
+	envelope   *edm.EnvelopeModel
+	sigPayload *idm.SigPayloadModel
+	task       *Task
 }
 
 // ArgumentsBytes returns the raw CBOR bytes of the args field. Decode directly
@@ -45,7 +46,7 @@ type Invocation struct {
 //
 // https://github.com/ucan-wg/invocation/blob/main/README.md#arguments
 func (inv *Invocation) ArgumentsBytes() []byte {
-	return inv.model.SigPayload.TokenPayload1_0_0_rc1.Args.Bytes()
+	return inv.sigPayload.TokenPayload1_0_0_rc1.Args.Bytes()
 }
 
 // The DID of the intended Executor if different from the Subject.
@@ -54,10 +55,10 @@ func (inv *Invocation) ArgumentsBytes() []byte {
 //
 // https://github.com/ucan-wg/spec/blob/main/README.md#issuer--audience
 func (inv *Invocation) Audience() ucan.Principal {
-	if inv.model.SigPayload.TokenPayload1_0_0_rc1.Aud == nil {
+	if inv.sigPayload.TokenPayload1_0_0_rc1.Aud == nil {
 		return nil
 	}
-	return inv.model.SigPayload.TokenPayload1_0_0_rc1.Aud
+	return inv.sigPayload.TokenPayload1_0_0_rc1.Aud
 }
 
 // Bytes returns the dag-cbor encoded bytes of this invocation.
@@ -69,35 +70,35 @@ func (inv *Invocation) Bytes() []byte {
 //
 // https://github.com/ucan-wg/invocation/blob/main/README.md#cause
 func (inv *Invocation) Cause() *cid.Cid {
-	return inv.model.SigPayload.TokenPayload1_0_0_rc1.Cause
+	return inv.sigPayload.TokenPayload1_0_0_rc1.Cause
 }
 
 // The command to invoke.
 //
 // https://github.com/ucan-wg/spec/blob/main/README.md#command
 func (inv *Invocation) Command() ucan.Command {
-	return inv.model.SigPayload.TokenPayload1_0_0_rc1.Cmd
+	return inv.sigPayload.TokenPayload1_0_0_rc1.Cmd
 }
 
 // The timestamp at which the invocation becomes invalid.
 //
 // https://github.com/ucan-wg/invocation/blob/main/README.md#expiration
 func (inv *Invocation) Expiration() *ucan.UTCUnixTimestamp {
-	return inv.model.SigPayload.TokenPayload1_0_0_rc1.Exp
+	return inv.sigPayload.TokenPayload1_0_0_rc1.Exp
 }
 
 // An issuance timestamp.
 //
 // https://github.com/ucan-wg/invocation/blob/main/README.md#issued-at
 func (inv *Invocation) IssuedAt() *ucan.UTCUnixTimestamp {
-	return inv.model.SigPayload.TokenPayload1_0_0_rc1.Iat
+	return inv.sigPayload.TokenPayload1_0_0_rc1.Iat
 }
 
 // Issuer DID (sender).
 //
 // https://github.com/ucan-wg/spec/blob/main/README.md#issuer--audience
 func (inv *Invocation) Issuer() ucan.Principal {
-	return inv.model.SigPayload.TokenPayload1_0_0_rc1.Iss
+	return inv.sigPayload.TokenPayload1_0_0_rc1.Iss
 }
 
 // Link returns the IPLD link that corresponds to the encoded bytes of this
@@ -111,15 +112,26 @@ func (inv *Invocation) Link() cid.Cid {
 //
 // https://github.com/ucan-wg/invocation/blob/main/README.md#metadata
 func (inv *Invocation) MetadataBytes() []byte {
-	if inv.model.SigPayload.TokenPayload1_0_0_rc1.Meta == nil {
+	if inv.sigPayload.TokenPayload1_0_0_rc1.Meta == nil {
 		return nil
 	}
-	return inv.model.SigPayload.TokenPayload1_0_0_rc1.Meta.Bytes()
+	return inv.sigPayload.TokenPayload1_0_0_rc1.Meta.Bytes()
 }
 
-// The datamodel this invocation is built from.
-func (inv *Invocation) Model() *idm.EnvelopeModel {
-	return inv.model
+// Envelope returns the raw envelope (signature + signed-payload bytes).
+func (inv *Invocation) Envelope() *edm.EnvelopeModel {
+	return inv.envelope
+}
+
+// SigPayload returns the decoded signature payload (varsig header + token payload).
+func (inv *Invocation) SigPayload() *idm.SigPayloadModel {
+	return inv.sigPayload
+}
+
+// SignedBytes returns the raw CBOR bytes of the SigPayload — i.e. the bytes
+// the issuer signed over. Verification operates on these bytes directly.
+func (inv *Invocation) SignedBytes() []byte {
+	return inv.envelope.SigPayload.Bytes()
 }
 
 // A unique, random nonce. It ensures that multiple (non-idempotent) invocations
@@ -128,14 +140,14 @@ func (inv *Invocation) Model() *idm.EnvelopeModel {
 //
 // https://github.com/ucan-wg/invocation/blob/main/README.md#nonce
 func (inv *Invocation) Nonce() ucan.Nonce {
-	return inv.model.SigPayload.TokenPayload1_0_0_rc1.Nonce
+	return inv.sigPayload.TokenPayload1_0_0_rc1.Nonce
 }
 
 // The path of authority from the subject to the invoker.
 //
 // https://github.com/ucan-wg/invocation/blob/main/README.md#proofs
 func (inv *Invocation) Proofs() []cid.Cid {
-	return inv.model.SigPayload.TokenPayload1_0_0_rc1.Prf
+	return inv.sigPayload.TokenPayload1_0_0_rc1.Prf
 }
 
 // The signature over the payload.
@@ -149,7 +161,7 @@ func (inv *Invocation) Signature() ucan.Signature {
 //
 // https://github.com/ucan-wg/spec/blob/main/README.md#subject
 func (inv *Invocation) Subject() ucan.Principal {
-	return inv.model.SigPayload.TokenPayload1_0_0_rc1.Sub
+	return inv.sigPayload.TokenPayload1_0_0_rc1.Sub
 }
 
 // Task returns the CID of the fields that comprise the task for the invocation.
@@ -167,24 +179,28 @@ func (inv *Invocation) MarshalCBOR(w io.Writer) error {
 func (inv *Invocation) UnmarshalCBOR(r io.Reader) error {
 	*inv = Invocation{}
 	var w bytes.Buffer
-	model := idm.EnvelopeModel{}
-	err := model.UnmarshalCBOR(io.TeeReader(r, &w))
+	envelope := edm.EnvelopeModel{}
+	err := envelope.UnmarshalCBOR(io.TeeReader(r, &w))
 	if err != nil {
 		return fmt.Errorf("unmarshaling invocation envelope CBOR: %w", err)
 	}
-	if model.SigPayload.TokenPayload1_0_0_rc1 == nil {
+	sigPayload := idm.SigPayloadModel{}
+	if err := sigPayload.UnmarshalCBOR(bytes.NewReader(envelope.SigPayload.Bytes())); err != nil {
+		return fmt.Errorf("unmarshaling invocation signed payload: %w", err)
+	}
+	if sigPayload.TokenPayload1_0_0_rc1 == nil {
 		return errors.New("invalid or unsupported invocation token payload")
 	}
-	header, err := varsig.Decode(model.SigPayload.Header)
+	header, err := varsig.Decode(sigPayload.Header)
 	if err != nil {
 		return fmt.Errorf("decoding varsig header: %w", err)
 	}
-	sig := signature.NewSignature(header, model.Signature)
+	sig := signature.NewSignature(header, envelope.Signature)
 	task, err := NewTask(
-		model.SigPayload.TokenPayload1_0_0_rc1.Sub,
-		model.SigPayload.TokenPayload1_0_0_rc1.Cmd,
-		model.SigPayload.TokenPayload1_0_0_rc1.Args.Bytes(),
-		model.SigPayload.TokenPayload1_0_0_rc1.Nonce,
+		sigPayload.TokenPayload1_0_0_rc1.Sub,
+		sigPayload.TokenPayload1_0_0_rc1.Cmd,
+		sigPayload.TokenPayload1_0_0_rc1.Args.Bytes(),
+		sigPayload.TokenPayload1_0_0_rc1.Nonce,
 	)
 	if err != nil {
 		return fmt.Errorf("creating new task: %w", err)
@@ -199,56 +215,60 @@ func (inv *Invocation) UnmarshalCBOR(r io.Reader) error {
 	inv.link = root
 	inv.bytes = w.Bytes()
 	inv.sig = sig
-	inv.model = &model
+	inv.envelope = &envelope
+	inv.sigPayload = &sigPayload
 	inv.task = task
 	return nil
 }
 
 func (inv *Invocation) MarshalDagJSON(w io.Writer) error {
-	return inv.Model().MarshalDagJSON(w)
+	return inv.envelope.MarshalDagJSON(w)
 }
 
 func (inv *Invocation) UnmarshalDagJSON(r io.Reader) error {
 	*inv = Invocation{}
-	model := idm.EnvelopeModel{}
-	err := model.UnmarshalDagJSON(r)
-	if err != nil {
+	envelope := edm.EnvelopeModel{}
+	if err := envelope.UnmarshalDagJSON(r); err != nil {
 		return fmt.Errorf("unmarshaling invocation envelope JSON: %w", err)
 	}
-	if model.SigPayload.TokenPayload1_0_0_rc1 == nil {
+	sigPayload := idm.SigPayloadModel{}
+	if err := sigPayload.UnmarshalCBOR(bytes.NewReader(envelope.SigPayload.Bytes())); err != nil {
+		return fmt.Errorf("unmarshaling invocation signed payload: %w", err)
+	}
+	if sigPayload.TokenPayload1_0_0_rc1 == nil {
 		return errors.New("invalid or unsupported invocation token payload")
 	}
-	header, err := varsig.Decode(model.SigPayload.Header)
+	header, err := varsig.Decode(sigPayload.Header)
 	if err != nil {
 		return fmt.Errorf("decoding varsig header: %w", err)
 	}
-	sig := signature.NewSignature(header, model.Signature)
+	sig := signature.NewSignature(header, envelope.Signature)
 	task, err := NewTask(
-		model.SigPayload.TokenPayload1_0_0_rc1.Sub,
-		model.SigPayload.TokenPayload1_0_0_rc1.Cmd,
-		model.SigPayload.TokenPayload1_0_0_rc1.Args.Bytes(),
-		model.SigPayload.TokenPayload1_0_0_rc1.Nonce,
+		sigPayload.TokenPayload1_0_0_rc1.Sub,
+		sigPayload.TokenPayload1_0_0_rc1.Cmd,
+		sigPayload.TokenPayload1_0_0_rc1.Args.Bytes(),
+		sigPayload.TokenPayload1_0_0_rc1.Nonce,
 	)
 	if err != nil {
 		return fmt.Errorf("creating new task: %w", err)
 	}
 	// marshal to CBOR so we can calculate canonical CID
-	var w bytes.Buffer
-	err = model.MarshalCBOR(&w)
-	if err != nil {
+	var envBuf bytes.Buffer
+	if err := envelope.MarshalCBOR(&envBuf); err != nil {
 		return fmt.Errorf("marshaling to CBOR: %w", err)
 	}
 	root, err := cid.V1Builder{
 		Codec:  dagcbor.Code,
 		MhType: multihash.SHA2_256,
-	}.Sum(w.Bytes())
+	}.Sum(envBuf.Bytes())
 	if err != nil {
 		return fmt.Errorf("hashing invocation bytes: %w", err)
 	}
 	inv.link = root
-	inv.bytes = w.Bytes()
+	inv.bytes = envBuf.Bytes()
 	inv.sig = sig
-	inv.model = &model
+	inv.envelope = &envelope
+	inv.sigPayload = &sigPayload
 	inv.task = task
 	return nil
 }
@@ -358,17 +378,16 @@ func Invoke(
 	}
 
 	var sigBuf bytes.Buffer
-	err = sigPayload.MarshalCBOR(&sigBuf)
-	if err != nil {
+	if err := sigPayload.MarshalCBOR(&sigBuf); err != nil {
 		return nil, fmt.Errorf("marshaling signature payload: %w", err)
 	}
 
 	sigBytes := issuer.Sign(sigBuf.Bytes())
 	sig := signature.NewSignature(sigHeader, sigBytes)
 
-	model := idm.EnvelopeModel{
+	envelope := edm.EnvelopeModel{
 		Signature:  sigBytes,
-		SigPayload: sigPayload,
+		SigPayload: datamodel.NewRaw(sigBuf.Bytes()),
 	}
 
 	task, err := NewTask(
@@ -382,8 +401,7 @@ func Invoke(
 	}
 
 	var envBuf bytes.Buffer
-	err = model.MarshalCBOR(&envBuf)
-	if err != nil {
+	if err := envelope.MarshalCBOR(&envBuf); err != nil {
 		return nil, fmt.Errorf("marshaling invocation CBOR: %w", err)
 	}
 	root, err := cid.V1Builder{
@@ -395,11 +413,12 @@ func Invoke(
 	}
 
 	return &Invocation{
-		link:  root,
-		bytes: envBuf.Bytes(),
-		sig:   sig,
-		model: &model,
-		task:  task,
+		link:       root,
+		bytes:      envBuf.Bytes(),
+		sig:        sig,
+		envelope:   &envelope,
+		sigPayload: &sigPayload,
+		task:       task,
 	}, nil
 }
 
@@ -420,52 +439,13 @@ func marshalArgs(args cbg.CBORMarshaler) ([]byte, error) {
 	return buf.Bytes(), nil
 }
 
+// VerifySignature verifies the invocation's signature against the literal
+// signed-payload bytes preserved on decode. No reconstruction of the signing
+// payload from typed fields — verification operates on the exact bytes the
+// issuer signed, per the UCAN spec.
 func VerifySignature(inv ucan.Invocation, verifier ucan.Verifier) (bool, error) {
-	var sub did.DID
-	if inv.Subject() != nil {
-		sub = inv.Subject().DID()
+	if inv.Issuer().DID() != verifier.DID() {
+		return false, nil
 	}
-	var aud *did.DID
-	if inv.Audience() != nil {
-		a := inv.Audience().DID()
-		aud = &a
-	}
-
-	var meta *datamodel.Raw
-	if mb := inv.MetadataBytes(); len(mb) > 0 {
-		r := datamodel.NewRaw(mb)
-		meta = &r
-	}
-
-	tokenPayload := &idm.TokenPayloadModel1_0_0_rc1{
-		Iss:   inv.Issuer().DID(),
-		Sub:   sub,
-		Aud:   aud,
-		Cmd:   inv.Command(),
-		Args:  datamodel.NewRaw(inv.ArgumentsBytes()),
-		Prf:   inv.Proofs(),
-		Meta:  meta,
-		Nonce: inv.Nonce(),
-		Exp:   inv.Expiration(),
-		Iat:   inv.IssuedAt(),
-		Cause: inv.Cause(),
-	}
-
-	h, err := varsig.Encode(inv.Signature().Header())
-	if err != nil {
-		return false, fmt.Errorf("encoding varsig header: %w", err)
-	}
-
-	sigPayload := idm.SigPayloadModel{
-		Header:                h,
-		TokenPayload1_0_0_rc1: tokenPayload,
-	}
-
-	var sigBuf bytes.Buffer
-	err = sigPayload.MarshalCBOR(&sigBuf)
-	if err != nil {
-		return false, fmt.Errorf("marshaling signature payload: %w", err)
-	}
-
-	return inv.Issuer().DID() == verifier.DID() && verifier.Verify(sigBuf.Bytes(), inv.Signature().Bytes()), nil
+	return verifier.Verify(inv.SignedBytes(), inv.Signature().Bytes()), nil
 }

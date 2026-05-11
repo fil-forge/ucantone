@@ -41,7 +41,7 @@ func (t *EnvelopeModel) MarshalDagJSON(w io.Writer) error {
 		return fmt.Errorf("SigPayload: %w", err)
 	}
 
-	// t.SigPayload (datamodel.SigPayloadModel) (struct)
+	// t.SigPayload (datamodel.Raw) (struct)
 	if err := t.SigPayload.MarshalDagJSON(jw); err != nil {
 		return fmt.Errorf("t.SigPayload: %w", err)
 	}
@@ -98,7 +98,7 @@ func (t *EnvelopeModel) UnmarshalDagJSON(r io.Reader) (err error) {
 			}
 		}
 
-		// t.SigPayload (datamodel.SigPayloadModel) (struct)
+		// t.SigPayload (datamodel.Raw) (struct)
 
 		if err := t.SigPayload.UnmarshalDagJSON(jr); err != nil {
 			return fmt.Errorf("unmarshaling t.SigPayload: %w", err)

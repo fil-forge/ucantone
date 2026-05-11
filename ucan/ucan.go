@@ -88,6 +88,11 @@ type Token interface {
 	//
 	// https://github.com/ucan-wg/spec/blob/main/README.md#metadata
 	MetadataBytes() []byte
+	// SignedBytes returns the raw CBOR bytes of the SigPayload — the literal
+	// bytes the issuer signed over. Verification operates on these directly.
+	//
+	// https://github.com/ucan-wg/spec/blob/main/README.md#envelope
+	SignedBytes() []byte
 	// A unique, random nonce.
 	//
 	// https://github.com/ucan-wg/spec/blob/main/README.md#nonce
