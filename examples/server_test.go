@@ -17,6 +17,7 @@ import (
 	"github.com/fil-forge/ucantone/principal/ed25519"
 	"github.com/fil-forge/ucantone/result"
 	"github.com/fil-forge/ucantone/server"
+	"github.com/fil-forge/ucantone/testutil"
 	"github.com/fil-forge/ucantone/ucan/invocation"
 	"github.com/fil-forge/ucantone/validator/bindcap"
 	"github.com/fil-forge/ucantone/validator/capability"
@@ -37,8 +38,7 @@ func TestServer(t *testing.T) {
 
 	// Register an echo handler that returns the invocation arguments as the result
 	ucanSrv.Handle(echoCapability, func(req execution.Request, res execution.Response) error {
-		inv := req.Invocation()
-		args := inv.Arguments()
+		args := testutil.ArgsMap(t, req.Invocation())
 		fmt.Printf("Echo: %s\n", args["message"])
 		return res.SetSuccess(args)
 	})
@@ -80,7 +80,7 @@ func TestServer(t *testing.T) {
 	inv, err := echoCapability.Invoke(
 		alice,
 		serviceID,
-		ipld.Map{"message": "Hello, UCAN!"},
+		datamodel.Map{"message": "Hello, UCAN!"},
 		invocation.WithProofs(dlg.Link()),
 	)
 	if err != nil {
@@ -229,8 +229,7 @@ func TestServerRoundTripper(t *testing.T) {
 
 	// Register an echo handler that returns the invocation arguments as the result
 	ucanSrv.Handle(echoCapability, func(req execution.Request, res execution.Response) error {
-		inv := req.Invocation()
-		args := inv.Arguments()
+		args := testutil.ArgsMap(t, req.Invocation())
 		fmt.Printf("Echo: %s\n", args["message"])
 		return res.SetSuccess(args)
 	})
@@ -255,7 +254,7 @@ func TestServerRoundTripper(t *testing.T) {
 	inv, err := echoCapability.Invoke(
 		alice,
 		serviceID,
-		ipld.Map{"message": "Hello, UCAN!"},
+		datamodel.Map{"message": "Hello, UCAN!"},
 		invocation.WithProofs(dlg.Link()),
 	)
 	if err != nil {

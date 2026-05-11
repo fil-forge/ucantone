@@ -27,14 +27,13 @@ func TestHTTPServer(t *testing.T) {
 
 		var messages []ipld.Any
 		server.Handle(testutil.ConsoleLogCapability, func(req execution.Request, res execution.Response) error {
-			msg := req.Invocation().Arguments()["message"]
+			msg := testutil.ArgsMap(t, req.Invocation())["message"]
 			t.Log(msg)
 			messages = append(messages, msg)
 			return res.SetSuccess(ipld.Map{})
 		})
 		server.Handle(testutil.TestEchoCapability, func(req execution.Request, res execution.Response) error {
-			inv := req.Invocation()
-			return res.SetSuccess(inv.Arguments())
+			return res.SetSuccess(testutil.ArgsMap(t, req.Invocation()))
 		})
 
 		logInv, err := testutil.ConsoleLogCapability.Invoke(

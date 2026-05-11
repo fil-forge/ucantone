@@ -24,13 +24,13 @@ func TestDispatcher(t *testing.T) {
 
 		var messages []ipld.Any
 		executor.Handle(testutil.ConsoleLogCapability, func(req execution.Request, res execution.Response) error {
-			msg := req.Invocation().Arguments()["message"]
+			msg := testutil.ArgsMap(t, req.Invocation())["message"]
 			t.Log(msg)
 			messages = append(messages, msg)
 			return res.SetSuccess(ipld.Map{})
 		})
 		executor.Handle(testutil.TestEchoCapability, func(req execution.Request, res execution.Response) error {
-			return res.SetSuccess(req.Invocation().Arguments())
+			return res.SetSuccess(testutil.ArgsMap(t, req.Invocation()))
 		})
 
 		logInv, err := testutil.ConsoleLogCapability.Invoke(
@@ -143,7 +143,7 @@ func TestDispatcher(t *testing.T) {
 	t.Run("validation error", func(t *testing.T) {
 		executor := dispatcher.New(service)
 		executor.Handle(testutil.TestEchoCapability, func(req execution.Request, res execution.Response) error {
-			return res.SetSuccess(req.Invocation().Arguments())
+			return res.SetSuccess(testutil.ArgsMap(t, req.Invocation()))
 		})
 
 		logInv, err := testutil.TestEchoCapability.Invoke(

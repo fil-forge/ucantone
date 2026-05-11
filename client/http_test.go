@@ -24,7 +24,7 @@ func TestHTTPClient(t *testing.T) {
 		server := server.NewHTTP(service)
 
 		server.Handle(testutil.TestEchoCapability, func(req execution.Request, res execution.Response) error {
-			return res.SetSuccess(req.Invocation().Arguments())
+			return res.SetSuccess(testutil.ArgsMap(t, req.Invocation()))
 		})
 
 		c, err := client.NewHTTP(
