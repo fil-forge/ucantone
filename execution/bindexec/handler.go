@@ -66,7 +66,7 @@ func NewRequest[A Arguments](ctx context.Context, inv ucan.Invocation, options .
 	for _, opt := range options {
 		opt(&cfg)
 	}
-	task, err := NewTask[A](inv.Subject(), inv.Command(), inv.Arguments(), inv.Nonce())
+	task, err := NewTask[A](inv.Subject(), inv.Command(), inv.ArgumentsBytes(), inv.Nonce())
 	if err != nil {
 		return nil, err
 	}
@@ -191,10 +191,11 @@ type HandlerFunc[A Arguments, O Success] = func(*Request[A], *Response[O]) error
 func NewHandler[A Arguments, O Success](handler HandlerFunc[A, O]) execution.HandlerFunc {
 	return func(req execution.Request, res execution.Response) error {
 		inv := req.Invocation()
-		task, err := NewTask[A](inv.Subject(), inv.Command(), inv.Arguments(), inv.Nonce())
+		task, err := NewTask[A](inv.Subject(), inv.Command(), inv.ArgumentsBytes(), inv.Nonce())
 		if err != nil {
 			return res.SetFailure(NewMalformedArgumentsError(err))
 		}
 		return handler(&Request[A]{Request: req, task: task}, &Response[O]{res: res})
 	}
 }
+

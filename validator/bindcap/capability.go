@@ -1,10 +1,10 @@
 package bindcap
 
 import (
+	"bytes"
 	"reflect"
 
 	"github.com/fil-forge/ucantone/ipld/codec/dagcbor"
-	"github.com/fil-forge/ucantone/ipld/datamodel"
 	"github.com/fil-forge/ucantone/ucan"
 	"github.com/fil-forge/ucantone/ucan/delegation"
 	"github.com/fil-forge/ucantone/ucan/invocation"
@@ -40,13 +40,13 @@ func New[A Arguments](cmd ucan.Command, options ...capability.Option) (*Capabili
 // specified Arguments type A.
 func (c *Capability[A]) Match(inv ucan.Invocation, proofs map[cid.Cid]ucan.Delegation) (*capability.Match, error) {
 	var args A
-	// if args is a pointer type, then we need to create an instance of it because
-	// rebind requires a non-nil pointer.
+	// if args is a pointer type, allocate the underlying value so
+	// UnmarshalCBOR has a non-nil pointer to write into.
 	typ := reflect.TypeOf(args)
-	if typ.Kind() == reflect.Ptr {
+	if typ != nil && typ.Kind() == reflect.Ptr {
 		args = reflect.New(typ.Elem()).Interface().(A)
 	}
-	if err := datamodel.Rebind(datamodel.Map(inv.Arguments()), args); err != nil {
+	if err := args.UnmarshalCBOR(bytes.NewReader(inv.ArgumentsBytes())); err != nil {
 		return nil, verrs.NewMalformedArgumentsError(inv.Command(), err)
 	}
 	return c.cap.Match(inv, proofs)
@@ -65,10 +65,5 @@ func (c *Capability[A]) Delegate(issuer ucan.Signer, audience ucan.Principal, su
 }
 
 func (c *Capability[A]) Invoke(issuer ucan.Signer, subject ucan.Subject, arguments A, options ...invocation.Option) (*invocation.Invocation, error) {
-	var args datamodel.Map
-	err := datamodel.Rebind(arguments, &args)
-	if err != nil {
-		return nil, err
-	}
-	return invocation.Invoke(issuer, subject, c.cap.Command(), args, options...)
+	return invocation.Invoke(issuer, subject, c.cap.Command(), arguments, options...)
 }

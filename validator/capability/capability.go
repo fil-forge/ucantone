@@ -1,10 +1,12 @@
 package capability
 
 import (
+	"bytes"
 	"errors"
 	"fmt"
 
 	"github.com/fil-forge/ucantone/ipld"
+	"github.com/fil-forge/ucantone/ipld/datamodel"
 	"github.com/fil-forge/ucantone/ucan"
 	"github.com/fil-forge/ucantone/ucan/command"
 	"github.com/fil-forge/ucantone/ucan/delegation"
@@ -47,7 +49,19 @@ func New(cmd ucan.Command, options ...Option) (*Capability, error) {
 // the task from the invocation, verified to be matching with delegation
 // policies.
 func (c *Capability) Match(inv ucan.Invocation, proofs map[cid.Cid]ucan.Delegation) (*Match, error) {
-	ok, err := policy.Match(c.pol, inv.Arguments())
+	// Policy matching walks the args structure (selectors like ".to") so we
+	// decode the raw CBOR bytes into a generic map for traversal. Conversion
+	// is local to this boundary; consumers wanting typed args use
+	// ArgumentsBytes directly.
+	var argsMap datamodel.Map
+	if raw := inv.ArgumentsBytes(); len(raw) > 0 {
+		if err := argsMap.UnmarshalCBOR(bytes.NewReader(raw)); err != nil {
+			return nil, fmt.Errorf("decoding args for policy match: %w", err)
+		}
+	}
+	args := ipld.Map(argsMap)
+
+	ok, err := policy.Match(c.pol, args)
 	if !ok {
 		return nil, err
 	}
@@ -58,7 +72,7 @@ func (c *Capability) Match(inv ucan.Invocation, proofs map[cid.Cid]ucan.Delegati
 		if !ok {
 			return nil, verrs.NewUnavailableProofError(p, errors.New("missing from map"))
 		}
-		ok, err = policy.Match(prf.Policy(), inv.Arguments())
+		ok, err = policy.Match(prf.Policy(), args)
 		if !ok {
 			return nil, err
 		}
@@ -81,5 +95,5 @@ func (c *Capability) Delegate(issuer ucan.Signer, audience ucan.Principal, subje
 }
 
 func (c *Capability) Invoke(issuer ucan.Signer, subject ucan.Subject, arguments ipld.Map, options ...invocation.Option) (*invocation.Invocation, error) {
-	return invocation.Invoke(issuer, subject, c.cmd, arguments, options...)
+	return invocation.Invoke(issuer, subject, c.cmd, datamodel.Map(arguments), options...)
 }
