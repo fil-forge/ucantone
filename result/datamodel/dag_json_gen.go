@@ -30,7 +30,7 @@ func (t *ResultModel) MarshalDagJSON(w io.Writer) error {
 	}
 	written := 0
 
-	// t.Err (datamodel.Any) (struct)
+	// t.Err (datamodel.Raw) (struct)
 	if len("Err") > 8192 {
 		return fmt.Errorf("String in field \"Err\" was too long")
 	}
@@ -50,7 +50,7 @@ func (t *ResultModel) MarshalDagJSON(w io.Writer) error {
 		}
 	}
 
-	// t.Ok (datamodel.Any) (struct)
+	// t.Ok (datamodel.Raw) (struct)
 	if len("Ok") > 8192 {
 		return fmt.Errorf("String in field \"Ok\" was too long")
 	}
@@ -103,7 +103,7 @@ func (t *ResultModel) UnmarshalDagJSON(r io.Reader) (err error) {
 			}
 			switch name {
 
-			// t.Err (datamodel.Any) (struct)
+			// t.Err (datamodel.Raw) (struct)
 			case "Err":
 
 				{
@@ -116,14 +116,14 @@ func (t *ResultModel) UnmarshalDagJSON(r io.Reader) (err error) {
 							return fmt.Errorf("t.Err: %w", err)
 						}
 					} else {
-						t.Err = new(datamodel.Any)
+						t.Err = new(datamodel.Raw)
 						if err := t.Err.UnmarshalDagJSON(jr); err != nil {
 							return fmt.Errorf("unmarshaling t.Err pointer: %w", err)
 						}
 					}
 				}
 
-				// t.Ok (datamodel.Any) (struct)
+				// t.Ok (datamodel.Raw) (struct)
 			case "Ok":
 
 				{
@@ -136,7 +136,7 @@ func (t *ResultModel) UnmarshalDagJSON(r io.Reader) (err error) {
 							return fmt.Errorf("t.Ok: %w", err)
 						}
 					} else {
-						t.Ok = new(datamodel.Any)
+						t.Ok = new(datamodel.Raw)
 						if err := t.Ok.UnmarshalDagJSON(jr); err != nil {
 							return fmt.Errorf("unmarshaling t.Ok pointer: %w", err)
 						}

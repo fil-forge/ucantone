@@ -8,10 +8,8 @@ import (
 	"testing"
 	"testing/iotest"
 
-	"github.com/fil-forge/ucantone/ipld"
 	"github.com/fil-forge/ucantone/ipld/codec/dagcbor"
 	"github.com/fil-forge/ucantone/ipld/datamodel"
-	"github.com/fil-forge/ucantone/result"
 	"github.com/fil-forge/ucantone/testutil"
 	"github.com/fil-forge/ucantone/transport"
 	"github.com/fil-forge/ucantone/ucan/command"
@@ -37,10 +35,10 @@ func TestHTTPInboundCodec(t *testing.T) {
 	inv, err := invocation.Invoke(bob, alice, cmd, args, invocation.WithAudience(service))
 	require.NoError(t, err)
 
-	rec, err := receipt.Issue(
+	rec, err := receipt.IssueOK(
 		service,
 		inv.Task().Link(),
-		result.OK[ipld.Map, ipld.Any](datamodel.Map{}),
+		datamodel.Map{},
 	)
 	require.NoError(t, err)
 
@@ -136,10 +134,10 @@ func TestHTTPOutboundCodec(t *testing.T) {
 	inv, err := invocation.Invoke(bob, alice, cmd, args, invocation.WithAudience(service))
 	require.NoError(t, err)
 
-	rec, err := receipt.Issue(
+	rec, err := receipt.IssueOK(
 		service,
 		inv.Task().Link(),
-		result.OK[ipld.Map, ipld.Any](datamodel.Map{}),
+		datamodel.Map{},
 	)
 	require.NoError(t, err)
 

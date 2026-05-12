@@ -8,7 +8,6 @@ import (
 	"github.com/fil-forge/ucantone/execution/dispatcher"
 	"github.com/fil-forge/ucantone/ipld"
 	"github.com/fil-forge/ucantone/ipld/datamodel"
-	"github.com/fil-forge/ucantone/result"
 	"github.com/fil-forge/ucantone/testutil"
 	"github.com/fil-forge/ucantone/ucan/invocation"
 	verrs "github.com/fil-forge/ucantone/validator/errors"
@@ -24,13 +23,13 @@ func TestDispatcher(t *testing.T) {
 
 		var messages []ipld.Any
 		executor.Handle(testutil.ConsoleLogCapability, func(req execution.Request, res execution.Response) error {
-			msg := req.Invocation().Arguments()["message"]
+			msg := testutil.ArgsMap(t, req.Invocation())["message"]
 			t.Log(msg)
 			messages = append(messages, msg)
-			return res.SetSuccess(ipld.Map{})
+			return res.SetSuccess(datamodel.Map{})
 		})
 		executor.Handle(testutil.TestEchoCapability, func(req execution.Request, res execution.Response) error {
-			return res.SetSuccess(req.Invocation().Arguments())
+			return res.SetSuccess(testutil.ArgsMap(t, req.Invocation()))
 		})
 
 		logInv, err := testutil.ConsoleLogCapability.Invoke(
@@ -44,7 +43,7 @@ func TestDispatcher(t *testing.T) {
 		resp, err := executor.Execute(execution.NewRequest(t.Context(), logInv))
 		require.NoError(t, err)
 
-		_, x := result.Unwrap(resp.Receipt().Out())
+		_, x := resp.Receipt().Out().Unpack()
 		require.Nil(t, x)
 
 		require.Len(t, messages, 1)
@@ -61,13 +60,13 @@ func TestDispatcher(t *testing.T) {
 		resp, err = executor.Execute(execution.NewRequest(t.Context(), echoInv))
 		require.NoError(t, err)
 
-		o, x := result.Unwrap(resp.Receipt().Out())
+		o, x := resp.Receipt().Out().Unpack()
 		require.NotNil(t, o)
 		require.Nil(t, x)
 		t.Log(o)
 
 		require.Len(t, messages, 1) // should not have changed
-		require.Equal(t, "echo!", o.(ipld.Map)["message"])
+		require.Equal(t, "echo!", testutil.ResultMap(t, o)["message"])
 	})
 
 	t.Run("handler not found", func(t *testing.T) {
@@ -84,12 +83,12 @@ func TestDispatcher(t *testing.T) {
 		resp, err := executor.Execute(execution.NewRequest(t.Context(), inv))
 		require.NoError(t, err)
 
-		o, x := result.Unwrap(resp.Receipt().Out())
+		o, x := resp.Receipt().Out().Unpack()
 		require.Nil(t, o)
 		require.NotNil(t, x)
 		t.Log(x)
 
-		require.Equal(t, dispatcher.HandlerNotFoundErrorName, x.(ipld.Map)["name"])
+		require.Equal(t, dispatcher.HandlerNotFoundErrorName, testutil.ResultMap(t, x)["name"])
 	})
 
 	t.Run("invalid audience", func(t *testing.T) {
@@ -106,12 +105,12 @@ func TestDispatcher(t *testing.T) {
 		resp, err := executor.Execute(execution.NewRequest(t.Context(), inv))
 		require.NoError(t, err)
 
-		o, x := result.Unwrap(resp.Receipt().Out())
+		o, x := resp.Receipt().Out().Unpack()
 		require.Nil(t, o)
 		require.NotNil(t, x)
 		t.Log(x)
 
-		require.Equal(t, execution.InvalidAudienceErrorName, x.(ipld.Map)["name"])
+		require.Equal(t, execution.InvalidAudienceErrorName, testutil.ResultMap(t, x)["name"])
 	})
 
 	t.Run("handler execution error", func(t *testing.T) {
@@ -132,18 +131,18 @@ func TestDispatcher(t *testing.T) {
 		resp, err := executor.Execute(execution.NewRequest(t.Context(), logInv))
 		require.NoError(t, err)
 
-		o, x := result.Unwrap(resp.Receipt().Out())
+		o, x := resp.Receipt().Out().Unpack()
 		require.Nil(t, o)
 		require.NotNil(t, x)
 		t.Log(x)
 
-		require.Equal(t, execution.HandlerExecutionErrorName, x.(ipld.Map)["name"])
+		require.Equal(t, execution.HandlerExecutionErrorName, testutil.ResultMap(t, x)["name"])
 	})
 
 	t.Run("validation error", func(t *testing.T) {
 		executor := dispatcher.New(service)
 		executor.Handle(testutil.TestEchoCapability, func(req execution.Request, res execution.Response) error {
-			return res.SetSuccess(req.Invocation().Arguments())
+			return res.SetSuccess(testutil.ArgsMap(t, req.Invocation()))
 		})
 
 		logInv, err := testutil.TestEchoCapability.Invoke(
@@ -157,11 +156,11 @@ func TestDispatcher(t *testing.T) {
 		resp, err := executor.Execute(execution.NewRequest(t.Context(), logInv))
 		require.NoError(t, err)
 
-		o, x := result.Unwrap(resp.Receipt().Out())
+		o, x := resp.Receipt().Out().Unpack()
 		require.Nil(t, o)
 		require.NotNil(t, x)
 		t.Log(x)
 
-		require.Equal(t, verrs.InvalidClaimErrorName, x.(ipld.Map)["name"])
+		require.Equal(t, verrs.InvalidClaimErrorName, testutil.ResultMap(t, x)["name"])
 	})
 }

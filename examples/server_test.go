@@ -1,6 +1,7 @@
 package examples
 
 import (
+	"bytes"
 	"context"
 	"fmt"
 	"net"
@@ -12,11 +13,10 @@ import (
 	"github.com/fil-forge/ucantone/examples/types"
 	"github.com/fil-forge/ucantone/execution"
 	"github.com/fil-forge/ucantone/execution/bindexec"
-	"github.com/fil-forge/ucantone/ipld"
 	"github.com/fil-forge/ucantone/ipld/datamodel"
 	"github.com/fil-forge/ucantone/principal/ed25519"
-	"github.com/fil-forge/ucantone/result"
 	"github.com/fil-forge/ucantone/server"
+	"github.com/fil-forge/ucantone/testutil"
 	"github.com/fil-forge/ucantone/ucan/invocation"
 	"github.com/fil-forge/ucantone/validator/bindcap"
 	"github.com/fil-forge/ucantone/validator/capability"
@@ -37,8 +37,7 @@ func TestServer(t *testing.T) {
 
 	// Register an echo handler that returns the invocation arguments as the result
 	ucanSrv.Handle(echoCapability, func(req execution.Request, res execution.Response) error {
-		inv := req.Invocation()
-		args := inv.Arguments()
+		args := testutil.ArgsMap(t, req.Invocation())
 		fmt.Printf("Echo: %s\n", args["message"])
 		return res.SetSuccess(args)
 	})
@@ -80,7 +79,7 @@ func TestServer(t *testing.T) {
 	inv, err := echoCapability.Invoke(
 		alice,
 		serviceID,
-		ipld.Map{"message": "Hello, UCAN!"},
+		datamodel.Map{"message": "Hello, UCAN!"},
 		invocation.WithProofs(dlg.Link()),
 	)
 	if err != nil {
@@ -98,15 +97,13 @@ func TestServer(t *testing.T) {
 		panic(err)
 	}
 
-	result.MatchResultR0(
-		resp.Receipt().Out(),
-		func(o ipld.Any) {
-			fmt.Printf("Echo response: %+v\n", o)
-		},
-		func(x ipld.Any) {
-			fmt.Printf("Invocation failed: %v\n", x)
-		},
-	)
+	if out := resp.Receipt().Out(); out.IsOK() {
+		ok, _ := out.Unpack()
+		fmt.Printf("Echo response: %+v\n", testutil.ResultMap(t, ok))
+	} else {
+		_, errBytes := out.Unpack()
+		fmt.Printf("Invocation failed: %v\n", testutil.ResultMap(t, errBytes))
+	}
 
 	err = httpSrv.Shutdown(context.Background())
 	if err != nil {
@@ -130,7 +127,7 @@ func TestTypedServer(t *testing.T) {
 	// Register an echo handler that returns the invocation arguments as the result
 	ucanSrv.Handle(echoCapability, bindexec.NewHandler(func(req *bindexec.Request[*types.EchoArguments], res *bindexec.Response[*types.EchoArguments]) error {
 		task := req.Task()
-		args := task.BindArguments()
+		args := task.Arguments()
 		fmt.Printf("Echo: %s\n", args.Message)
 		return res.SetSuccess(args)
 	}))
@@ -190,20 +187,17 @@ func TestTypedServer(t *testing.T) {
 		panic(err)
 	}
 
-	result.MatchResultR0(
-		resp.Receipt().Out(),
-		func(o ipld.Any) {
-			args := types.EchoArguments{}
-			err := datamodel.Rebind(datamodel.NewAny(o), &args)
-			if err != nil {
-				panic(err)
-			}
-			fmt.Printf("Echo response: %+v\n", args)
-		},
-		func(x ipld.Any) {
-			fmt.Printf("Invocation failed: %v\n", x)
-		},
-	)
+	if out := resp.Receipt().Out(); out.IsOK() {
+		ok, _ := out.Unpack()
+		args := types.EchoArguments{}
+		if err := args.UnmarshalCBOR(bytes.NewReader(ok)); err != nil {
+			panic(err)
+		}
+		fmt.Printf("Echo response: %+v\n", args)
+	} else {
+		_, errBytes := out.Unpack()
+		fmt.Printf("Invocation failed: %v\n", testutil.ResultMap(t, errBytes))
+	}
 
 	err = httpSrv.Shutdown(context.Background())
 	if err != nil {
@@ -229,8 +223,7 @@ func TestServerRoundTripper(t *testing.T) {
 
 	// Register an echo handler that returns the invocation arguments as the result
 	ucanSrv.Handle(echoCapability, func(req execution.Request, res execution.Response) error {
-		inv := req.Invocation()
-		args := inv.Arguments()
+		args := testutil.ArgsMap(t, req.Invocation())
 		fmt.Printf("Echo: %s\n", args["message"])
 		return res.SetSuccess(args)
 	})
@@ -255,7 +248,7 @@ func TestServerRoundTripper(t *testing.T) {
 	inv, err := echoCapability.Invoke(
 		alice,
 		serviceID,
-		ipld.Map{"message": "Hello, UCAN!"},
+		datamodel.Map{"message": "Hello, UCAN!"},
 		invocation.WithProofs(dlg.Link()),
 	)
 	if err != nil {
@@ -278,13 +271,11 @@ func TestServerRoundTripper(t *testing.T) {
 		panic(err)
 	}
 
-	result.MatchResultR0(
-		resp.Receipt().Out(),
-		func(o ipld.Any) {
-			fmt.Printf("Echo response: %+v\n", o)
-		},
-		func(x ipld.Any) {
-			fmt.Printf("Invocation failed: %v\n", x)
-		},
-	)
+	if out := resp.Receipt().Out(); out.IsOK() {
+		ok, _ := out.Unpack()
+		fmt.Printf("Echo response: %+v\n", testutil.ResultMap(t, ok))
+	} else {
+		_, errBytes := out.Unpack()
+		fmt.Printf("Invocation failed: %v\n", testutil.ResultMap(t, errBytes))
+	}
 }

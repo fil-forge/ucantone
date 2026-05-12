@@ -5,7 +5,7 @@ import (
 	"testing"
 
 	"github.com/fil-forge/ucantone/examples/types"
-	"github.com/fil-forge/ucantone/ipld"
+	"github.com/fil-forge/ucantone/ipld/datamodel"
 	"github.com/fil-forge/ucantone/principal/ed25519"
 	"github.com/fil-forge/ucantone/ucan/delegation"
 	"github.com/fil-forge/ucantone/ucan/invocation"
@@ -49,7 +49,7 @@ func TestPromises(t *testing.T) {
 		alice,
 		mailingList,
 		"/emails/list",
-		ipld.Map{"limit": 100},
+		datamodel.Map{"limit": 100},
 		invocation.WithAudience(mailer),
 		invocation.WithProofs(listEmailsDlg.Link()),
 	)
@@ -64,9 +64,9 @@ func TestPromises(t *testing.T) {
 		alice,
 		mailer,
 		"/msg/send",
-		ipld.Map{
+		datamodel.Map{
 			"from":    "alice@example.com",
-			"to":      ipld.Map{"await/ok": readListInv.Task().Link()},
+			"to":      datamodel.Map{"await/ok": readListInv.Task().Link()},
 			"message": "test",
 		},
 		invocation.WithAudience(mailer),

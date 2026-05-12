@@ -187,7 +187,7 @@ func TestNonStandardSignatureVerificationViaAttestation(t *testing.T) {
 					// Typically one would validate the attestation invocation's signature
 					// and check its claims, but for this example we'll just check that it
 					// attests to the token we're trying to verify.
-					if inv.Command() == Attest.Command() && inv.Arguments()["proof"] == token.Link() {
+					if inv.Command() == Attest.Command() && testutil.ArgsMap(t, inv)["proof"] == token.Link() {
 						return nil
 					}
 				}

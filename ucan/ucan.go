@@ -83,10 +83,16 @@ type Token interface {
 	//
 	// https://github.com/ucan-wg/spec/blob/main/README.md#command
 	Command() Command
-	// Arbitrary metadata.
+	// MetadataBytes returns the raw CBOR bytes of the metadata field, or nil
+	// if no metadata is present. Decode into a typed cborgen struct directly.
 	//
 	// https://github.com/ucan-wg/spec/blob/main/README.md#metadata
-	Metadata() ipld.Map
+	MetadataBytes() []byte
+	// SignedBytes returns the raw CBOR bytes of the SigPayload — the literal
+	// bytes the issuer signed over. Verification operates on these directly.
+	//
+	// https://github.com/ucan-wg/spec/blob/main/README.md#envelope
+	SignedBytes() []byte
 	// A unique, random nonce.
 	//
 	// https://github.com/ucan-wg/spec/blob/main/README.md#nonce
@@ -167,10 +173,14 @@ type Task interface {
 	//
 	// https://github.com/ucan-wg/invocation/blob/main/README.md#subject
 	Subject() Principal
-	// Parameters expected by the command.
+	// ArgumentsBytes returns the raw CBOR bytes of the args field. Decode
+	// into a typed cborgen struct directly:
+	//
+	//	var args MyArgs
+	//	err := args.UnmarshalCBOR(bytes.NewReader(t.ArgumentsBytes()))
 	//
 	// https://github.com/ucan-wg/invocation/blob/main/README.md#arguments
-	Arguments() ipld.Map
+	ArgumentsBytes() []byte
 	// A unique, random nonce. It ensures that multiple (non-idempotent)
 	// invocations are unique. The nonce SHOULD be empty (0x) for commands that
 	// are idempotent (such as deterministic Wasm modules or standards-abiding
@@ -213,8 +223,10 @@ type Receipt interface {
 	Invocation
 	// Ran is the CID of the executed task the receipt is for.
 	Ran() cid.Cid
-	// Out is the attested result of the execution of the task.
-	Out() result.Result[ipld.Any, ipld.Any]
+	// Out is the attested result of the execution of the task. The Result's
+	// Ok and Err branches hold raw CBOR bytes; consumers decode into the
+	// typed cborgen struct that matches the task's expected output.
+	Out() result.Result[[]byte, []byte]
 }
 
 // Container is a format for transmitting one or more UCAN tokens as bytes,

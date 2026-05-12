@@ -5,7 +5,6 @@ import (
 	"github.com/fil-forge/ucantone/ipld/datamodel"
 	"github.com/fil-forge/ucantone/ucan"
 	"github.com/fil-forge/ucantone/ucan/delegation/policy"
-	edm "github.com/fil-forge/ucantone/ucan/envelope/datamodel"
 )
 
 const Tag = "ucan/dlg@1.0.0-rc.1"
@@ -25,7 +24,7 @@ type TokenPayloadModel1_0_0_rc1 struct {
 	// A unique, random nonce.
 	Nonce ucan.Nonce `cborgen:"nonce" dagjsongen:"nonce"`
 	// Arbitrary metadata.
-	Meta *datamodel.MapWrapper `cborgen:"meta,omitempty" dagjsongen:"meta,omitempty"`
+	Meta *datamodel.Raw `cborgen:"meta,omitempty" dagjsongen:"meta,omitempty"`
 	// "Not before" UTC Unix Timestamp in seconds (valid from).
 	Nbf *ucan.UTCUnixTimestamp `cborgen:"nbf,omitempty" dagjsongen:"nbf,omitempty"`
 	// Expiration UTC Unix Timestamp in seconds (valid until).
@@ -38,5 +37,3 @@ type SigPayloadModel struct {
 	// The UCAN token payload.
 	TokenPayload1_0_0_rc1 *TokenPayloadModel1_0_0_rc1 `cborgen:"ucan/dlg@1.0.0-rc.1,omitempty" dagjsongen:"ucan/dlg@1.0.0-rc.1,omitempty"`
 }
-
-type EnvelopeModel edm.EnvelopeModel[SigPayloadModel]

@@ -7,7 +7,6 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/fil-forge/ucantone/ipld"
 	"github.com/fil-forge/ucantone/ipld/codec/dagcbor"
 	"github.com/fil-forge/ucantone/ipld/datamodel"
 	"github.com/fil-forge/ucantone/principal/ed25519"
@@ -16,6 +15,7 @@ import (
 	"github.com/fil-forge/ucantone/ucan/delegation"
 	ddm "github.com/fil-forge/ucantone/ucan/delegation/datamodel"
 	"github.com/fil-forge/ucantone/ucan/delegation/policy"
+	edm "github.com/fil-forge/ucantone/ucan/envelope/datamodel"
 	"github.com/fil-forge/ucantone/ucan/invocation"
 	idm "github.com/fil-forge/ucantone/ucan/invocation/datamodel"
 	verrs "github.com/fil-forge/ucantone/validator/errors"
@@ -94,7 +94,7 @@ func makeValidSelfSignedFixture() fdm.ValidModel {
 		alice,
 		alice,
 		cmd,
-		ipld.Map{},
+		datamodel.Map{},
 		invocation.WithIssuedAt(iat),
 		invocation.WithNoExpiration(),
 		invocation.WithNonce(nonce[0]),
@@ -123,7 +123,7 @@ func makeValidSingleNonTimeBoundedProofFixture() fdm.ValidModel {
 		alice,
 		bob,
 		cmd,
-		ipld.Map{},
+		datamodel.Map{},
 		invocation.WithIssuedAt(iat),
 		invocation.WithNoExpiration(),
 		invocation.WithProofs(dlg0.Link()),
@@ -155,7 +155,7 @@ func makeValidSingleActiveProofFixture() fdm.ValidModel {
 		alice,
 		bob,
 		cmd,
-		ipld.Map{},
+		datamodel.Map{},
 		invocation.WithIssuedAt(iat),
 		invocation.WithNoExpiration(),
 		invocation.WithProofs(dlg0.Link()),
@@ -194,7 +194,7 @@ func makeValidMultipleProofsFixture() fdm.ValidModel {
 		alice,
 		carol,
 		cmd,
-		ipld.Map{},
+		datamodel.Map{},
 		invocation.WithIssuedAt(iat),
 		invocation.WithNoExpiration(),
 		invocation.WithProofs(dlg0.Link(), dlg1.Link()),
@@ -235,7 +235,7 @@ func makeValidMultipleActiveProofsFixture() fdm.ValidModel {
 		alice,
 		carol,
 		cmd,
-		ipld.Map{},
+		datamodel.Map{},
 		invocation.WithIssuedAt(iat),
 		invocation.WithNoExpiration(),
 		invocation.WithProofs(dlg0.Link(), dlg1.Link()),
@@ -274,7 +274,7 @@ func makeValidPowerlineFixture() fdm.ValidModel {
 		alice,
 		carol,
 		cmd,
-		ipld.Map{},
+		datamodel.Map{},
 		invocation.WithIssuedAt(iat),
 		invocation.WithNoExpiration(),
 		invocation.WithProofs(dlg0.Link(), dlg1.Link()),
@@ -305,7 +305,7 @@ func makeValidPolicyMatchFixture() fdm.ValidModel {
 		alice,
 		bob,
 		cmd,
-		ipld.Map{"answer": 42},
+		datamodel.Map{"answer": 42},
 		invocation.WithIssuedAt(iat),
 		invocation.WithNoExpiration(),
 		invocation.WithProofs(dlg0.Link()),
@@ -326,7 +326,7 @@ func makeInvalidNoProofFixture() fdm.InvalidModel {
 		alice,
 		carol,
 		cmd,
-		ipld.Map{},
+		datamodel.Map{},
 		invocation.WithIssuedAt(iat),
 		invocation.WithNoExpiration(),
 		invocation.WithNonce(nonce[0]),
@@ -356,7 +356,7 @@ func makeInvalidMissingProofFixture() fdm.InvalidModel {
 		alice,
 		carol,
 		cmd,
-		ipld.Map{},
+		datamodel.Map{},
 		invocation.WithIssuedAt(iat),
 		invocation.WithNoExpiration(),
 		invocation.WithProofs(dlg0.Link()),
@@ -388,7 +388,7 @@ func makeInvalidExpiredProofFixture() fdm.InvalidModel {
 		alice,
 		bob,
 		cmd,
-		ipld.Map{},
+		datamodel.Map{},
 		invocation.WithAudience(carol),
 		invocation.WithIssuedAt(iat),
 		invocation.WithNoExpiration(),
@@ -422,7 +422,7 @@ func makeInvalidInactiveProofFixture() fdm.InvalidModel {
 		alice,
 		bob,
 		cmd,
-		ipld.Map{},
+		datamodel.Map{},
 		invocation.WithAudience(carol),
 		invocation.WithIssuedAt(iat),
 		invocation.WithNoExpiration(),
@@ -463,7 +463,7 @@ func makeInvalidProofPrincipalAlignmentFixture() fdm.InvalidModel {
 		alice,
 		dave,
 		cmd,
-		ipld.Map{},
+		datamodel.Map{},
 		invocation.WithIssuedAt(iat),
 		invocation.WithNoExpiration(),
 		invocation.WithProofs(dlg0.Link(), dlg1.Link()),
@@ -503,7 +503,7 @@ func makeInvalidInvocationPrincipalAlignmentFixture() fdm.InvalidModel {
 		alice,
 		dave,
 		cmd,
-		ipld.Map{},
+		datamodel.Map{},
 		invocation.WithIssuedAt(iat),
 		invocation.WithNoExpiration(),
 		invocation.WithProofs(dlg0.Link(), dlg1.Link()),
@@ -543,7 +543,7 @@ func makeInvalidProofSubjectAlignmentFixture() fdm.InvalidModel {
 		alice,
 		carol,
 		cmd,
-		ipld.Map{},
+		datamodel.Map{},
 		invocation.WithIssuedAt(iat),
 		invocation.WithNoExpiration(),
 		invocation.WithProofs(dlg0.Link(), dlg1.Link()),
@@ -583,7 +583,7 @@ func makeInvalidInvocationSubjectAlignmentFixture() fdm.InvalidModel {
 		alice,
 		dave,
 		cmd,
-		ipld.Map{},
+		datamodel.Map{},
 		invocation.WithIssuedAt(iat),
 		invocation.WithNoExpiration(),
 		invocation.WithProofs(dlg0.Link(), dlg1.Link()),
@@ -615,7 +615,7 @@ func makeInvalidExpiredInvocationFixture() fdm.InvalidModel {
 		alice,
 		bob,
 		cmd,
-		ipld.Map{},
+		datamodel.Map{},
 		invocation.WithAudience(carol),
 		invocation.WithIssuedAt(iat),
 		invocation.WithExpiration(exp),
@@ -650,13 +650,16 @@ func makeInvalidProofSignatureFixture() fdm.InvalidModel {
 		TokenPayload1_0_0_rc1: tokenPayload,
 	}
 
-	model := ddm.EnvelopeModel{
+	var spBuf bytes.Buffer
+	must0(sigPayload.MarshalCBOR(&spBuf))
+
+	envelope := edm.EnvelopeModel{
 		Signature:  []byte{1, 2, 3},
-		SigPayload: sigPayload,
+		SigPayload: datamodel.NewRaw(spBuf.Bytes()),
 	}
 
 	var dlg0Buf bytes.Buffer
-	must0(model.MarshalCBOR(&dlg0Buf))
+	must0(envelope.MarshalCBOR(&dlg0Buf))
 	dlg0Link := must(cid.V1Builder{
 		Codec:  dagcbor.Code,
 		MhType: multihash.SHA2_256,
@@ -666,7 +669,7 @@ func makeInvalidProofSignatureFixture() fdm.InvalidModel {
 		alice,
 		bob,
 		cmd,
-		ipld.Map{},
+		datamodel.Map{},
 		invocation.WithAudience(carol),
 		invocation.WithIssuedAt(iat),
 		invocation.WithNoExpiration(),
@@ -691,7 +694,7 @@ func makeInvalidInvocationSignatureFixture() fdm.InvalidModel {
 		Iss:   alice.DID(),
 		Sub:   carol.DID(),
 		Cmd:   cmd,
-		Args:  datamodel.MapWrapper{Map: datamodel.Map{}},
+		Args:  datamodel.NewRaw([]byte{0xa0}),
 		Nonce: nonce[0],
 		Iat:   &iat,
 	}
@@ -701,13 +704,16 @@ func makeInvalidInvocationSignatureFixture() fdm.InvalidModel {
 		TokenPayload1_0_0_rc1: tokenPayload,
 	}
 
-	model := idm.EnvelopeModel{
+	var spBuf bytes.Buffer
+	must0(sigPayload.MarshalCBOR(&spBuf))
+
+	envelope := edm.EnvelopeModel{
 		Signature:  []byte{1, 2, 3},
-		SigPayload: sigPayload,
+		SigPayload: datamodel.NewRaw(spBuf.Bytes()),
 	}
 
 	var envBuf bytes.Buffer
-	must0(model.MarshalCBOR(&envBuf))
+	must0(envelope.MarshalCBOR(&envBuf))
 
 	return fdm.InvalidModel{
 		Name:        "invalid invocation signature",
@@ -733,7 +739,7 @@ func makeInvalidPowerlineFixture() fdm.InvalidModel {
 		alice,
 		carol,
 		cmd,
-		ipld.Map{},
+		datamodel.Map{},
 		invocation.WithIssuedAt(iat),
 		invocation.WithNoExpiration(),
 		invocation.WithProofs(dlg0.Link()),
@@ -765,7 +771,7 @@ func makeInvalidPolicyViolationFixture() fdm.InvalidModel {
 		alice,
 		bob,
 		cmd,
-		ipld.Map{"answer": 41},
+		datamodel.Map{"answer": 41},
 		invocation.WithIssuedAt(iat),
 		invocation.WithNoExpiration(),
 		invocation.WithProofs(dlg0.Link()),

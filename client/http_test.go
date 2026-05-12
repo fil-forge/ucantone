@@ -7,9 +7,7 @@ import (
 
 	"github.com/fil-forge/ucantone/client"
 	"github.com/fil-forge/ucantone/execution"
-	"github.com/fil-forge/ucantone/ipld"
 	"github.com/fil-forge/ucantone/ipld/datamodel"
-	"github.com/fil-forge/ucantone/result"
 	"github.com/fil-forge/ucantone/server"
 	"github.com/fil-forge/ucantone/testutil"
 	"github.com/fil-forge/ucantone/ucan/invocation"
@@ -24,7 +22,7 @@ func TestHTTPClient(t *testing.T) {
 		server := server.NewHTTP(service)
 
 		server.Handle(testutil.TestEchoCapability, func(req execution.Request, res execution.Response) error {
-			return res.SetSuccess(req.Invocation().Arguments())
+			return res.SetSuccess(testutil.ArgsMap(t, req.Invocation()))
 		})
 
 		c, err := client.NewHTTP(
@@ -44,9 +42,9 @@ func TestHTTPClient(t *testing.T) {
 		res, err := c.Execute(execution.NewRequest(t.Context(), inv))
 		require.NoError(t, err)
 
-		o, x := result.Unwrap(res.Receipt().Out())
+		o, x := res.Receipt().Out().Unpack()
 		require.Nil(t, x)
 		require.NotNil(t, o)
-		require.Equal(t, "echo!", o.(ipld.Map)["message"])
+		require.Equal(t, "echo!", testutil.ResultMap(t, o)["message"])
 	})
 }

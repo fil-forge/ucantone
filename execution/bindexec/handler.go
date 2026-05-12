@@ -5,18 +5,17 @@ import (
 	"fmt"
 
 	"github.com/fil-forge/ucantone/execution"
-	"github.com/fil-forge/ucantone/ipld/codec/dagcbor"
-	"github.com/fil-forge/ucantone/ipld/datamodel"
 	"github.com/fil-forge/ucantone/ucan"
 	"github.com/ipfs/go-cid"
+	cbg "github.com/whyrusleeping/cbor-gen"
 )
 
 type Arguments interface {
-	dagcbor.Unmarshaler
+	cbg.CBORUnmarshaler
 }
 
 type Success interface {
-	dagcbor.Marshaler
+	cbg.CBORMarshaler
 }
 
 type requestConfig struct {
@@ -66,7 +65,7 @@ func NewRequest[A Arguments](ctx context.Context, inv ucan.Invocation, options .
 	for _, opt := range options {
 		opt(&cfg)
 	}
-	task, err := NewTask[A](inv.Subject(), inv.Command(), inv.Arguments(), inv.Nonce())
+	task, err := NewTask[A](inv.Subject(), inv.Command(), inv.ArgumentsBytes(), inv.Nonce())
 	if err != nil {
 		return nil, err
 	}
@@ -176,12 +175,7 @@ func (r *Response[O]) SetReceipt(receipt ucan.Receipt) error {
 }
 
 func (r *Response[O]) SetSuccess(o O) error {
-	m := datamodel.Map{}
-	err := datamodel.Rebind(o, &m)
-	if err != nil {
-		return err
-	}
-	return r.res.SetSuccess(m)
+	return r.res.SetSuccess(o)
 }
 
 type HandlerFunc[A Arguments, O Success] = func(*Request[A], *Response[O]) error
@@ -191,10 +185,11 @@ type HandlerFunc[A Arguments, O Success] = func(*Request[A], *Response[O]) error
 func NewHandler[A Arguments, O Success](handler HandlerFunc[A, O]) execution.HandlerFunc {
 	return func(req execution.Request, res execution.Response) error {
 		inv := req.Invocation()
-		task, err := NewTask[A](inv.Subject(), inv.Command(), inv.Arguments(), inv.Nonce())
+		task, err := NewTask[A](inv.Subject(), inv.Command(), inv.ArgumentsBytes(), inv.Nonce())
 		if err != nil {
 			return res.SetFailure(NewMalformedArgumentsError(err))
 		}
 		return handler(&Request[A]{Request: req, task: task}, &Response[O]{res: res})
 	}
 }
+

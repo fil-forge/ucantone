@@ -1,10 +1,9 @@
 package bindexec
 
 import (
+	"bytes"
 	"reflect"
 
-	"github.com/fil-forge/ucantone/ipld"
-	"github.com/fil-forge/ucantone/ipld/datamodel"
 	"github.com/fil-forge/ucantone/ucan"
 	"github.com/fil-forge/ucantone/ucan/invocation"
 )
@@ -14,31 +13,34 @@ type Task[A Arguments] struct {
 	args A
 }
 
+// NewTask constructs a typed task. argsBytes must be the raw CBOR encoding of
+// the args (typically obtained from [invocation.Invocation.ArgumentsBytes]);
+// the bytes are decoded directly into the typed argument struct A via cborgen.
 func NewTask[A Arguments](
 	subject ucan.Subject,
 	command ucan.Command,
-	arguments ipld.Map,
+	argsBytes []byte,
 	nonce ucan.Nonce,
 ) (*Task[A], error) {
 	var args A
-	// if args is a pointer type, then we need to create an instance of it because
-	// rebind requires a non-nil pointer.
+	// if args is a pointer type, allocate the underlying value so
+	// UnmarshalCBOR has a non-nil pointer to write into.
 	typ := reflect.TypeOf(args)
-	if typ.Kind() == reflect.Ptr {
+	if typ != nil && typ.Kind() == reflect.Ptr {
 		args = reflect.New(typ.Elem()).Interface().(A)
 	}
-	if err := datamodel.Rebind(datamodel.Map(arguments), args); err != nil {
+	if err := args.UnmarshalCBOR(bytes.NewReader(argsBytes)); err != nil {
 		return nil, err
 	}
-	task, err := invocation.NewTask(subject, command, arguments, nonce)
+	task, err := invocation.NewTask(subject, command, argsBytes, nonce)
 	if err != nil {
 		return nil, err
 	}
 	return &Task[A]{Task: task, args: args}, nil
 }
 
-// BindArguments returns the arguments bound to the type for this task.
-func (t *Task[A]) BindArguments() A {
+// Arguments returns the arguments bound to the type for this task.
+func (t *Task[A]) Arguments() A {
 	return t.args
 }
 

@@ -184,35 +184,3 @@ func (mp *Map) UnmarshalDagJSON(r io.Reader) error {
 }
 
 var _ ipld.Map = (Map)(nil)
-
-type MapWrapper struct {
-	Map Map
-}
-
-func (mw MapWrapper) MarshalCBOR(w io.Writer) error {
-	return mw.Map.MarshalCBOR(w)
-}
-
-func (mw *MapWrapper) UnmarshalCBOR(r io.Reader) error {
-	mp := Map{}
-	err := mp.UnmarshalCBOR(r)
-	if err != nil {
-		return err
-	}
-	*mw = MapWrapper{mp}
-	return nil
-}
-
-func (mw MapWrapper) MarshalDagJSON(w io.Writer) error {
-	return mw.Map.MarshalDagJSON(w)
-}
-
-func (mw *MapWrapper) UnmarshalDagJSON(r io.Reader) error {
-	mp := Map{}
-	err := mp.UnmarshalDagJSON(r)
-	if err != nil {
-		return err
-	}
-	*mw = MapWrapper{mp}
-	return nil
-}

@@ -5,16 +5,18 @@ import (
 	"fmt"
 	"testing"
 
-	"github.com/fil-forge/ucantone/ipld/codec/dagcbor"
-	"github.com/fil-forge/ucantone/ipld/codec/dagjson"
+	jsg "github.com/alanshaw/dag-json-gen"
 	"github.com/fil-forge/ucantone/testutil"
 	"github.com/fil-forge/ucantone/ucan/promise"
 	"github.com/stretchr/testify/require"
+	cbg "github.com/whyrusleeping/cbor-gen"
 )
 
 type dagMarshalable interface {
-	dagcbor.Marshalable
-	dagjson.DagJsonMarshalable
+	cbg.CBORMarshaler
+	cbg.CBORUnmarshaler
+	jsg.DagJsonMarshaler
+	jsg.DagJsonUnmarshaler
 }
 
 func TestPromise(t *testing.T) {

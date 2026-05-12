@@ -45,7 +45,7 @@ func (t *EnvelopeModel) MarshalCBOR(w io.Writer) error {
 		return err
 	}
 
-	// t.SigPayload (datamodel.SigPayloadModel) (struct)
+	// t.SigPayload (datamodel.Raw) (struct)
 	if err := t.SigPayload.MarshalCBOR(cw); err != nil {
 		return err
 	}
@@ -97,7 +97,7 @@ func (t *EnvelopeModel) UnmarshalCBOR(r io.Reader) (err error) {
 		return err
 	}
 
-	// t.SigPayload (datamodel.SigPayloadModel) (struct)
+	// t.SigPayload (datamodel.Raw) (struct)
 
 	{
 

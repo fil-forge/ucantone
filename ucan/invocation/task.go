@@ -4,7 +4,6 @@ import (
 	"bytes"
 	"fmt"
 
-	"github.com/fil-forge/ucantone/ipld"
 	"github.com/fil-forge/ucantone/ipld/codec/dagcbor"
 	"github.com/fil-forge/ucantone/ipld/datamodel"
 	"github.com/fil-forge/ucantone/ucan"
@@ -14,24 +13,30 @@ import (
 )
 
 type Task struct {
-	link  cid.Cid
-	bytes []byte
-	sub   ucan.Subject
-	cmd   ucan.Command
-	args  ipld.Map
-	nnc   ucan.Nonce
+	link     cid.Cid
+	bytes    []byte
+	sub      ucan.Subject
+	cmd      ucan.Command
+	argBytes []byte
+	nnc      ucan.Nonce
 }
 
+// NewTask constructs a task from its component fields. argsBytes must be the
+// raw CBOR encoding of the args (typically obtained from
+// [Invocation.ArgumentsBytes] or by marshaling a typed cborgen struct directly).
 func NewTask(
 	subject ucan.Subject,
 	command ucan.Command,
-	arguments ipld.Map,
+	argsBytes []byte,
 	nonce ucan.Nonce,
 ) (*Task, error) {
+	if len(argsBytes) == 0 {
+		argsBytes = []byte{0xa0}
+	}
 	taskModel := idm.TaskModel{
 		Sub:   subject.DID(),
 		Cmd:   command,
-		Args:  datamodel.MapWrapper{Map: datamodel.Map(arguments)},
+		Args:  datamodel.NewRaw(argsBytes),
 		Nonce: nonce,
 	}
 
@@ -48,11 +53,12 @@ func NewTask(
 		return nil, fmt.Errorf("hashing task bytes: %w", err)
 	}
 
-	return &Task{link, taskBuf.Bytes(), subject, command, arguments, nonce}, nil
+	return &Task{link, taskBuf.Bytes(), subject, command, argsBytes, nonce}, nil
 }
 
-func (t *Task) Arguments() ipld.Map {
-	return t.args
+// ArgumentsBytes returns the raw CBOR bytes of the args field.
+func (t *Task) ArgumentsBytes() []byte {
+	return t.argBytes
 }
 
 func (t *Task) Bytes() []byte {

@@ -4,7 +4,7 @@ import (
 	"fmt"
 	"testing"
 
-	"github.com/fil-forge/ucantone/ipld"
+	"github.com/fil-forge/ucantone/ipld/datamodel"
 	"github.com/fil-forge/ucantone/principal/ed25519"
 	"github.com/fil-forge/ucantone/ucan/container"
 	"github.com/fil-forge/ucantone/ucan/delegation"
@@ -45,7 +45,7 @@ func TestContainer(t *testing.T) {
 		alice,
 		mailer,
 		"/message/send",
-		ipld.Map{
+		datamodel.Map{
 			"to":      []string{"bob@example.com"},
 			"subject": "Hello!",
 			"message": "Hello Bob, How do you do?",

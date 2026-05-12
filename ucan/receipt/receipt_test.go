@@ -1,21 +1,22 @@
 package receipt_test
 
 import (
+	"bytes"
 	"testing"
 
-	"github.com/fil-forge/ucantone/result"
 	"github.com/fil-forge/ucantone/testutil"
 	"github.com/fil-forge/ucantone/ucan/receipt"
 	"github.com/stretchr/testify/require"
+	cbg "github.com/whyrusleeping/cbor-gen"
 )
 
 func TestIssue(t *testing.T) {
 	t.Run("minimal", func(t *testing.T) {
 		executor := testutil.RandomSigner(t)
 		ran := testutil.RandomCID(t)
-		out := result.OK[int64, any](42)
 
-		initial, err := receipt.Issue(executor, ran, out)
+		ok := cbg.CborInt(42)
+		initial, err := receipt.IssueOK(executor, ran, &ok)
 		require.NoError(t, err)
 
 		encoded, err := receipt.Encode(initial)
@@ -27,8 +28,11 @@ func TestIssue(t *testing.T) {
 		require.Equal(t, executor.DID(), decoded.Issuer().DID())
 		require.Equal(t, ran, decoded.Ran())
 
-		o, x := result.Unwrap(decoded.Out())
-		require.Nil(t, x)
-		require.Equal(t, int64(42), o)
+		okBytes, errBytes := decoded.Out().Unpack()
+		require.Nil(t, errBytes)
+
+		var got cbg.CborInt
+		require.NoError(t, got.UnmarshalCBOR(bytes.NewReader(okBytes)))
+		require.Equal(t, cbg.CborInt(42), got)
 	})
 }
