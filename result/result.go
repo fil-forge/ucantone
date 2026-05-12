@@ -4,10 +4,10 @@
 package result
 
 // Result is a typed sum: either an Ok value of type O or an Err value of type
-// X. Construct with [OK] or [Err]; inspect with [Result.IsOk] or unpack into
+// X. Construct with [OK] or [Err]; inspect with [Result.IsOK] or unpack into
 // a Go (ok, err) pair with [Result.Unpack].
 //
-// Both branches are zero-valued when the other branch is set; use IsOk to
+// Both branches are zero-valued when the other branch is set; use IsOK to
 // disambiguate before reading the populated branch.
 type Result[O, X any] struct {
 	isOk bool
@@ -25,12 +25,12 @@ func Err[O, X any](v X) Result[O, X] {
 	return Result[O, X]{err: v}
 }
 
-// IsOk reports whether the Ok branch is populated.
-func (r Result[O, X]) IsOk() bool { return r.isOk }
+// IsOK reports whether the Ok branch is populated.
+func (r Result[O, X]) IsOK() bool { return r.isOk }
 
 // IsErr reports whether the Err branch is populated.
 func (r Result[O, X]) IsErr() bool { return !r.isOk }
 
-// Unpack returns the (ok, err) pair. The branch corresponding to !IsOk holds
+// Unpack returns the (ok, err) pair. The branch corresponding to !IsOK holds
 // the zero value of its type.
 func (r Result[O, X]) Unpack() (O, X) { return r.ok, r.err }

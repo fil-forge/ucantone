@@ -4,13 +4,14 @@ import (
 	"errors"
 	"testing"
 
-	"github.com/fil-forge/ucantone/result"
 	"github.com/stretchr/testify/require"
+
+	"github.com/fil-forge/ucantone/result"
 )
 
 func TestOK(t *testing.T) {
 	r := result.OK[int, error](42)
-	require.True(t, r.IsOk())
+	require.True(t, r.IsOK())
 	require.False(t, r.IsErr())
 
 	ok, errVal := r.Unpack()
@@ -21,7 +22,7 @@ func TestOK(t *testing.T) {
 func TestErr(t *testing.T) {
 	boom := errors.New("boom")
 	r := result.Err[int, error](boom)
-	require.False(t, r.IsOk())
+	require.False(t, r.IsOK())
 	require.True(t, r.IsErr())
 
 	ok, errVal := r.Unpack()

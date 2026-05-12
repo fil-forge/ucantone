@@ -97,7 +97,7 @@ func TestServer(t *testing.T) {
 		panic(err)
 	}
 
-	if out := resp.Receipt().Out(); out.IsOk() {
+	if out := resp.Receipt().Out(); out.IsOK() {
 		ok, _ := out.Unpack()
 		fmt.Printf("Echo response: %+v\n", testutil.ResultMap(t, ok))
 	} else {
@@ -127,7 +127,7 @@ func TestTypedServer(t *testing.T) {
 	// Register an echo handler that returns the invocation arguments as the result
 	ucanSrv.Handle(echoCapability, bindexec.NewHandler(func(req *bindexec.Request[*types.EchoArguments], res *bindexec.Response[*types.EchoArguments]) error {
 		task := req.Task()
-		args := task.BindArguments()
+		args := task.Arguments()
 		fmt.Printf("Echo: %s\n", args.Message)
 		return res.SetSuccess(args)
 	}))
@@ -187,7 +187,7 @@ func TestTypedServer(t *testing.T) {
 		panic(err)
 	}
 
-	if out := resp.Receipt().Out(); out.IsOk() {
+	if out := resp.Receipt().Out(); out.IsOK() {
 		ok, _ := out.Unpack()
 		args := types.EchoArguments{}
 		if err := args.UnmarshalCBOR(bytes.NewReader(ok)); err != nil {
@@ -271,7 +271,7 @@ func TestServerRoundTripper(t *testing.T) {
 		panic(err)
 	}
 
-	if out := resp.Receipt().Out(); out.IsOk() {
+	if out := resp.Receipt().Out(); out.IsOK() {
 		ok, _ := out.Unpack()
 		fmt.Printf("Echo response: %+v\n", testutil.ResultMap(t, ok))
 	} else {

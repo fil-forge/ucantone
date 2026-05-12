@@ -33,16 +33,15 @@ type Receipt struct {
 // Ok and Err branches hold raw CBOR bytes; decode into the typed cborgen
 // struct that matches the executed task's expected output:
 //
-//	result.MatchResultR0(rcpt.Out(),
-//	    func(ok []byte) {
-//	        var v MyResult
-//	        v.UnmarshalCBOR(bytes.NewReader(ok))
-//	        // ...
-//	    },
-//	    func(err []byte) {
-//	        // ...
-//	    },
-//	)
+//	if out := rcpt.Out(); out.IsOK() {
+//	    okBytes, _ := out.Unpack()
+//	    var v MyResult
+//	    v.UnmarshalCBOR(bytes.NewReader(okBytes))
+//	    // ...
+//	} else {
+//	    _, errBytes := out.Unpack()
+//	    // ...
+//	}
 func (rcpt *Receipt) Out() result.Result[[]byte, []byte] {
 	return rcpt.out
 }

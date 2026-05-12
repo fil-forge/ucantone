@@ -128,11 +128,11 @@ func TestExtractTypedArgsFromInvocation(t *testing.T) {
 	// === Typed receipt result extraction ===
 	//
 	// Receipt.Out returns a result.Result[[]byte, []byte]. Dispatch with
-	// IsOk and unpack to the (ok, err) pair. Both branches decode using
+	// IsOK and unpack to the (ok, err) pair. Both branches decode using
 	// the same one-line pattern as args/meta — only the typed schema and
 	// the populated branch differ.
 	out := okDecoded.Out()
-	require.True(t, out.IsOk())
+	require.True(t, out.IsOK())
 	okBytes, _ := out.Unpack()
 	var ok types.EchoArguments
 	require.NoError(t, ok.UnmarshalCBOR(bytes.NewReader(okBytes)))

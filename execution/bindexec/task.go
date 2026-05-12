@@ -39,8 +39,8 @@ func NewTask[A Arguments](
 	return &Task[A]{Task: task, args: args}, nil
 }
 
-// BindArguments returns the arguments bound to the type for this task.
-func (t *Task[A]) BindArguments() A {
+// Arguments returns the arguments bound to the type for this task.
+func (t *Task[A]) Arguments() A {
 	return t.args
 }
 

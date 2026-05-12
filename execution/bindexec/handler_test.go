@@ -16,7 +16,7 @@ import (
 func TestHandler(t *testing.T) {
 	alice := testutil.RandomSigner(t)
 	handler := bindexec.NewHandler(func(req *bindexec.Request[*tdm.TestObject], res *bindexec.Response[*tdm.TestObject2]) error {
-		args := req.Task().BindArguments()
+		args := req.Task().Arguments()
 		require.Equal(t, args.Bytes, []byte{0x01, 0x02, 0x03})
 		return res.SetSuccess(&tdm.TestObject2{Str: "testy"})
 	})
