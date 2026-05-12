@@ -7,6 +7,7 @@ import (
 
 	"github.com/stretchr/testify/require"
 
+	edm "github.com/fil-forge/ucantone/errors/datamodel"
 	"github.com/fil-forge/ucantone/examples/types"
 	"github.com/fil-forge/ucantone/ipld/datamodel"
 	"github.com/fil-forge/ucantone/principal/ed25519"
@@ -91,38 +92,75 @@ func TestExtractTypedArgsFromInvocation(t *testing.T) {
 	require.Equal(t, "ucan-client/1.0", meta["user_agent"])
 	fmt.Printf("Decoded metadata: %+v\n", meta)
 
-	// === Receipt round-trip with typed result ===
+	// === Receipt round-trip — successful execution ===
 	//
 	// alice (acting as executor for this single-party demo) issues a
 	// receipt attesting to a successful execution. The result is a
 	// typed cborgen value — same schema treatment as args.
-	rcpt, err := receipt.IssueOK(
+	okRcpt, err := receipt.IssueOK(
 		alice,
 		decoded.Task().Link(),
 		&types.EchoArguments{Message: "echoed back!"},
 	)
 	require.NoError(t, err)
 
-	rcptEncoded, err := receipt.Encode(rcpt)
+	okEncoded, err := receipt.Encode(okRcpt)
 	require.NoError(t, err)
-	rcptDecoded, err := receipt.Decode(rcptEncoded)
+	okDecoded, err := receipt.Decode(okEncoded)
+	require.NoError(t, err)
+
+	// === Receipt round-trip — failed execution ===
+	//
+	// IssueErr is symmetric to IssueOK: typed cborgen value in, raw bytes
+	// stored in the Err branch of the receipt's Out. The consumer-side
+	// decode pattern is identical — only the populated branch differs.
+	errRcpt, err := receipt.IssueErr(
+		alice,
+		decoded.Task().Link(),
+		&edm.ErrorModel{ErrorName: "EchoFailure", Message: "executor went home early"},
+	)
+	require.NoError(t, err)
+
+	errEncoded, err := receipt.Encode(errRcpt)
+	require.NoError(t, err)
+	errDecoded, err := receipt.Decode(errEncoded)
 	require.NoError(t, err)
 
 	// === Typed receipt result extraction ===
 	//
-	// Receipt.Out is result.Result[[]byte, []byte] — Ok and Err branches
-	// hold raw CBOR bytes. Decode the relevant branch into the typed
-	// struct that matches the executed task's expected output.
-	okBytes, errBytes := result.Unwrap(rcptDecoded.Out())
-	require.Nil(t, errBytes)
-	require.NotNil(t, okBytes)
+	// Receipt.Out is result.Result[[]byte, []byte]. Use result.MatchResultR0
+	// (or .R1, .R2 for return values) to dispatch on which branch is
+	// populated. Both callbacks receive []byte and decode using the same
+	// one-line pattern as args/meta — only the typed schema differs.
+	result.MatchResultR0(
+		okDecoded.Out(),
+		func(okBytes []byte) {
+			var ok types.EchoArguments
+			require.NoError(t, ok.UnmarshalCBOR(bytes.NewReader(okBytes)))
+			require.Equal(t, "echoed back!", ok.Message)
+			fmt.Printf("Decoded typed OK result: %+v\n", ok)
+		},
+		func(errBytes []byte) {
+			t.Fatalf("unexpected error branch on success receipt: %x", errBytes)
+		},
+	)
 
-	var okResult types.EchoArguments
-	require.NoError(t, okResult.UnmarshalCBOR(bytes.NewReader(okBytes)))
-	require.Equal(t, "echoed back!", okResult.Message)
-	fmt.Printf("Decoded typed receipt result: %+v\n", okResult)
+	result.MatchResultR0(
+		errDecoded.Out(),
+		func(okBytes []byte) {
+			t.Fatalf("unexpected ok branch on failure receipt: %x", okBytes)
+		},
+		func(errBytes []byte) {
+			var fail edm.ErrorModel
+			require.NoError(t, fail.UnmarshalCBOR(bytes.NewReader(errBytes)))
+			require.Equal(t, "EchoFailure", fail.ErrorName)
+			require.Equal(t, "executor went home early", fail.Message)
+			fmt.Printf("Decoded typed ERR result: %+v\n", fail)
+		},
+	)
 
-	// The same one-line pattern works across all three fields:
+	// The same one-line pattern works across every field a UCAN consumer
+	// reads — args, meta, and either branch of a receipt's Out:
 	//
 	//   var args MyArgs
 	//   args.UnmarshalCBOR(bytes.NewReader(inv.ArgumentsBytes()))
@@ -131,5 +169,8 @@ func TestExtractTypedArgsFromInvocation(t *testing.T) {
 	//   meta.UnmarshalCBOR(bytes.NewReader(inv.MetadataBytes()))
 	//
 	//   var ok MyResult
-	//   ok.UnmarshalCBOR(bytes.NewReader(okBytes))           // from rcpt.Out()
+	//   ok.UnmarshalCBOR(bytes.NewReader(okBytes))           // OK branch
+	//
+	//   var fail MyError
+	//   fail.UnmarshalCBOR(bytes.NewReader(errBytes))        // Err branch
 }
