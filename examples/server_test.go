@@ -15,7 +15,6 @@ import (
 	"github.com/fil-forge/ucantone/execution/bindexec"
 	"github.com/fil-forge/ucantone/ipld/datamodel"
 	"github.com/fil-forge/ucantone/principal/ed25519"
-	"github.com/fil-forge/ucantone/result"
 	"github.com/fil-forge/ucantone/server"
 	"github.com/fil-forge/ucantone/testutil"
 	"github.com/fil-forge/ucantone/ucan/invocation"
@@ -98,15 +97,13 @@ func TestServer(t *testing.T) {
 		panic(err)
 	}
 
-	result.MatchResultR0(
-		resp.Receipt().Out(),
-		func(o []byte) {
-			fmt.Printf("Echo response: %+v\n", testutil.ResultMap(t, o))
-		},
-		func(x []byte) {
-			fmt.Printf("Invocation failed: %v\n", testutil.ResultMap(t, x))
-		},
-	)
+	if out := resp.Receipt().Out(); out.IsOk() {
+		ok, _ := out.Unpack()
+		fmt.Printf("Echo response: %+v\n", testutil.ResultMap(t, ok))
+	} else {
+		_, errBytes := out.Unpack()
+		fmt.Printf("Invocation failed: %v\n", testutil.ResultMap(t, errBytes))
+	}
 
 	err = httpSrv.Shutdown(context.Background())
 	if err != nil {
@@ -190,19 +187,17 @@ func TestTypedServer(t *testing.T) {
 		panic(err)
 	}
 
-	result.MatchResultR0(
-		resp.Receipt().Out(),
-		func(o []byte) {
-			args := types.EchoArguments{}
-			if err := args.UnmarshalCBOR(bytes.NewReader(o)); err != nil {
-				panic(err)
-			}
-			fmt.Printf("Echo response: %+v\n", args)
-		},
-		func(x []byte) {
-			fmt.Printf("Invocation failed: %v\n", testutil.ResultMap(t, x))
-		},
-	)
+	if out := resp.Receipt().Out(); out.IsOk() {
+		ok, _ := out.Unpack()
+		args := types.EchoArguments{}
+		if err := args.UnmarshalCBOR(bytes.NewReader(ok)); err != nil {
+			panic(err)
+		}
+		fmt.Printf("Echo response: %+v\n", args)
+	} else {
+		_, errBytes := out.Unpack()
+		fmt.Printf("Invocation failed: %v\n", testutil.ResultMap(t, errBytes))
+	}
 
 	err = httpSrv.Shutdown(context.Background())
 	if err != nil {
@@ -276,13 +271,11 @@ func TestServerRoundTripper(t *testing.T) {
 		panic(err)
 	}
 
-	result.MatchResultR0(
-		resp.Receipt().Out(),
-		func(o []byte) {
-			fmt.Printf("Echo response: %+v\n", testutil.ResultMap(t, o))
-		},
-		func(x []byte) {
-			fmt.Printf("Invocation failed: %v\n", testutil.ResultMap(t, x))
-		},
-	)
+	if out := resp.Receipt().Out(); out.IsOk() {
+		ok, _ := out.Unpack()
+		fmt.Printf("Echo response: %+v\n", testutil.ResultMap(t, ok))
+	} else {
+		_, errBytes := out.Unpack()
+		fmt.Printf("Invocation failed: %v\n", testutil.ResultMap(t, errBytes))
+	}
 }

@@ -8,7 +8,6 @@ import (
 	"github.com/fil-forge/ucantone/client"
 	"github.com/fil-forge/ucantone/execution"
 	"github.com/fil-forge/ucantone/ipld/datamodel"
-	"github.com/fil-forge/ucantone/result"
 	"github.com/fil-forge/ucantone/server"
 	"github.com/fil-forge/ucantone/testutil"
 	"github.com/fil-forge/ucantone/ucan/invocation"
@@ -43,7 +42,7 @@ func TestHTTPClient(t *testing.T) {
 		res, err := c.Execute(execution.NewRequest(t.Context(), inv))
 		require.NoError(t, err)
 
-		o, x := result.Unwrap(res.Receipt().Out())
+		o, x := res.Receipt().Out().Unpack()
 		require.Nil(t, x)
 		require.NotNil(t, o)
 		require.Equal(t, "echo!", testutil.ResultMap(t, o)["message"])

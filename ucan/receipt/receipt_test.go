@@ -4,7 +4,6 @@ import (
 	"bytes"
 	"testing"
 
-	"github.com/fil-forge/ucantone/result"
 	"github.com/fil-forge/ucantone/testutil"
 	"github.com/fil-forge/ucantone/ucan/receipt"
 	"github.com/stretchr/testify/require"
@@ -29,7 +28,7 @@ func TestIssue(t *testing.T) {
 		require.Equal(t, executor.DID(), decoded.Issuer().DID())
 		require.Equal(t, ran, decoded.Ran())
 
-		okBytes, errBytes := result.Unwrap(decoded.Out())
+		okBytes, errBytes := decoded.Out().Unpack()
 		require.Nil(t, errBytes)
 
 		var got cbg.CborInt

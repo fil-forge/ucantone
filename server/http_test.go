@@ -10,7 +10,6 @@ import (
 	"github.com/fil-forge/ucantone/ipld"
 	"github.com/fil-forge/ucantone/ipld/codec/dagcbor"
 	"github.com/fil-forge/ucantone/ipld/datamodel"
-	"github.com/fil-forge/ucantone/result"
 	"github.com/fil-forge/ucantone/server"
 	"github.com/fil-forge/ucantone/testutil"
 	"github.com/fil-forge/ucantone/ucan/container"
@@ -64,7 +63,7 @@ func TestHTTPServer(t *testing.T) {
 
 		require.Len(t, ctResp.Receipts(), 1)
 
-		_, x := result.Unwrap(ctResp.Receipts()[0].Out())
+		_, x := ctResp.Receipts()[0].Out().Unpack()
 		require.Nil(t, x)
 
 		require.Len(t, messages, 1)
@@ -103,7 +102,7 @@ func TestHTTPServer(t *testing.T) {
 		// we can't assert an exact timestamp, but check that it is recent
 		require.GreaterOrEqual(t, int64(*rcpt.IssuedAt()), time.Now().Add(-time.Second).Unix())
 
-		o, x := result.Unwrap(rcpt.Out())
+		o, x := rcpt.Out().Unpack()
 		require.NotNil(t, o)
 		require.Nil(t, x)
 		t.Log(o)

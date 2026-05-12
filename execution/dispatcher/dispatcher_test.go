@@ -8,7 +8,6 @@ import (
 	"github.com/fil-forge/ucantone/execution/dispatcher"
 	"github.com/fil-forge/ucantone/ipld"
 	"github.com/fil-forge/ucantone/ipld/datamodel"
-	"github.com/fil-forge/ucantone/result"
 	"github.com/fil-forge/ucantone/testutil"
 	"github.com/fil-forge/ucantone/ucan/invocation"
 	verrs "github.com/fil-forge/ucantone/validator/errors"
@@ -44,7 +43,7 @@ func TestDispatcher(t *testing.T) {
 		resp, err := executor.Execute(execution.NewRequest(t.Context(), logInv))
 		require.NoError(t, err)
 
-		_, x := result.Unwrap(resp.Receipt().Out())
+		_, x := resp.Receipt().Out().Unpack()
 		require.Nil(t, x)
 
 		require.Len(t, messages, 1)
@@ -61,7 +60,7 @@ func TestDispatcher(t *testing.T) {
 		resp, err = executor.Execute(execution.NewRequest(t.Context(), echoInv))
 		require.NoError(t, err)
 
-		o, x := result.Unwrap(resp.Receipt().Out())
+		o, x := resp.Receipt().Out().Unpack()
 		require.NotNil(t, o)
 		require.Nil(t, x)
 		t.Log(o)
@@ -84,7 +83,7 @@ func TestDispatcher(t *testing.T) {
 		resp, err := executor.Execute(execution.NewRequest(t.Context(), inv))
 		require.NoError(t, err)
 
-		o, x := result.Unwrap(resp.Receipt().Out())
+		o, x := resp.Receipt().Out().Unpack()
 		require.Nil(t, o)
 		require.NotNil(t, x)
 		t.Log(x)
@@ -106,7 +105,7 @@ func TestDispatcher(t *testing.T) {
 		resp, err := executor.Execute(execution.NewRequest(t.Context(), inv))
 		require.NoError(t, err)
 
-		o, x := result.Unwrap(resp.Receipt().Out())
+		o, x := resp.Receipt().Out().Unpack()
 		require.Nil(t, o)
 		require.NotNil(t, x)
 		t.Log(x)
@@ -132,7 +131,7 @@ func TestDispatcher(t *testing.T) {
 		resp, err := executor.Execute(execution.NewRequest(t.Context(), logInv))
 		require.NoError(t, err)
 
-		o, x := result.Unwrap(resp.Receipt().Out())
+		o, x := resp.Receipt().Out().Unpack()
 		require.Nil(t, o)
 		require.NotNil(t, x)
 		t.Log(x)
@@ -157,7 +156,7 @@ func TestDispatcher(t *testing.T) {
 		resp, err := executor.Execute(execution.NewRequest(t.Context(), logInv))
 		require.NoError(t, err)
 
-		o, x := result.Unwrap(resp.Receipt().Out())
+		o, x := resp.Receipt().Out().Unpack()
 		require.Nil(t, o)
 		require.NotNil(t, x)
 		t.Log(x)

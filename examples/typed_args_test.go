@@ -11,7 +11,6 @@ import (
 	"github.com/fil-forge/ucantone/examples/types"
 	"github.com/fil-forge/ucantone/ipld/datamodel"
 	"github.com/fil-forge/ucantone/principal/ed25519"
-	"github.com/fil-forge/ucantone/result"
 	"github.com/fil-forge/ucantone/ucan/invocation"
 	"github.com/fil-forge/ucantone/ucan/receipt"
 )
@@ -128,36 +127,26 @@ func TestExtractTypedArgsFromInvocation(t *testing.T) {
 
 	// === Typed receipt result extraction ===
 	//
-	// Receipt.Out is result.Result[[]byte, []byte]. Use result.MatchResultR0
-	// (or .R1, .R2 for return values) to dispatch on which branch is
-	// populated. Both callbacks receive []byte and decode using the same
-	// one-line pattern as args/meta — only the typed schema differs.
-	result.MatchResultR0(
-		okDecoded.Out(),
-		func(okBytes []byte) {
-			var ok types.EchoArguments
-			require.NoError(t, ok.UnmarshalCBOR(bytes.NewReader(okBytes)))
-			require.Equal(t, "echoed back!", ok.Message)
-			fmt.Printf("Decoded typed OK result: %+v\n", ok)
-		},
-		func(errBytes []byte) {
-			t.Fatalf("unexpected error branch on success receipt: %x", errBytes)
-		},
-	)
+	// Receipt.Out returns a result.Result[[]byte, []byte]. Dispatch with
+	// IsOk and unpack to the (ok, err) pair. Both branches decode using
+	// the same one-line pattern as args/meta — only the typed schema and
+	// the populated branch differ.
+	out := okDecoded.Out()
+	require.True(t, out.IsOk())
+	okBytes, _ := out.Unpack()
+	var ok types.EchoArguments
+	require.NoError(t, ok.UnmarshalCBOR(bytes.NewReader(okBytes)))
+	require.Equal(t, "echoed back!", ok.Message)
+	fmt.Printf("Decoded typed OK result: %+v\n", ok)
 
-	result.MatchResultR0(
-		errDecoded.Out(),
-		func(okBytes []byte) {
-			t.Fatalf("unexpected ok branch on failure receipt: %x", okBytes)
-		},
-		func(errBytes []byte) {
-			var fail edm.ErrorModel
-			require.NoError(t, fail.UnmarshalCBOR(bytes.NewReader(errBytes)))
-			require.Equal(t, "EchoFailure", fail.ErrorName)
-			require.Equal(t, "executor went home early", fail.Message)
-			fmt.Printf("Decoded typed ERR result: %+v\n", fail)
-		},
-	)
+	failOut := errDecoded.Out()
+	require.True(t, failOut.IsErr())
+	_, errBytes := failOut.Unpack()
+	var fail edm.ErrorModel
+	require.NoError(t, fail.UnmarshalCBOR(bytes.NewReader(errBytes)))
+	require.Equal(t, "EchoFailure", fail.ErrorName)
+	require.Equal(t, "executor went home early", fail.Message)
+	fmt.Printf("Decoded typed ERR result: %+v\n", fail)
 
 	// The same one-line pattern works across every field a UCAN consumer
 	// reads — args, meta, and either branch of a receipt's Out:

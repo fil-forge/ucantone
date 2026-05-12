@@ -79,7 +79,7 @@ func (rcpt *Receipt) UnmarshalCBOR(r io.Reader) error {
 	case receiptArgs.Out.Ok != nil:
 		out = result.OK[[]byte, []byte](receiptArgs.Out.Ok.Bytes())
 	case receiptArgs.Out.Err != nil:
-		out = result.Error[[]byte](receiptArgs.Out.Err.Bytes())
+		out = result.Err[[]byte, []byte](receiptArgs.Out.Err.Bytes())
 	default:
 		return errors.New("invalid result, neither ok nor error")
 	}
@@ -154,7 +154,7 @@ func issue(executor ucan.Signer, ran cid.Cid, ok, errVal cbg.CBORMarshaler, opti
 	if ok != nil {
 		out = result.OK[[]byte, []byte](outBytes)
 	} else {
-		out = result.Error[[]byte](outBytes)
+		out = result.Err[[]byte, []byte](outBytes)
 	}
 
 	return &Receipt{

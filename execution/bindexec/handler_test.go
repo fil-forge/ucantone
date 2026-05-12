@@ -7,7 +7,6 @@ import (
 	"github.com/fil-forge/ucantone/execution"
 	"github.com/fil-forge/ucantone/execution/bindexec"
 	"github.com/fil-forge/ucantone/ipld/datamodel"
-	"github.com/fil-forge/ucantone/result"
 	"github.com/fil-forge/ucantone/testutil"
 	tdm "github.com/fil-forge/ucantone/testutil/datamodel"
 	"github.com/fil-forge/ucantone/ucan/invocation"
@@ -40,7 +39,7 @@ func TestHandler(t *testing.T) {
 	require.NoError(t, err)
 	require.NotNil(t, res)
 
-	okBytes, errBytes := result.Unwrap(res.Receipt().Out())
+	okBytes, errBytes := res.Receipt().Out().Unpack()
 	require.Nil(t, errBytes)
 	require.NotNil(t, okBytes)
 
