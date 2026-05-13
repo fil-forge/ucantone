@@ -6,6 +6,9 @@ import (
 	"os"
 	"testing"
 
+	"github.com/ipfs/go-cid"
+	"github.com/stretchr/testify/require"
+
 	"github.com/fil-forge/ucantone/did"
 	"github.com/fil-forge/ucantone/ipld/datamodel"
 	"github.com/fil-forge/ucantone/principal/absentee"
@@ -20,7 +23,6 @@ import (
 	"github.com/fil-forge/ucantone/validator/capability"
 	verrs "github.com/fil-forge/ucantone/validator/errors"
 	fdm "github.com/fil-forge/ucantone/validator/internal/fixtures/datamodel"
-	"github.com/stretchr/testify/require"
 )
 
 type NamedError interface {
@@ -52,7 +54,7 @@ func TestFixtures(t *testing.T) {
 			require.NoError(t, err)
 
 			opts := []validator.Option{
-				validator.WithValidationTime(vector.Time),
+				validator.WithValidationTime(ucan.UTCUnixTimestamp(vector.Time)),
 				validator.WithProofResolver(newMapProofResolver(proofs)),
 			}
 			cap, err := capability.New(cmd)
@@ -79,7 +81,7 @@ func TestFixtures(t *testing.T) {
 			require.NoError(t, err)
 
 			opts := []validator.Option{
-				validator.WithValidationTime(vector.Time),
+				validator.WithValidationTime(ucan.UTCUnixTimestamp(vector.Time)),
 				validator.WithProofResolver(newMapProofResolver(proofs)),
 			}
 			cap, err := capability.New(cmd)
@@ -199,8 +201,8 @@ func TestNonStandardSignatureVerificationViaAttestation(t *testing.T) {
 	t.Log(auth)
 }
 
-func newMapProofResolver(proofs map[ucan.Link]ucan.Delegation) validator.ProofResolverFunc {
-	return func(_ context.Context, link ucan.Link) (ucan.Delegation, error) {
+func newMapProofResolver(proofs map[cid.Cid]ucan.Delegation) validator.ProofResolverFunc {
+	return func(_ context.Context, link cid.Cid) (ucan.Delegation, error) {
 		dlg, ok := proofs[link]
 		if !ok {
 			return nil, verrs.NewUnavailableProofError(link, errors.New("not provided"))
@@ -209,8 +211,8 @@ func newMapProofResolver(proofs map[ucan.Link]ucan.Delegation) validator.ProofRe
 	}
 }
 
-func decodeProofs(t *testing.T, vectorProofs [][]byte) map[ucan.Link]ucan.Delegation {
-	proofs := map[ucan.Link]ucan.Delegation{}
+func decodeProofs(t *testing.T, vectorProofs [][]byte) map[cid.Cid]ucan.Delegation {
+	proofs := map[cid.Cid]ucan.Delegation{}
 	for _, p := range vectorProofs {
 		dlg, err := delegation.Decode(p)
 		require.NoError(t, err)

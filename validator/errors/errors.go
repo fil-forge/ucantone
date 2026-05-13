@@ -5,6 +5,8 @@ import (
 	"strings"
 	"time"
 
+	"github.com/ipfs/go-cid"
+
 	"github.com/fil-forge/ucantone/did"
 	edm "github.com/fil-forge/ucantone/errors/datamodel"
 	"github.com/fil-forge/ucantone/ucan"
@@ -12,7 +14,7 @@ import (
 
 const UnavailableProofErrorName = "UnavailableProof"
 
-func NewUnavailableProofError(p ucan.Link, cause error) edm.ErrorModel {
+func NewUnavailableProofError(p cid.Cid, cause error) edm.ErrorModel {
 	return edm.ErrorModel{
 		ErrorName: UnavailableProofErrorName,
 		Message:   fmt.Sprintf("linked proof %q could not be resolved: %s", p, cause.Error()),

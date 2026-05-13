@@ -11,6 +11,7 @@ import (
 
 	jsg "github.com/alanshaw/dag-json-gen"
 	datamodel "github.com/fil-forge/ucantone/ipld/datamodel"
+	ucan "github.com/fil-forge/ucantone/ucan"
 	command "github.com/fil-forge/ucantone/ucan/command"
 	cid "github.com/ipfs/go-cid"
 )
@@ -74,7 +75,7 @@ func (t *TokenPayloadModel1_0_0_rc1) MarshalDagJSON(w io.Writer) error {
 		}
 	}
 
-	// t.Exp (int64) (int64)
+	// t.Exp (ucan.UTCUnixTimestamp) (int64)
 	if len("exp") > 8192 {
 		return fmt.Errorf("String in field \"exp\" was too long")
 	}
@@ -148,7 +149,7 @@ func (t *TokenPayloadModel1_0_0_rc1) MarshalDagJSON(w io.Writer) error {
 		}
 	}
 
-	// t.Nbf (int64) (int64)
+	// t.Nbf (ucan.UTCUnixTimestamp) (int64)
 	if t.Nbf != nil {
 		if len("nbf") > 8192 {
 			return fmt.Errorf("String in field \"nbf\" was too long")
@@ -296,7 +297,7 @@ func (t *TokenPayloadModel1_0_0_rc1) UnmarshalDagJSON(r io.Reader) (err error) {
 					t.Cmd = command.Command(sval)
 				}
 
-				// t.Exp (int64) (int64)
+				// t.Exp (ucan.UTCUnixTimestamp) (int64)
 			case "exp":
 				{
 
@@ -305,7 +306,7 @@ func (t *TokenPayloadModel1_0_0_rc1) UnmarshalDagJSON(r io.Reader) (err error) {
 						return fmt.Errorf("t.Exp: %w", err)
 					}
 					if nval != nil {
-						typed := int64(*nval)
+						typed := ucan.UTCUnixTimestamp(*nval)
 						t.Exp = &typed
 					}
 
@@ -338,7 +339,7 @@ func (t *TokenPayloadModel1_0_0_rc1) UnmarshalDagJSON(r io.Reader) (err error) {
 					}
 				}
 
-				// t.Nbf (int64) (int64)
+				// t.Nbf (ucan.UTCUnixTimestamp) (int64)
 			case "nbf":
 				{
 
@@ -347,7 +348,7 @@ func (t *TokenPayloadModel1_0_0_rc1) UnmarshalDagJSON(r io.Reader) (err error) {
 						return fmt.Errorf("t.Nbf: %w", err)
 					}
 					if nval != nil {
-						typed := int64(*nval)
+						typed := ucan.UTCUnixTimestamp(*nval)
 						t.Nbf = &typed
 					}
 

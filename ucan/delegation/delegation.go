@@ -99,7 +99,7 @@ func (d *Delegation) SignedBytes() []byte {
 // Nonce helps prevent replay attacks and ensures a unique CID per delegation.
 //
 // https://github.com/ucan-wg/spec/blob/main/README.md#nonce
-func (d *Delegation) Nonce() ucan.Nonce {
+func (d *Delegation) Nonce() []byte {
 	return d.sigPayload.TokenPayload1_0_0_rc1.Nonce
 }
 

@@ -21,7 +21,7 @@ func NewTask[A Arguments](
 	subject did.DID,
 	command ucan.Command,
 	argsBytes []byte,
-	nonce ucan.Nonce,
+	nonce []byte,
 ) (*Task[A], error) {
 	var args A
 	// if args is a pointer type, allocate the underlying value so

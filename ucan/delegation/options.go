@@ -41,7 +41,7 @@ func WithNoExpiration() Option {
 }
 
 // WithNonce configures the nonce value for the UCAN.
-func WithNonce(nnc ucan.Nonce) Option {
+func WithNonce(nnc []byte) Option {
 	return func(cfg *delegationConfig) error {
 		cfg.nnc = nnc
 		return nil

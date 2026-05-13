@@ -4,10 +4,10 @@ import (
 	"errors"
 	"io"
 
-	"github.com/fil-forge/ucantone/ipld/datamodel"
-	"github.com/fil-forge/ucantone/ucan"
-	pdm "github.com/fil-forge/ucantone/ucan/promise/datamodel"
 	"github.com/ipfs/go-cid"
+
+	"github.com/fil-forge/ucantone/ipld/datamodel"
+	pdm "github.com/fil-forge/ucantone/ucan/promise/datamodel"
 )
 
 const (
@@ -17,7 +17,7 @@ const (
 )
 
 type AwaitAny struct {
-	Task ucan.Link
+	Task cid.Cid
 }
 
 func (aa AwaitAny) MarshalCBOR(w io.Writer) error {
@@ -55,7 +55,7 @@ func (aa *AwaitAny) UnmarshalDagJSON(r io.Reader) error {
 }
 
 type AwaitOK struct {
-	Task ucan.Link
+	Task cid.Cid
 }
 
 func (ao AwaitOK) MarshalCBOR(w io.Writer) error {
@@ -93,7 +93,7 @@ func (ao *AwaitOK) UnmarshalDagJSON(r io.Reader) error {
 }
 
 type AwaitError struct {
-	Task ucan.Link
+	Task cid.Cid
 }
 
 func (ae AwaitError) MarshalCBOR(w io.Writer) error {
