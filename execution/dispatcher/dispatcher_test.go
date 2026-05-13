@@ -34,9 +34,9 @@ func TestDispatcher(t *testing.T) {
 
 		logInv, err := testutil.ConsoleLogCapability.Invoke(
 			alice,
-			alice,
+			alice.DID(),
 			datamodel.Map{"message": "Hello, World!"},
-			invocation.WithAudience(service),
+			invocation.WithAudience(service.DID()),
 		)
 		require.NoError(t, err)
 
@@ -51,9 +51,9 @@ func TestDispatcher(t *testing.T) {
 
 		echoInv, err := testutil.TestEchoCapability.Invoke(
 			alice,
-			alice,
+			alice.DID(),
 			datamodel.Map{"message": "echo!"},
-			invocation.WithAudience(service),
+			invocation.WithAudience(service.DID()),
 		)
 		require.NoError(t, err)
 
@@ -74,9 +74,9 @@ func TestDispatcher(t *testing.T) {
 
 		inv, err := testutil.TestEchoCapability.Invoke(
 			alice,
-			alice,
+			alice.DID(),
 			datamodel.Map{"message": "echo!"},
-			invocation.WithAudience(service),
+			invocation.WithAudience(service.DID()),
 		)
 		require.NoError(t, err)
 
@@ -96,9 +96,9 @@ func TestDispatcher(t *testing.T) {
 
 		inv, err := testutil.TestEchoCapability.Invoke(
 			alice,
-			alice,
+			alice.DID(),
 			datamodel.Map{"message": "echo!"},
-			invocation.WithAudience(alice),
+			invocation.WithAudience(alice.DID()),
 		)
 		require.NoError(t, err)
 
@@ -122,9 +122,9 @@ func TestDispatcher(t *testing.T) {
 
 		logInv, err := testutil.ConsoleLogCapability.Invoke(
 			alice,
-			alice,
+			alice.DID(),
 			datamodel.Map{"message": "Hello, World!"},
-			invocation.WithAudience(service),
+			invocation.WithAudience(service.DID()),
 		)
 		require.NoError(t, err)
 
@@ -149,7 +149,7 @@ func TestDispatcher(t *testing.T) {
 			alice,
 			testutil.RandomDID(t), // alice has no authority to invoke with this subject
 			datamodel.Map{"message": "Hello, World!"},
-			invocation.WithAudience(service),
+			invocation.WithAudience(service.DID()),
 		)
 		require.NoError(t, err)
 

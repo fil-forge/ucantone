@@ -3,6 +3,8 @@ package ucan
 import (
 	"time"
 
+	"github.com/ipfs/go-cid"
+
 	"github.com/fil-forge/ucantone/did"
 	"github.com/fil-forge/ucantone/ipld"
 	"github.com/fil-forge/ucantone/result"
@@ -10,14 +12,7 @@ import (
 	"github.com/fil-forge/ucantone/ucan/crypto"
 	"github.com/fil-forge/ucantone/ucan/crypto/signature"
 	"github.com/fil-forge/ucantone/varsig"
-	"github.com/ipfs/go-cid"
 )
-
-// The Principal who's authority is delegated or invoked. A Subject represents
-// the Agent that a capability is for. A Subject MUST be referenced by DID.
-//
-// https://github.com/ucan-wg/spec/blob/main/README.md#subject
-type Subject = Principal
 
 // Commands are concrete messages ("verbs") that MUST be unambiguously
 // interpretable by the Subject of a UCAN.
@@ -28,21 +23,18 @@ type Subject = Principal
 // https://github.com/ucan-wg/spec/blob/main/README.md#command
 type Command = command.Command
 
-// Principal is a DID object representation with a `did` accessor for the DID.
-type Principal interface {
-	DID() did.DID
-}
-
 // UTCUnixTimestamp is a timestamp in seconds since the Unix epoch.
 type UTCUnixTimestamp = int64
 
 // https://github.com/ucan-wg/spec/blob/main/README.md#nonce
 type Nonce = []byte
 
-// Signer is an entity that can sign UCANs with keys from a `Principal`.
+// Signer is an entity that can sign UCANs on behalf of a DID.
 type Signer interface {
-	Principal
 	crypto.Signer
+
+	// DID returns the DID this signer signs on behalf of.
+	DID() did.DID
 
 	// SignatureAlgorithm identifies the signature algorithm used by this signer
 	// as well as any additional fields needed to configure it.
@@ -56,10 +48,12 @@ type Signature interface {
 	Bytes() []byte
 }
 
-// Verifier is an entity that can verify UCAN signatures against a `Principal`.
+// Verifier is an entity that can verify UCAN signatures against a DID.
 type Verifier interface {
-	Principal
 	signature.Verifier
+
+	// DID returns the DID this verifier verifies signatures for.
+	DID() did.DID
 }
 
 // Link is an IPLD link to a UCAN token.
@@ -70,15 +64,16 @@ type Token interface {
 	// Issuer DID (sender).
 	//
 	// https://github.com/ucan-wg/spec/blob/main/README.md#issuer--audience
-	Issuer() Principal
+	Issuer() did.DID
 	// The subject being invoked.
 	//
 	// https://github.com/ucan-wg/spec/blob/main/README.md#subject
-	Subject() Principal
+	Subject() did.DID
 	// Audience can be conceptualized as the receiver of a postal letter.
+	// Returns an undefined DID when no audience is set; check with Defined().
 	//
 	// https://github.com/ucan-wg/spec/blob/main/README.md#issuer--audience
-	Audience() Principal
+	Audience() did.DID
 	// The command to eventually invoke.
 	//
 	// https://github.com/ucan-wg/spec/blob/main/README.md#command
@@ -131,7 +126,7 @@ type Capability interface {
 	// The subject that this capability is about.
 	//
 	// https://github.com/ucan-wg/spec/blob/main/README.md#subject
-	Subject() Principal
+	Subject() did.DID
 	// The command of this capability.
 	//
 	// https://github.com/ucan-wg/spec/blob/main/README.md#command
@@ -172,7 +167,7 @@ type Task interface {
 	// The subject being invoked.
 	//
 	// https://github.com/ucan-wg/invocation/blob/main/README.md#subject
-	Subject() Principal
+	Subject() did.DID
 	// ArgumentsBytes returns the raw CBOR bytes of the args field. Decode
 	// into a typed cborgen struct directly:
 	//

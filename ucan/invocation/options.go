@@ -24,10 +24,9 @@ type invocationConfig struct {
 
 // WithAudience configures the DID of the intended Executor if different from
 // the Subject.
-func WithAudience(aud ucan.Principal) Option {
+func WithAudience(aud did.DID) Option {
 	return func(cfg *invocationConfig) {
-		did := aud.DID()
-		cfg.aud = &did
+		cfg.aud = &aud
 	}
 }
 

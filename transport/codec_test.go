@@ -28,11 +28,11 @@ func TestHTTPInboundCodec(t *testing.T) {
 	cmd, err := command.Parse("/console/log")
 	require.NoError(t, err)
 
-	del, err := delegation.Delegate(alice, bob, alice, cmd)
+	del, err := delegation.Delegate(alice, bob.DID(), alice.DID(), cmd)
 	require.NoError(t, err)
 
 	args := datamodel.Map{"message": "test"}
-	inv, err := invocation.Invoke(bob, alice, cmd, args, invocation.WithAudience(service))
+	inv, err := invocation.Invoke(bob, alice.DID(), cmd, args, invocation.WithAudience(service.DID()))
 	require.NoError(t, err)
 
 	rec, err := receipt.IssueOK(
@@ -127,11 +127,11 @@ func TestHTTPOutboundCodec(t *testing.T) {
 	cmd, err := command.Parse("/console/log")
 	require.NoError(t, err)
 
-	del, err := delegation.Delegate(alice, bob, alice, cmd)
+	del, err := delegation.Delegate(alice, bob.DID(), alice.DID(), cmd)
 	require.NoError(t, err)
 
 	args := datamodel.Map{"message": "test"}
-	inv, err := invocation.Invoke(bob, alice, cmd, args, invocation.WithAudience(service))
+	inv, err := invocation.Invoke(bob, alice.DID(), cmd, args, invocation.WithAudience(service.DID()))
 	require.NoError(t, err)
 
 	rec, err := receipt.IssueOK(

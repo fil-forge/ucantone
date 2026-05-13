@@ -4,8 +4,9 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"strings"
 	"time"
+
+	"github.com/ipfs/go-cid"
 
 	"github.com/fil-forge/ucantone/did"
 	"github.com/fil-forge/ucantone/principal"
@@ -18,7 +19,6 @@ import (
 	"github.com/fil-forge/ucantone/validator/capability"
 	verrs "github.com/fil-forge/ucantone/validator/errors"
 	"github.com/fil-forge/ucantone/varsig/algorithm/nonstandard"
-	"github.com/ipfs/go-cid"
 )
 
 // Capability is a capability definition that can be used to validate an
@@ -52,7 +52,7 @@ type ProofResolverFunc func(ctx context.Context, link ucan.Link) (ucan.Delegatio
 
 // CanIssueFunc determines whether given capability can be issued by a given
 // principal or whether it needs to be delegated to the issuer.
-type CanIssueFunc func(capability ucan.Capability, issuer ucan.Principal) bool
+type CanIssueFunc func(capability ucan.Capability, issuer did.DID) bool
 
 // ValidateAuthorizationFunc allows an authorization to be validated further. It
 // is typically used to check that the delegations from the authorization have
@@ -251,9 +251,9 @@ func VerifyAuthorization(
 	prfs map[cid.Cid]ucan.Delegation,
 	meta ucan.Container,
 ) error {
-	issuer := inv.Issuer().DID()
+	issuer := inv.Issuer()
 	// If the issuer is a did:key we just verify a signature
-	if strings.HasPrefix(issuer.String(), "did:key:") {
+	if issuer.Method() == "key" {
 		verifier, err := parsePrincipal(issuer.String())
 		if err != nil {
 			return verrs.NewUnverifiableSignatureError(inv, err)
@@ -261,7 +261,7 @@ func VerifyAuthorization(
 		if err := VerifyInvocationSignature(inv, verifier); err != nil {
 			return err
 		}
-	} else if inv.Issuer().DID() == authority.DID() {
+	} else if inv.Issuer() == authority.DID() {
 		if err := VerifyInvocationSignature(inv, authority); err != nil {
 			return err
 		}
@@ -309,7 +309,7 @@ func VerifyAuthorization(
 		}
 
 		// check principal alignment
-		if inv.Issuer().DID() != prf.Audience().DID() {
+		if inv.Issuer() != prf.Audience() {
 			return verrs.NewPrincipalAlignmentError(inv.Issuer(), prf)
 		}
 
@@ -318,35 +318,35 @@ func VerifyAuthorization(
 			if !ok {
 				return verrs.NewUnavailableProofError(p, errors.New("missing from map"))
 			}
-			issuer := prf.Issuer().DID()
+			issuer := prf.Issuer()
 
 			// this is the root delegation
 			if i == 0 {
 				// powerline is not allowed as root delegation.
 				// a priori there is no such thing as a null subject.
-				if prf.Subject() == nil {
+				if !prf.Subject().Defined() {
 					return verrs.NewInvalidClaimError("root delegation subject is null")
 				}
-				if prf.Subject().DID() != inv.Subject().DID() {
+				if prf.Subject() != inv.Subject() {
 					return verrs.NewSubjectAlignmentError(inv.Subject(), prf)
 				}
 				// check root issuer/subject alignment
 				if !canIssue(ucan.Capability(prf), prf.Issuer()) {
-					return verrs.NewInvalidClaimError(fmt.Sprintf("%q cannot issue delegations for %q", issuer, prf.Subject().DID()))
+					return verrs.NewInvalidClaimError(fmt.Sprintf("%q cannot issue delegations for %q", issuer, prf.Subject()))
 				}
 			} else {
 				// otherwise check subject and principal alignment
-				if prf.Subject() != nil && prf.Subject().DID() != inv.Subject().DID() {
+				if prf.Subject().Defined() && prf.Subject() != inv.Subject() {
 					return verrs.NewSubjectAlignmentError(inv.Subject(), prf)
 				}
 				prev := prfs[inv.Proofs()[i-1]]
-				if issuer != prev.Audience().DID() {
+				if issuer != prev.Audience() {
 					return verrs.NewPrincipalAlignmentError(prf.Issuer(), prev)
 				}
 			}
 
 			// If the issuer is a did:key we just verify a signature
-			if strings.HasPrefix(issuer.String(), "did:key:") {
+			if issuer.Method() == "key" {
 				verifier, err := parsePrincipal(issuer.String())
 				if err != nil {
 					return verrs.NewUnverifiableSignatureError(prf, err)
@@ -398,7 +398,7 @@ func VerifyAuthorization(
 		// check invocation issuer/subject alignment
 		cap := delegation.NewCapability(inv.Subject(), inv.Command(), policy.Policy{})
 		if !canIssue(cap, inv.Issuer()) {
-			return verrs.NewInvalidClaimError(fmt.Sprintf("%q cannot issue invocations for %q", inv.Issuer().DID(), inv.Subject().DID()))
+			return verrs.NewInvalidClaimError(fmt.Sprintf("%q cannot issue invocations for %q", inv.Issuer(), inv.Subject()))
 		}
 	}
 
@@ -430,8 +430,8 @@ func VerifyDelegationSignature(dlg ucan.Delegation, verifier ucan.Verifier) erro
 }
 
 // IsSelfIssued is a [CanIssueFunc] that allows delegations to be self signed.
-func IsSelfIssued(capability ucan.Capability, issuer ucan.Principal) bool {
-	return capability.Subject().DID() == issuer.DID()
+func IsSelfIssued(capability ucan.Capability, issuer did.DID) bool {
+	return capability.Subject() == issuer
 }
 
 // ParsePrincipal is a [PrincipalParser] that supports parsing ed25519 DIDs.

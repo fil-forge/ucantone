@@ -28,8 +28,8 @@ func TestContainer(t *testing.T) {
 	// to example.com email addresses
 	dlg, err := delegation.Delegate(
 		mailer,
-		alice,
-		mailer,
+		alice.DID(),
+		mailer.DID(),
 		"/message/send",
 		delegation.WithPolicyBuilder(
 			policy.All(".to", policy.Like(".", "*.example.com")),
@@ -43,7 +43,7 @@ func TestContainer(t *testing.T) {
 	// invoke the capability
 	inv, err := invocation.Invoke(
 		alice,
-		mailer,
+		mailer.DID(),
 		"/message/send",
 		datamodel.Map{
 			"to":      []string{"bob@example.com"},

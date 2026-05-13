@@ -47,15 +47,15 @@ func (d *Dispatcher) Handle(capability validator.Capability, fn execution.Handle
 
 func (d *Dispatcher) Execute(req execution.Request) (execution.Response, error) {
 	aud := req.Invocation().Audience()
-	if aud == nil {
+	if !aud.Defined() {
 		aud = req.Invocation().Subject()
 	}
-	if aud.DID() != d.authority.DID() {
+	if aud != d.authority.DID() {
 		return execution.NewResponse(
 			req.Invocation().Task().Link(),
 			execution.WithSigner(d.authority),
 			execution.WithReceiptTimestamp(d.receiptTimestamps),
-			execution.WithFailure(execution.NewInvalidAudienceError(d.authority, aud)),
+			execution.WithFailure(execution.NewInvalidAudienceError(d.authority.DID(), aud)),
 		)
 	}
 

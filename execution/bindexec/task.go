@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"reflect"
 
+	"github.com/fil-forge/ucantone/did"
 	"github.com/fil-forge/ucantone/ucan"
 	"github.com/fil-forge/ucantone/ucan/invocation"
 )
@@ -17,7 +18,7 @@ type Task[A Arguments] struct {
 // the args (typically obtained from [invocation.Invocation.ArgumentsBytes]);
 // the bytes are decoded directly into the typed argument struct A via cborgen.
 func NewTask[A Arguments](
-	subject ucan.Subject,
+	subject did.DID,
 	command ucan.Command,
 	argsBytes []byte,
 	nonce ucan.Nonce,

@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"time"
 
+	"github.com/fil-forge/ucantone/did"
 	"github.com/fil-forge/ucantone/ipld/codec/dagcbor"
 	"github.com/fil-forge/ucantone/ipld/datamodel"
 	"github.com/fil-forge/ucantone/principal/ed25519"
@@ -92,7 +93,7 @@ func main() {
 func makeValidSelfSignedFixture() fdm.ValidModel {
 	inv := must(invocation.Invoke(
 		alice,
-		alice,
+		alice.DID(),
 		cmd,
 		datamodel.Map{},
 		invocation.WithIssuedAt(iat),
@@ -112,8 +113,8 @@ func makeValidSelfSignedFixture() fdm.ValidModel {
 func makeValidSingleNonTimeBoundedProofFixture() fdm.ValidModel {
 	dlg0 := must(delegation.Delegate(
 		bob,
-		alice,
-		bob,
+		alice.DID(),
+		bob.DID(),
 		cmd,
 		delegation.WithNoExpiration(),
 		delegation.WithNonce(nonce[0]),
@@ -121,7 +122,7 @@ func makeValidSingleNonTimeBoundedProofFixture() fdm.ValidModel {
 
 	inv := must(invocation.Invoke(
 		alice,
-		bob,
+		bob.DID(),
 		cmd,
 		datamodel.Map{},
 		invocation.WithIssuedAt(iat),
@@ -143,8 +144,8 @@ func makeValidSingleActiveProofFixture() fdm.ValidModel {
 	nbf := ucan.UTCUnixTimestamp(must(time.Parse(time.RFC3339, "2025-10-20T11:08:35Z")).Unix())
 	dlg0 := must(delegation.Delegate(
 		bob,
-		alice,
-		bob,
+		alice.DID(),
+		bob.DID(),
 		cmd,
 		delegation.WithNotBefore(nbf),
 		delegation.WithNoExpiration(),
@@ -153,7 +154,7 @@ func makeValidSingleActiveProofFixture() fdm.ValidModel {
 
 	inv := must(invocation.Invoke(
 		alice,
-		bob,
+		bob.DID(),
 		cmd,
 		datamodel.Map{},
 		invocation.WithIssuedAt(iat),
@@ -174,8 +175,8 @@ func makeValidSingleActiveProofFixture() fdm.ValidModel {
 func makeValidMultipleProofsFixture() fdm.ValidModel {
 	dlg0 := must(delegation.Delegate(
 		carol,
-		bob,
-		carol,
+		bob.DID(),
+		carol.DID(),
 		cmd,
 		delegation.WithNoExpiration(),
 		delegation.WithNonce(nonce[0]),
@@ -183,8 +184,8 @@ func makeValidMultipleProofsFixture() fdm.ValidModel {
 
 	dlg1 := must(delegation.Delegate(
 		bob,
-		alice,
-		carol,
+		alice.DID(),
+		carol.DID(),
 		cmd,
 		delegation.WithNoExpiration(),
 		delegation.WithNonce(nonce[1]),
@@ -192,7 +193,7 @@ func makeValidMultipleProofsFixture() fdm.ValidModel {
 
 	inv := must(invocation.Invoke(
 		alice,
-		carol,
+		carol.DID(),
 		cmd,
 		datamodel.Map{},
 		invocation.WithIssuedAt(iat),
@@ -213,8 +214,8 @@ func makeValidMultipleProofsFixture() fdm.ValidModel {
 func makeValidMultipleActiveProofsFixture() fdm.ValidModel {
 	dlg0 := must(delegation.Delegate(
 		carol,
-		bob,
-		carol,
+		bob.DID(),
+		carol.DID(),
 		cmd,
 		delegation.WithNoExpiration(),
 		delegation.WithNonce(nonce[0]),
@@ -223,8 +224,8 @@ func makeValidMultipleActiveProofsFixture() fdm.ValidModel {
 	nbf := ucan.UTCUnixTimestamp(must(time.Parse(time.RFC3339, "2025-10-20T11:08:35Z")).Unix())
 	dlg1 := must(delegation.Delegate(
 		bob,
-		alice,
-		carol,
+		alice.DID(),
+		carol.DID(),
 		cmd,
 		delegation.WithNoExpiration(),
 		delegation.WithNotBefore(nbf),
@@ -233,7 +234,7 @@ func makeValidMultipleActiveProofsFixture() fdm.ValidModel {
 
 	inv := must(invocation.Invoke(
 		alice,
-		carol,
+		carol.DID(),
 		cmd,
 		datamodel.Map{},
 		invocation.WithIssuedAt(iat),
@@ -254,8 +255,8 @@ func makeValidMultipleActiveProofsFixture() fdm.ValidModel {
 func makeValidPowerlineFixture() fdm.ValidModel {
 	dlg0 := must(delegation.Delegate(
 		carol,
-		bob,
-		carol,
+		bob.DID(),
+		carol.DID(),
 		cmd,
 		delegation.WithNoExpiration(),
 		delegation.WithNonce(nonce[0]),
@@ -263,8 +264,8 @@ func makeValidPowerlineFixture() fdm.ValidModel {
 
 	dlg1 := must(delegation.Delegate(
 		bob,
-		alice,
-		nil,
+		alice.DID(),
+		did.Undef,
 		cmd,
 		delegation.WithNoExpiration(),
 		delegation.WithNonce(nonce[1]),
@@ -272,7 +273,7 @@ func makeValidPowerlineFixture() fdm.ValidModel {
 
 	inv := must(invocation.Invoke(
 		alice,
-		carol,
+		carol.DID(),
 		cmd,
 		datamodel.Map{},
 		invocation.WithIssuedAt(iat),
@@ -293,8 +294,8 @@ func makeValidPowerlineFixture() fdm.ValidModel {
 func makeValidPolicyMatchFixture() fdm.ValidModel {
 	dlg0 := must(delegation.Delegate(
 		bob,
-		alice,
-		bob,
+		alice.DID(),
+		bob.DID(),
 		cmd,
 		delegation.WithPolicyBuilder(policy.Equal(".answer", 42)),
 		delegation.WithNoExpiration(),
@@ -303,7 +304,7 @@ func makeValidPolicyMatchFixture() fdm.ValidModel {
 
 	inv := must(invocation.Invoke(
 		alice,
-		bob,
+		bob.DID(),
 		cmd,
 		datamodel.Map{"answer": 42},
 		invocation.WithIssuedAt(iat),
@@ -324,7 +325,7 @@ func makeValidPolicyMatchFixture() fdm.ValidModel {
 func makeInvalidNoProofFixture() fdm.InvalidModel {
 	inv := must(invocation.Invoke(
 		alice,
-		carol,
+		carol.DID(),
 		cmd,
 		datamodel.Map{},
 		invocation.WithIssuedAt(iat),
@@ -345,8 +346,8 @@ func makeInvalidNoProofFixture() fdm.InvalidModel {
 func makeInvalidMissingProofFixture() fdm.InvalidModel {
 	dlg0 := must(delegation.Delegate(
 		bob,
-		alice,
-		bob,
+		alice.DID(),
+		bob.DID(),
 		cmd,
 		delegation.WithNoExpiration(),
 		delegation.WithNonce(nonce[0]),
@@ -354,7 +355,7 @@ func makeInvalidMissingProofFixture() fdm.InvalidModel {
 
 	inv := must(invocation.Invoke(
 		alice,
-		carol,
+		carol.DID(),
 		cmd,
 		datamodel.Map{},
 		invocation.WithIssuedAt(iat),
@@ -377,8 +378,8 @@ func makeInvalidExpiredProofFixture() fdm.InvalidModel {
 	exp := ucan.UTCUnixTimestamp(must(time.Parse(time.RFC3339, "2025-10-20T11:08:35Z")).Unix())
 	dlg0 := must(delegation.Delegate(
 		bob,
-		alice,
-		bob,
+		alice.DID(),
+		bob.DID(),
 		cmd,
 		delegation.WithExpiration(exp),
 		delegation.WithNonce(nonce[0]),
@@ -386,10 +387,10 @@ func makeInvalidExpiredProofFixture() fdm.InvalidModel {
 
 	inv := must(invocation.Invoke(
 		alice,
-		bob,
+		bob.DID(),
 		cmd,
 		datamodel.Map{},
-		invocation.WithAudience(carol),
+		invocation.WithAudience(carol.DID()),
 		invocation.WithIssuedAt(iat),
 		invocation.WithNoExpiration(),
 		invocation.WithProofs(dlg0.Link()),
@@ -410,8 +411,8 @@ func makeInvalidInactiveProofFixture() fdm.InvalidModel {
 	nbf := ucan.UTCUnixTimestamp(must(time.Parse(time.RFC3339, "9999-12-31T23:59:59Z")).Unix())
 	dlg0 := must(delegation.Delegate(
 		bob,
-		alice,
-		bob,
+		alice.DID(),
+		bob.DID(),
 		cmd,
 		delegation.WithNoExpiration(),
 		delegation.WithNotBefore(nbf),
@@ -420,10 +421,10 @@ func makeInvalidInactiveProofFixture() fdm.InvalidModel {
 
 	inv := must(invocation.Invoke(
 		alice,
-		bob,
+		bob.DID(),
 		cmd,
 		datamodel.Map{},
-		invocation.WithAudience(carol),
+		invocation.WithAudience(carol.DID()),
 		invocation.WithIssuedAt(iat),
 		invocation.WithNoExpiration(),
 		invocation.WithProofs(dlg0.Link()),
@@ -443,8 +444,8 @@ func makeInvalidInactiveProofFixture() fdm.InvalidModel {
 func makeInvalidProofPrincipalAlignmentFixture() fdm.InvalidModel {
 	dlg0 := must(delegation.Delegate(
 		dave,
-		carol,
-		dave,
+		carol.DID(),
+		dave.DID(),
 		cmd,
 		delegation.WithNoExpiration(),
 		delegation.WithNonce(nonce[0]),
@@ -452,8 +453,8 @@ func makeInvalidProofPrincipalAlignmentFixture() fdm.InvalidModel {
 
 	dlg1 := must(delegation.Delegate(
 		bob,
-		alice,
-		dave,
+		alice.DID(),
+		dave.DID(),
 		cmd,
 		delegation.WithNoExpiration(),
 		delegation.WithNonce(nonce[1]),
@@ -461,7 +462,7 @@ func makeInvalidProofPrincipalAlignmentFixture() fdm.InvalidModel {
 
 	inv := must(invocation.Invoke(
 		alice,
-		dave,
+		dave.DID(),
 		cmd,
 		datamodel.Map{},
 		invocation.WithIssuedAt(iat),
@@ -483,8 +484,8 @@ func makeInvalidProofPrincipalAlignmentFixture() fdm.InvalidModel {
 func makeInvalidInvocationPrincipalAlignmentFixture() fdm.InvalidModel {
 	dlg0 := must(delegation.Delegate(
 		dave,
-		carol,
-		dave,
+		carol.DID(),
+		dave.DID(),
 		cmd,
 		delegation.WithNoExpiration(),
 		delegation.WithNonce(nonce[0]),
@@ -492,8 +493,8 @@ func makeInvalidInvocationPrincipalAlignmentFixture() fdm.InvalidModel {
 
 	dlg1 := must(delegation.Delegate(
 		carol,
-		bob,
-		dave,
+		bob.DID(),
+		dave.DID(),
 		cmd,
 		delegation.WithNoExpiration(),
 		delegation.WithNonce(nonce[1]),
@@ -501,7 +502,7 @@ func makeInvalidInvocationPrincipalAlignmentFixture() fdm.InvalidModel {
 
 	inv := must(invocation.Invoke(
 		alice,
-		dave,
+		dave.DID(),
 		cmd,
 		datamodel.Map{},
 		invocation.WithIssuedAt(iat),
@@ -523,8 +524,8 @@ func makeInvalidInvocationPrincipalAlignmentFixture() fdm.InvalidModel {
 func makeInvalidProofSubjectAlignmentFixture() fdm.InvalidModel {
 	dlg0 := must(delegation.Delegate(
 		carol,
-		bob,
-		carol,
+		bob.DID(),
+		carol.DID(),
 		cmd,
 		delegation.WithNoExpiration(),
 		delegation.WithNonce(nonce[0]),
@@ -532,8 +533,8 @@ func makeInvalidProofSubjectAlignmentFixture() fdm.InvalidModel {
 
 	dlg1 := must(delegation.Delegate(
 		bob,
-		alice,
-		bob,
+		alice.DID(),
+		bob.DID(),
 		cmd,
 		delegation.WithNoExpiration(),
 		delegation.WithNonce(nonce[1]),
@@ -541,7 +542,7 @@ func makeInvalidProofSubjectAlignmentFixture() fdm.InvalidModel {
 
 	inv := must(invocation.Invoke(
 		alice,
-		carol,
+		carol.DID(),
 		cmd,
 		datamodel.Map{},
 		invocation.WithIssuedAt(iat),
@@ -563,8 +564,8 @@ func makeInvalidProofSubjectAlignmentFixture() fdm.InvalidModel {
 func makeInvalidInvocationSubjectAlignmentFixture() fdm.InvalidModel {
 	dlg0 := must(delegation.Delegate(
 		carol,
-		bob,
-		carol,
+		bob.DID(),
+		carol.DID(),
 		cmd,
 		delegation.WithNoExpiration(),
 		delegation.WithNonce(nonce[0]),
@@ -572,8 +573,8 @@ func makeInvalidInvocationSubjectAlignmentFixture() fdm.InvalidModel {
 
 	dlg1 := must(delegation.Delegate(
 		bob,
-		alice,
-		carol,
+		alice.DID(),
+		carol.DID(),
 		cmd,
 		delegation.WithNoExpiration(),
 		delegation.WithNonce(nonce[1]),
@@ -581,7 +582,7 @@ func makeInvalidInvocationSubjectAlignmentFixture() fdm.InvalidModel {
 
 	inv := must(invocation.Invoke(
 		alice,
-		dave,
+		dave.DID(),
 		cmd,
 		datamodel.Map{},
 		invocation.WithIssuedAt(iat),
@@ -603,8 +604,8 @@ func makeInvalidInvocationSubjectAlignmentFixture() fdm.InvalidModel {
 func makeInvalidExpiredInvocationFixture() fdm.InvalidModel {
 	dlg0 := must(delegation.Delegate(
 		bob,
-		alice,
-		bob,
+		alice.DID(),
+		bob.DID(),
 		cmd,
 		delegation.WithNoExpiration(),
 		delegation.WithNonce(nonce[0]),
@@ -613,10 +614,10 @@ func makeInvalidExpiredInvocationFixture() fdm.InvalidModel {
 	exp := ucan.UTCUnixTimestamp(must(time.Parse(time.RFC3339, "2025-10-20T11:08:35Z")).Unix())
 	inv := must(invocation.Invoke(
 		alice,
-		bob,
+		bob.DID(),
 		cmd,
 		datamodel.Map{},
-		invocation.WithAudience(carol),
+		invocation.WithAudience(carol.DID()),
 		invocation.WithIssuedAt(iat),
 		invocation.WithExpiration(exp),
 		invocation.WithProofs(dlg0.Link()),
@@ -667,10 +668,10 @@ func makeInvalidProofSignatureFixture() fdm.InvalidModel {
 
 	inv := must(invocation.Invoke(
 		alice,
-		bob,
+		bob.DID(),
 		cmd,
 		datamodel.Map{},
-		invocation.WithAudience(carol),
+		invocation.WithAudience(carol.DID()),
 		invocation.WithIssuedAt(iat),
 		invocation.WithNoExpiration(),
 		invocation.WithProofs(dlg0Link),
@@ -728,8 +729,8 @@ func makeInvalidInvocationSignatureFixture() fdm.InvalidModel {
 func makeInvalidPowerlineFixture() fdm.InvalidModel {
 	dlg0 := must(delegation.Delegate(
 		bob,
-		alice,
-		nil,
+		alice.DID(),
+		did.Undef,
 		cmd,
 		delegation.WithNoExpiration(),
 		delegation.WithNonce(nonce[0]),
@@ -737,7 +738,7 @@ func makeInvalidPowerlineFixture() fdm.InvalidModel {
 
 	inv := must(invocation.Invoke(
 		alice,
-		carol,
+		carol.DID(),
 		cmd,
 		datamodel.Map{},
 		invocation.WithIssuedAt(iat),
@@ -759,8 +760,8 @@ func makeInvalidPowerlineFixture() fdm.InvalidModel {
 func makeInvalidPolicyViolationFixture() fdm.InvalidModel {
 	dlg0 := must(delegation.Delegate(
 		bob,
-		alice,
-		bob,
+		alice.DID(),
+		bob.DID(),
 		cmd,
 		delegation.WithPolicyBuilder(policy.Equal(".answer", 42)),
 		delegation.WithNoExpiration(),
@@ -769,7 +770,7 @@ func makeInvalidPolicyViolationFixture() fdm.InvalidModel {
 
 	inv := must(invocation.Invoke(
 		alice,
-		bob,
+		bob.DID(),
 		cmd,
 		datamodel.Map{"answer": 41},
 		invocation.WithIssuedAt(iat),

@@ -55,10 +55,10 @@ func NewTooEarlyError(t ucan.Delegation) edm.ErrorModel {
 const InvalidSignatureErrorName = "InvalidSignature"
 
 func NewInvalidSignatureError(token ucan.Token, verifier ucan.Verifier) edm.ErrorModel {
-	issuer := token.Issuer().DID()
+	issuer := token.Issuer()
 	key := verifier.DID()
 	var message string
-	if strings.HasPrefix(issuer.String(), "did:key") {
+	if issuer.Method() == "key" {
 		message = fmt.Sprintf(`proof %s does not have a valid signature from %s`, token.Link(), key)
 	} else {
 		message = strings.Join([]string{
@@ -75,7 +75,7 @@ func NewInvalidSignatureError(token ucan.Token, verifier ucan.Verifier) edm.Erro
 const UnverifiableSignatureErrorName = "UnverifiableSignature"
 
 func NewUnverifiableSignatureError(token ucan.Token, cause error) edm.ErrorModel {
-	issuer := token.Issuer().DID()
+	issuer := token.Issuer()
 	return edm.ErrorModel{
 		ErrorName: UnverifiableSignatureErrorName,
 		Message:   fmt.Sprintf("proof %q issued by %q cannot be verified: %s", token.Link(), issuer, cause.Error()),
@@ -84,16 +84,16 @@ func NewUnverifiableSignatureError(token ucan.Token, cause error) edm.ErrorModel
 
 const PrincipalAlignmentErrorName = "InvalidAudience"
 
-func NewPrincipalAlignmentError(audience ucan.Principal, dlg ucan.Delegation) edm.ErrorModel {
+func NewPrincipalAlignmentError(audience did.DID, dlg ucan.Delegation) edm.ErrorModel {
 	return edm.ErrorModel{
 		ErrorName: PrincipalAlignmentErrorName,
-		Message:   fmt.Sprintf("delegation %q audience is %q not %q", dlg.Link(), audience.DID(), dlg.Audience().DID()),
+		Message:   fmt.Sprintf("delegation %q audience is %q not %q", dlg.Link(), audience, dlg.Audience()),
 	}
 }
 
 const SubjectAlignmentErrorName = "InvalidSubject"
 
-func NewSubjectAlignmentError(subject ucan.Subject, t ucan.Token) edm.ErrorModel {
+func NewSubjectAlignmentError(subject did.DID, t ucan.Token) edm.ErrorModel {
 	var name string
 	if _, ok := t.(ucan.Invocation); ok {
 		name = "invocation"
@@ -102,7 +102,7 @@ func NewSubjectAlignmentError(subject ucan.Subject, t ucan.Token) edm.ErrorModel
 	}
 	return edm.ErrorModel{
 		ErrorName: SubjectAlignmentErrorName,
-		Message:   fmt.Sprintf("%s %q subject is %q not %q", name, t.Link(), t.Subject().DID(), subject.DID()),
+		Message:   fmt.Sprintf("%s %q subject is %q not %q", name, t.Link(), t.Subject(), subject),
 	}
 }
 

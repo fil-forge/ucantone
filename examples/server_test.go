@@ -71,14 +71,14 @@ func TestServer(t *testing.T) {
 	}
 
 	// Allow alice to invoke the echo capability
-	dlg, err := echoCapability.Delegate(serviceID, alice, serviceID)
+	dlg, err := echoCapability.Delegate(serviceID, alice.DID(), serviceID.DID())
 	if err != nil {
 		panic(err)
 	}
 
 	inv, err := echoCapability.Invoke(
 		alice,
-		serviceID,
+		serviceID.DID(),
 		datamodel.Map{"message": "Hello, UCAN!"},
 		invocation.WithProofs(dlg.Link()),
 	)
@@ -161,14 +161,14 @@ func TestTypedServer(t *testing.T) {
 	}
 
 	// Allow alice to invoke the echo capability
-	dlg, err := echoCapability.Delegate(serviceID, alice, serviceID)
+	dlg, err := echoCapability.Delegate(serviceID, alice.DID(), serviceID.DID())
 	if err != nil {
 		panic(err)
 	}
 
 	inv, err := echoCapability.Invoke(
 		alice,
-		serviceID,
+		serviceID.DID(),
 		&types.EchoArguments{Message: "Hello, UCAN!"},
 		invocation.WithProofs(dlg.Link()),
 	)
@@ -240,14 +240,14 @@ func TestServerRoundTripper(t *testing.T) {
 	}
 
 	// Allow alice to invoke the echo capability
-	dlg, err := echoCapability.Delegate(serviceID, alice, serviceID)
+	dlg, err := echoCapability.Delegate(serviceID, alice.DID(), serviceID.DID())
 	if err != nil {
 		panic(err)
 	}
 
 	inv, err := echoCapability.Invoke(
 		alice,
-		serviceID,
+		serviceID.DID(),
 		datamodel.Map{"message": "Hello, UCAN!"},
 		invocation.WithProofs(dlg.Link()),
 	)

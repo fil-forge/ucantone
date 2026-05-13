@@ -1,14 +1,17 @@
 package delegation
 
-import "github.com/fil-forge/ucantone/ucan"
+import (
+	"github.com/fil-forge/ucantone/did"
+	"github.com/fil-forge/ucantone/ucan"
+)
 
 type Capability struct {
-	sub ucan.Subject
+	sub did.DID
 	cmd ucan.Command
 	pol ucan.Policy
 }
 
-func NewCapability(subject ucan.Subject, command ucan.Command, policy ucan.Policy) Capability {
+func NewCapability(subject did.DID, command ucan.Command, policy ucan.Policy) Capability {
 	return Capability{subject, command, policy}
 }
 
@@ -20,7 +23,7 @@ func (c Capability) Policy() ucan.Policy {
 	return c.pol
 }
 
-func (c Capability) Subject() ucan.Principal {
+func (c Capability) Subject() did.DID {
 	return c.sub
 }
 

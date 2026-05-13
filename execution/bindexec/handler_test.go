@@ -23,7 +23,7 @@ func TestHandler(t *testing.T) {
 
 	inv, err := invocation.Invoke(
 		alice,
-		alice,
+		alice.DID(),
 		"/test/handler",
 		datamodel.Map{"bytes": []byte{0x01, 0x02, 0x03}},
 	)

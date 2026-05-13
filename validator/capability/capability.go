@@ -5,6 +5,9 @@ import (
 	"errors"
 	"fmt"
 
+	"github.com/ipfs/go-cid"
+
+	"github.com/fil-forge/ucantone/did"
 	"github.com/fil-forge/ucantone/ipld"
 	"github.com/fil-forge/ucantone/ipld/datamodel"
 	"github.com/fil-forge/ucantone/ucan"
@@ -13,7 +16,6 @@ import (
 	"github.com/fil-forge/ucantone/ucan/delegation/policy"
 	"github.com/fil-forge/ucantone/ucan/invocation"
 	verrs "github.com/fil-forge/ucantone/validator/errors"
-	"github.com/ipfs/go-cid"
 )
 
 type Match struct {
@@ -90,10 +92,10 @@ func (c *Capability) Policy() ucan.Policy {
 	return c.pol
 }
 
-func (c *Capability) Delegate(issuer ucan.Signer, audience ucan.Principal, subject ucan.Subject, options ...delegation.Option) (*delegation.Delegation, error) {
+func (c *Capability) Delegate(issuer ucan.Signer, audience did.DID, subject did.DID, options ...delegation.Option) (*delegation.Delegation, error) {
 	return delegation.Delegate(issuer, audience, subject, c.cmd, options...)
 }
 
-func (c *Capability) Invoke(issuer ucan.Signer, subject ucan.Subject, arguments ipld.Map, options ...invocation.Option) (*invocation.Invocation, error) {
+func (c *Capability) Invoke(issuer ucan.Signer, subject did.DID, arguments ipld.Map, options ...invocation.Option) (*invocation.Invocation, error) {
 	return invocation.Invoke(issuer, subject, c.cmd, datamodel.Map(arguments), options...)
 }

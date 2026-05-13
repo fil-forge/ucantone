@@ -4,13 +4,15 @@ import (
 	"bytes"
 	"reflect"
 
+	"github.com/ipfs/go-cid"
+	cbg "github.com/whyrusleeping/cbor-gen"
+
+	"github.com/fil-forge/ucantone/did"
 	"github.com/fil-forge/ucantone/ucan"
 	"github.com/fil-forge/ucantone/ucan/delegation"
 	"github.com/fil-forge/ucantone/ucan/invocation"
 	"github.com/fil-forge/ucantone/validator/capability"
 	verrs "github.com/fil-forge/ucantone/validator/errors"
-	"github.com/ipfs/go-cid"
-	cbg "github.com/whyrusleeping/cbor-gen"
 )
 
 type Arguments interface {
@@ -61,10 +63,10 @@ func (c *Capability[A]) Policy() ucan.Policy {
 	return c.cap.Policy()
 }
 
-func (c *Capability[A]) Delegate(issuer ucan.Signer, audience ucan.Principal, subject ucan.Subject, options ...delegation.Option) (*delegation.Delegation, error) {
+func (c *Capability[A]) Delegate(issuer ucan.Signer, audience did.DID, subject did.DID, options ...delegation.Option) (*delegation.Delegation, error) {
 	return delegation.Delegate(issuer, audience, subject, c.cap.Command(), options...)
 }
 
-func (c *Capability[A]) Invoke(issuer ucan.Signer, subject ucan.Subject, arguments A, options ...invocation.Option) (*invocation.Invocation, error) {
+func (c *Capability[A]) Invoke(issuer ucan.Signer, subject did.DID, arguments A, options ...invocation.Option) (*invocation.Invocation, error) {
 	return invocation.Invoke(issuer, subject, c.cap.Command(), arguments, options...)
 }

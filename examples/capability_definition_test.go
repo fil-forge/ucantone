@@ -36,7 +36,7 @@ func TestCapabilityDefinition(t *testing.T) {
 	}
 
 	// delegate alice capability to use the email service
-	dlg, err := messageSendCapability.Delegate(mailer, alice, mailer)
+	dlg, err := messageSendCapability.Delegate(mailer, alice.DID(), mailer.DID())
 	if err != nil {
 		panic(err)
 	}
@@ -50,7 +50,7 @@ func TestCapabilityDefinition(t *testing.T) {
 	// invoke the capability
 	invocation, err := messageSendCapability.Invoke(
 		alice,
-		mailer,
+		mailer.DID(),
 		args,
 		invocation.WithProofs(dlg.Link()),
 	)
@@ -89,7 +89,7 @@ func TestTypedCapabilityDefinition(t *testing.T) {
 	}
 
 	// delegate alice capability to use the email service
-	dlg, err := messageSendCapability.Delegate(mailer, alice, mailer)
+	dlg, err := messageSendCapability.Delegate(mailer, alice.DID(), mailer.DID())
 	if err != nil {
 		panic(err)
 	}
@@ -97,7 +97,7 @@ func TestTypedCapabilityDefinition(t *testing.T) {
 	// invoke the capability
 	invocation, err := messageSendCapability.Invoke(
 		alice,
-		mailer,
+		mailer.DID(),
 		&types.MessageSendArguments{
 			To:      []string{"bob@example.com"},
 			Subject: "Hello!",

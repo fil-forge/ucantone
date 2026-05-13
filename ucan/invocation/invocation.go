@@ -11,6 +11,7 @@ import (
 	multihash "github.com/multiformats/go-multihash/core"
 	cbg "github.com/whyrusleeping/cbor-gen"
 
+	"github.com/fil-forge/ucantone/did"
 	"github.com/fil-forge/ucantone/ipld/codec/dagcbor"
 	"github.com/fil-forge/ucantone/ipld/datamodel"
 	"github.com/fil-forge/ucantone/ucan"
@@ -50,16 +51,15 @@ func (inv *Invocation) ArgumentsBytes() []byte {
 	return inv.sigPayload.TokenPayload1_0_0_rc1.Args.Bytes()
 }
 
-// The DID of the intended Executor if different from the Subject.
-//
-// WARNING: May be nil.
+// The DID of the intended Executor if different from the Subject. Returns
+// [did.Undef] when no audience is set; check with Defined().
 //
 // https://github.com/ucan-wg/spec/blob/main/README.md#issuer--audience
-func (inv *Invocation) Audience() ucan.Principal {
+func (inv *Invocation) Audience() did.DID {
 	if inv.sigPayload.TokenPayload1_0_0_rc1.Aud == nil {
-		return nil
+		return did.Undef
 	}
-	return inv.sigPayload.TokenPayload1_0_0_rc1.Aud
+	return *inv.sigPayload.TokenPayload1_0_0_rc1.Aud
 }
 
 // Bytes returns the dag-cbor encoded bytes of this invocation.
@@ -98,7 +98,7 @@ func (inv *Invocation) IssuedAt() *ucan.UTCUnixTimestamp {
 // Issuer DID (sender).
 //
 // https://github.com/ucan-wg/spec/blob/main/README.md#issuer--audience
-func (inv *Invocation) Issuer() ucan.Principal {
+func (inv *Invocation) Issuer() did.DID {
 	return inv.sigPayload.TokenPayload1_0_0_rc1.Iss
 }
 
@@ -161,7 +161,7 @@ func (inv *Invocation) Signature() ucan.Signature {
 // The Subject being invoked.
 //
 // https://github.com/ucan-wg/spec/blob/main/README.md#subject
-func (inv *Invocation) Subject() ucan.Principal {
+func (inv *Invocation) Subject() did.DID {
 	return inv.sigPayload.TokenPayload1_0_0_rc1.Sub
 }
 
@@ -294,7 +294,7 @@ func Decode(b []byte) (*Invocation, error) {
 // just want to pass a Go map literal.
 func InvokeMap(
 	issuer ucan.Signer,
-	subject ucan.Subject,
+	subject did.DID,
 	command ucan.Command,
 	args map[string]any,
 	options ...Option,
@@ -308,7 +308,7 @@ func InvokeMap(
 // Pass nil to encode an empty CBOR map.
 func Invoke(
 	issuer ucan.Signer,
-	subject ucan.Subject,
+	subject did.DID,
 	command ucan.Command,
 	args cbg.CBORMarshaler,
 	options ...Option,
@@ -376,7 +376,7 @@ func Invoke(
 
 	tokenPayload := &idm.TokenPayloadModel1_0_0_rc1{
 		Iss:   issuer.DID(),
-		Sub:   subject.DID(),
+		Sub:   subject,
 		Aud:   cfg.aud,
 		Cmd:   cmd,
 		Args:  datamodel.NewRaw(argsBytes),
@@ -468,7 +468,7 @@ func marshalArgs(args cbg.CBORMarshaler) ([]byte, error) {
 // payload from typed fields — verification operates on the exact bytes the
 // issuer signed, per the UCAN spec.
 func VerifySignature(inv ucan.Invocation, verifier ucan.Verifier) (bool, error) {
-	if inv.Issuer().DID() != verifier.DID() {
+	if inv.Issuer() != verifier.DID() {
 		return false, nil
 	}
 	return verifier.Verify(inv.SignedBytes(), inv.Signature().Bytes()), nil

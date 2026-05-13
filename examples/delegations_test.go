@@ -28,8 +28,8 @@ func TestDelegations(t *testing.T) {
 	// delegate alice capability to use the email service
 	_, err = delegation.Delegate(
 		mailer,          // issuer
-		alice,           // audience (receiver)
-		mailer,          // subject
+		alice.DID(),     // audience (receiver)
+		mailer.DID(),    // subject
 		"/message/send", // command
 	)
 	if err != nil {
@@ -38,8 +38,8 @@ func TestDelegations(t *testing.T) {
 
 	_, err = delegation.Delegate(
 		alice,
-		bob,
-		mailer,
+		bob.DID(),
+		mailer.DID(),
 		"/message/send",
 		// alice delegates bob capability to use the email service, but only allows
 		// bob to send to example.com email addresses

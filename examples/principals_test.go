@@ -11,19 +11,19 @@ import (
 )
 
 func TestParseDIDKey(t *testing.T) {
-	principal, err := did.Parse("did:key:z6MkfBSb2hC6g3UGnqNmWfmGvPdfMorBpT2osm9bk9b4Cyqu")
+	id, err := did.Parse("did:key:z6MkfBSb2hC6g3UGnqNmWfmGvPdfMorBpT2osm9bk9b4Cyqu")
 	if err != nil {
 		panic(err)
 	}
-	fmt.Println("DID:", principal.DID())
+	fmt.Println("DID:", id)
 }
 
 func TestParseDIDWeb(t *testing.T) {
-	principal, err := did.Parse("did:web:service.example.com")
+	id, err := did.Parse("did:web:service.example.com")
 	if err != nil {
 		panic(err)
 	}
-	fmt.Println("DID:", principal.DID())
+	fmt.Println("DID:", id)
 }
 
 func TestGenerateDIDKey(t *testing.T) {
