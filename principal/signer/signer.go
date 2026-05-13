@@ -2,13 +2,13 @@ package signer
 
 import (
 	"fmt"
-	"strings"
+
+	"github.com/multiformats/go-multibase"
 
 	"github.com/fil-forge/ucantone/did"
 	"github.com/fil-forge/ucantone/principal"
 	"github.com/fil-forge/ucantone/principal/verifier"
 	"github.com/fil-forge/ucantone/varsig"
-	"github.com/multiformats/go-multibase"
 )
 
 type Unwrapper interface {
@@ -57,7 +57,7 @@ func (w *WrappedSigner) Verifier() principal.Verifier {
 // primarily used to wrap a did:key signer with a signer that has a DID of
 // a different method.
 func Wrap(key principal.Signer, id did.DID) (*WrappedSigner, error) {
-	if !strings.HasPrefix(key.DID().String(), "did:key:") {
+	if key.DID().Method() != "key" {
 		return nil, fmt.Errorf("verifier is not a did:key")
 	}
 	vrf, err := verifier.Wrap(key.Verifier(), id)

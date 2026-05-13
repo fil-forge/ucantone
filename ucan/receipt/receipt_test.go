@@ -25,7 +25,7 @@ func TestIssue(t *testing.T) {
 		decoded, err := receipt.Decode(encoded)
 		require.NoError(t, err)
 
-		require.Equal(t, executor.DID(), decoded.Issuer().DID())
+		require.Equal(t, executor.DID(), decoded.Issuer())
 		require.Equal(t, ran, decoded.Ran())
 
 		okBytes, errBytes := decoded.Out().Unpack()

@@ -25,8 +25,8 @@ func TestInvocations(t *testing.T) {
 	// delegate alice capability to use the email service
 	dlg, err := delegation.Delegate(
 		mailer,          // issuer
-		alice,           // audience (receiver)
-		mailer,          // subject
+		alice.DID(),     // audience (receiver)
+		mailer.DID(),    // subject
 		"/message/send", // command
 	)
 	if err != nil {
@@ -35,7 +35,7 @@ func TestInvocations(t *testing.T) {
 
 	inv, err := invocation.Invoke(
 		alice,
-		mailer,
+		mailer.DID(),
 		"/message/send",
 		datamodel.Map{
 			"from":    "alice@example.com",

@@ -32,10 +32,10 @@ func TestInvoke(t *testing.T) {
 		decoded, err := invocation.Decode(encoded)
 		require.NoError(t, err)
 
-		require.Equal(t, issuer.DID(), decoded.Issuer().DID())
+		require.Equal(t, issuer.DID(), decoded.Issuer())
 		require.Equal(t, subject, decoded.Subject())
 		require.Equal(t, command, decoded.Command())
-		require.Nil(t, decoded.Audience())
+		require.False(t, decoded.Audience().Defined())
 		require.NotEmpty(t, decoded.Nonce())
 		require.GreaterOrEqual(t, *decoded.Expiration(), then)
 	})
@@ -142,7 +142,7 @@ func TestInvoke(t *testing.T) {
 		decoded, err := invocation.Decode(encoded)
 		require.NoError(t, err)
 
-		require.Equal(t, &audience, decoded.Audience())
+		require.Equal(t, audience, decoded.Audience())
 	})
 
 	t.Run("custom auguments", func(t *testing.T) {

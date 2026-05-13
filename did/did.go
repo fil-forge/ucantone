@@ -8,7 +8,7 @@ import (
 
 	jsg "github.com/alanshaw/dag-json-gen"
 	mbase "github.com/multiformats/go-multibase"
-	varint "github.com/multiformats/go-varint"
+	"github.com/multiformats/go-varint"
 	cbg "github.com/whyrusleeping/cbor-gen"
 )
 
@@ -35,13 +35,45 @@ type DID struct {
 	str string
 }
 
-func (d DID) DID() DID {
-	return d
+// Undef can be used to represent a nil or undefined DID, using DID{}
+// directly is also acceptable.
+var Undef = DID{}
+
+func (d DID) Defined() bool {
+	return d.str != ""
 }
 
 // String formats the decentralized identity document (DID) as a string.
 func (d DID) String() string {
 	return d.str
+}
+
+// Method returns the DID method name (e.g. "key", "web") parsed from the
+// scheme. Returns "" for an undefined DID.
+func (d DID) Method() string {
+	rest, ok := strings.CutPrefix(d.str, Prefix)
+	if !ok {
+		return ""
+	}
+	if i := strings.IndexByte(rest, ':'); i >= 0 {
+		return rest[:i]
+	}
+	return ""
+}
+
+// Identifier returns the method-specific identifier — everything after
+// "did:<method>:". Per the DID spec, this segment may itself contain colons
+// (e.g. "did:mailto:web.mail:alice" yields "web.mail:alice"). Returns "" for
+// an undefined DID.
+func (d DID) Identifier() string {
+	rest, ok := strings.CutPrefix(d.str, Prefix)
+	if !ok {
+		return ""
+	}
+	if i := strings.IndexByte(rest, ':'); i >= 0 {
+		return rest[i+1:]
+	}
+	return ""
 }
 
 func (d DID) MarshalJSON() ([]byte, error) {
@@ -132,8 +164,4 @@ func Parse(str string) (DID, error) {
 		}
 	}
 	return DID{str}, nil
-}
-
-func Format(d DID) (string, error) {
-	return d.str, nil
 }

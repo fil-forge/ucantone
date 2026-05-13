@@ -110,11 +110,11 @@ func (s *HTTPServer) RoundTrip(r *http.Request) (*http.Response, error) {
 	var receipts []ucan.Receipt
 	for _, inv := range reqContainer.Invocations() {
 		aud := inv.Audience()
-		if aud == nil {
+		if !aud.Defined() {
 			aud = inv.Subject()
 		}
 		// Skip invocations not addressed to this server.
-		if aud.DID() != s.id.DID() {
+		if aud != s.id.DID() {
 			continue
 		}
 		req := execution.NewRequest(

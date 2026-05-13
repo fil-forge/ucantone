@@ -2,7 +2,6 @@ package verifier
 
 import (
 	"fmt"
-	"strings"
 
 	"github.com/fil-forge/ucantone/did"
 	"github.com/fil-forge/ucantone/principal"
@@ -46,7 +45,7 @@ func (w *WrappedVerifier) Unwrap() principal.Verifier {
 // primarily used to wrap a did:key verifier with a verifier that has a DID of
 // a different method.
 func Wrap(key principal.Verifier, id did.DID) (*WrappedVerifier, error) {
-	if !strings.HasPrefix(key.DID().String(), "did:key:") {
+	if key.DID().Method() != "key" {
 		return nil, fmt.Errorf("verifier is not a did:key")
 	}
 	return &WrappedVerifier{id, key}, nil

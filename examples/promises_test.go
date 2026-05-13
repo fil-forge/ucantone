@@ -32,13 +32,13 @@ func TestPromises(t *testing.T) {
 	}
 
 	// A delegation from the mailer to alice allowing her to send emails
-	msgSendDlg, err := delegation.Delegate(mailer, alice, mailer, "/msg/send")
+	msgSendDlg, err := delegation.Delegate(mailer, alice.DID(), mailer.DID(), "/msg/send")
 	if err != nil {
 		panic(err)
 	}
 
 	// A delegation from the mailing list to alice allowing her to read the emails
-	listEmailsDlg, err := delegation.Delegate(mailingList, alice, mailingList, "/emails/list")
+	listEmailsDlg, err := delegation.Delegate(mailingList, alice.DID(), mailingList.DID(), "/emails/list")
 	if err != nil {
 		panic(err)
 	}
@@ -47,10 +47,10 @@ func TestPromises(t *testing.T) {
 	// so the invocation audience is the mailer.
 	readListInv, err := invocation.Invoke(
 		alice,
-		mailingList,
+		mailingList.DID(),
 		"/emails/list",
 		datamodel.Map{"limit": 100},
-		invocation.WithAudience(mailer),
+		invocation.WithAudience(mailer.DID()),
 		invocation.WithProofs(listEmailsDlg.Link()),
 	)
 	if err != nil {
@@ -62,14 +62,14 @@ func TestPromises(t *testing.T) {
 	// task above, due to the `await/ok` promise.
 	msgSendInv, err := invocation.Invoke(
 		alice,
-		mailer,
+		mailer.DID(),
 		"/msg/send",
 		datamodel.Map{
 			"from":    "alice@example.com",
 			"to":      datamodel.Map{"await/ok": readListInv.Task().Link()},
 			"message": "test",
 		},
-		invocation.WithAudience(mailer),
+		invocation.WithAudience(mailer.DID()),
 		invocation.WithProofs(msgSendDlg.Link()),
 	)
 	if err != nil {
@@ -113,13 +113,13 @@ func TestTypedPromises(t *testing.T) {
 	}
 
 	// A delegation from the mailer to alice allowing her to send emails
-	msgSendDlg, err := msgSendCap.Delegate(mailer, alice, mailer)
+	msgSendDlg, err := msgSendCap.Delegate(mailer, alice.DID(), mailer.DID())
 	if err != nil {
 		panic(err)
 	}
 
 	// A delegation from the mailing list to alice allowing her to read the emails
-	listEmailsDlg, err := emailListCap.Delegate(mailingList, alice, mailingList)
+	listEmailsDlg, err := emailListCap.Delegate(mailingList, alice.DID(), mailingList.DID())
 	if err != nil {
 		panic(err)
 	}
@@ -128,11 +128,11 @@ func TestTypedPromises(t *testing.T) {
 	// so the invocation audience is the mailer.
 	readListInv, err := emailListCap.Invoke(
 		alice,
-		mailingList,
+		mailingList.DID(),
 		&types.EmailsListArguments{
 			Limit: uint64(100),
 		},
-		invocation.WithAudience(mailer),
+		invocation.WithAudience(mailer.DID()),
 		invocation.WithProofs(listEmailsDlg.Link()),
 	)
 	if err != nil {
@@ -144,13 +144,13 @@ func TestTypedPromises(t *testing.T) {
 	// task above, due to the `await/ok` promise.
 	msgSendInv, err := msgSendCap.Invoke(
 		alice,
-		mailer,
+		mailer.DID(),
 		&types.PromisedMsgSendArguments{
 			From:    "alice@example.com",
 			To:      promise.AwaitOK{Task: readListInv.Task().Link()},
 			Message: "test",
 		},
-		invocation.WithAudience(mailer),
+		invocation.WithAudience(mailer.DID()),
 		invocation.WithProofs(msgSendDlg.Link()),
 	)
 	if err != nil {

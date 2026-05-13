@@ -105,14 +105,14 @@ func TestNonStandardSignatureVerification(t *testing.T) {
 	require.NoError(t, err)
 
 	// space -> account
-	accountDlg, err := BlobAdd.Delegate(space, account, space)
+	accountDlg, err := BlobAdd.Delegate(space, account.DID(), space.DID())
 	require.NoError(t, err)
 
 	inv, err := BlobAdd.Invoke(
 		account,
-		space,
+		space.DID(),
 		datamodel.Map{"digest": []byte(testutil.RandomDigest(t))},
-		invocation.WithAudience(service),
+		invocation.WithAudience(service.DID()),
 		invocation.WithProofs(accountDlg.Link()),
 	)
 	require.NoError(t, err)
@@ -149,23 +149,23 @@ func TestNonStandardSignatureVerificationViaAttestation(t *testing.T) {
 	require.NoError(t, err)
 
 	// space -> account
-	accountDlg, err := BlobAdd.Delegate(space, account, space)
+	accountDlg, err := BlobAdd.Delegate(space, account.DID(), space.DID())
 	require.NoError(t, err)
 
 	// account -> agent
-	agentDlg, err := BlobAdd.Delegate(account, agent, space)
+	agentDlg, err := BlobAdd.Delegate(account, agent.DID(), space.DID())
 	require.NoError(t, err)
 
 	// service attests to the delegation from the account to the agent
 	args := datamodel.Map{"proof": agentDlg.Link()}
-	attestation, err := Attest.Invoke(service, agent, args)
+	attestation, err := Attest.Invoke(service, agent.DID(), args)
 	require.NoError(t, err)
 
 	inv, err := BlobAdd.Invoke(
 		agent,
-		space,
+		space.DID(),
 		datamodel.Map{"digest": []byte(testutil.RandomDigest(t))},
-		invocation.WithAudience(service),
+		invocation.WithAudience(service.DID()),
 		invocation.WithProofs(accountDlg.Link(), agentDlg.Link()),
 	)
 	require.NoError(t, err)

@@ -33,7 +33,7 @@ type Delegation struct {
 // Audience can be conceptualized as the receiver of a postal letter.
 //
 // https://github.com/ucan-wg/spec/blob/main/README.md#issuer--audience
-func (d *Delegation) Audience() ucan.Principal {
+func (d *Delegation) Audience() did.DID {
 	return d.sigPayload.TokenPayload1_0_0_rc1.Aud
 }
 
@@ -59,7 +59,7 @@ func (d *Delegation) Expiration() *ucan.UTCUnixTimestamp {
 // Issuer can be conceptualized as the sender of a postal letter.
 //
 // https://github.com/ucan-wg/spec/blob/main/README.md#issuer--audience
-func (d *Delegation) Issuer() ucan.Principal {
+func (d *Delegation) Issuer() did.DID {
 	return d.sigPayload.TokenPayload1_0_0_rc1.Iss
 }
 
@@ -125,15 +125,12 @@ func (d *Delegation) Signature() ucan.Signature {
 	return d.sig
 }
 
-// The Subject that will eventually be invoked.
+// The Subject that will eventually be invoked. Returns an undefined DID for
+// powerline delegations (no subject); check with Defined().
 //
 // https://github.com/ucan-wg/delegation/blob/main/README.md#subject
-func (d *Delegation) Subject() ucan.Principal {
-	sub := d.sigPayload.TokenPayload1_0_0_rc1.Sub
-	if sub == (did.DID{}) {
-		return nil
-	}
-	return sub
+func (d *Delegation) Subject() did.DID {
+	return d.sigPayload.TokenPayload1_0_0_rc1.Sub
 }
 
 func (d *Delegation) MarshalCBOR(w io.Writer) error {
@@ -233,8 +230,8 @@ func Decode(b []byte) (*Delegation, error) {
 
 func Delegate(
 	issuer ucan.Signer,
-	audience ucan.Principal,
-	subject ucan.Subject,
+	audience did.DID,
+	subject did.DID,
 	command ucan.Command,
 	options ...Option,
 ) (*Delegation, error) {
@@ -254,11 +251,6 @@ func Delegate(
 	h, err := varsig.Encode(sigHeader)
 	if err != nil {
 		return nil, fmt.Errorf("encoding varsig header: %w", err)
-	}
-
-	var sub did.DID
-	if subject != nil {
-		sub = subject.DID()
 	}
 
 	cmd, err := cmd.Parse(string(command))
@@ -298,8 +290,8 @@ func Delegate(
 
 	tokenPayload := &ddm.TokenPayloadModel1_0_0_rc1{
 		Iss:   issuer.DID(),
-		Aud:   audience.DID(),
-		Sub:   sub,
+		Aud:   audience,
+		Sub:   subject,
 		Cmd:   cmd,
 		Pol:   cfg.pol,
 		Nonce: nnc,
@@ -352,7 +344,7 @@ func Delegate(
 // payload from typed fields — verification operates on the exact bytes the
 // issuer signed, per the UCAN spec.
 func VerifySignature(dlg ucan.Delegation, verifier ucan.Verifier) (bool, error) {
-	if dlg.Issuer().DID() != verifier.DID() {
+	if dlg.Issuer() != verifier.DID() {
 		return false, nil
 	}
 	return verifier.Verify(dlg.SignedBytes(), dlg.Signature().Bytes()), nil

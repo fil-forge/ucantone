@@ -43,7 +43,7 @@ func TestExtractTypedArgsFromInvocation(t *testing.T) {
 
 	inv, err := invocation.Invoke(
 		alice,
-		alice, // subject
+		alice.DID(), // subject
 		"/example/echo",
 		&types.EchoArguments{Message: "Hello, UCAN!"},
 		invocation.WithMetadata(map[string]any{

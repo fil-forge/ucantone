@@ -139,7 +139,7 @@ func issue(executor ucan.Signer, ran cid.Cid, ok, errVal cbg.CBORMarshaler, opti
 		outBytes = raw.Bytes()
 	}
 
-	options = append(options, invocation.WithAudience(executor))
+	options = append(options, invocation.WithAudience(executor.DID()))
 
 	inv, err := invocation.Invoke(executor, executor.DID(), Command, &rdm.ArgsModel{
 		Ran: ran,

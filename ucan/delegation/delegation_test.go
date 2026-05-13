@@ -23,7 +23,7 @@ func TestDelegation(t *testing.T) {
 		command := testutil.Must(command.Parse("/test/invoke"))(t)
 		then := ucan.Now()
 
-		initial, err := delegation.Delegate(issuer, audience, nil, command)
+		initial, err := delegation.Delegate(issuer, audience, did.Undef, command)
 		require.NoError(t, err)
 
 		encoded, err := delegation.Encode(initial)
@@ -32,10 +32,10 @@ func TestDelegation(t *testing.T) {
 		decoded, err := delegation.Decode(encoded)
 		require.NoError(t, err)
 
-		require.Equal(t, issuer.DID(), decoded.Issuer().DID())
+		require.Equal(t, issuer.DID(), decoded.Issuer())
 		require.Equal(t, audience, decoded.Audience())
 		require.Equal(t, command, decoded.Command())
-		require.Nil(t, decoded.Subject())
+		require.False(t, decoded.Subject().Defined())
 		require.NotEmpty(t, decoded.Nonce())
 		require.GreaterOrEqual(t, *decoded.Expiration(), then)
 	})
@@ -45,7 +45,7 @@ func TestDelegation(t *testing.T) {
 		audience := testutil.RandomDID(t)
 		command := testutil.Must(command.Parse("/test/invoke"))(t)
 
-		dlg, err := delegation.Delegate(issuer, audience, nil, command)
+		dlg, err := delegation.Delegate(issuer, audience, did.Undef, command)
 		require.NoError(t, err)
 
 		encoded, err := delegation.Encode(dlg)
@@ -125,7 +125,7 @@ func TestFixtures(t *testing.T) {
 
 			actual, err := delegation.Delegate(
 				issuer,
-				audience,
+				audience.DID(),
 				subject,
 				command,
 				delegation.WithExpiration(expiration),

@@ -4,18 +4,20 @@ import (
 	"bytes"
 	"fmt"
 
+	cid "github.com/ipfs/go-cid"
+	multihash "github.com/multiformats/go-multihash/core"
+
+	"github.com/fil-forge/ucantone/did"
 	"github.com/fil-forge/ucantone/ipld/codec/dagcbor"
 	"github.com/fil-forge/ucantone/ipld/datamodel"
 	"github.com/fil-forge/ucantone/ucan"
 	idm "github.com/fil-forge/ucantone/ucan/invocation/datamodel"
-	cid "github.com/ipfs/go-cid"
-	multihash "github.com/multiformats/go-multihash/core"
 )
 
 type Task struct {
 	link     cid.Cid
 	bytes    []byte
-	sub      ucan.Subject
+	sub      did.DID
 	cmd      ucan.Command
 	argBytes []byte
 	nnc      ucan.Nonce
@@ -25,7 +27,7 @@ type Task struct {
 // raw CBOR encoding of the args (typically obtained from
 // [Invocation.ArgumentsBytes] or by marshaling a typed cborgen struct directly).
 func NewTask(
-	subject ucan.Subject,
+	subject did.DID,
 	command ucan.Command,
 	argsBytes []byte,
 	nonce ucan.Nonce,
@@ -34,7 +36,7 @@ func NewTask(
 		argsBytes = []byte{0xa0}
 	}
 	taskModel := idm.TaskModel{
-		Sub:   subject.DID(),
+		Sub:   subject,
 		Cmd:   command,
 		Args:  datamodel.NewRaw(argsBytes),
 		Nonce: nonce,
@@ -77,7 +79,7 @@ func (t *Task) Nonce() ucan.Nonce {
 	return t.nnc
 }
 
-func (t *Task) Subject() ucan.Subject {
+func (t *Task) Subject() did.DID {
 	return t.sub
 }
 

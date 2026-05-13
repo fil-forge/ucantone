@@ -33,9 +33,9 @@ func TestHTTPClient(t *testing.T) {
 
 		inv, err := testutil.TestEchoCapability.Invoke(
 			alice,
-			alice,
+			alice.DID(),
 			datamodel.Map{"message": "echo!"},
-			invocation.WithAudience(service),
+			invocation.WithAudience(service.DID()),
 		)
 		require.NoError(t, err)
 
