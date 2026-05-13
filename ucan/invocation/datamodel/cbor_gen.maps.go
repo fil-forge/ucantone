@@ -10,6 +10,7 @@ import (
 
 	did "github.com/fil-forge/ucantone/did"
 	datamodel "github.com/fil-forge/ucantone/ipld/datamodel"
+	ucan "github.com/fil-forge/ucantone/ucan"
 	command "github.com/fil-forge/ucantone/ucan/command"
 	cid "github.com/ipfs/go-cid"
 	cbg "github.com/whyrusleeping/cbor-gen"
@@ -291,7 +292,7 @@ func (t *TokenPayloadModel1_0_0_rc1) MarshalCBOR(w io.Writer) error {
 		return err
 	}
 
-	// t.Exp (int64) (int64)
+	// t.Exp (ucan.UTCUnixTimestamp) (int64)
 	if len("exp") > 8192 {
 		return xerrors.Errorf("Value in field \"exp\" was too long")
 	}
@@ -319,7 +320,7 @@ func (t *TokenPayloadModel1_0_0_rc1) MarshalCBOR(w io.Writer) error {
 		}
 	}
 
-	// t.Iat (int64) (int64)
+	// t.Iat (ucan.UTCUnixTimestamp) (int64)
 	if t.Iat != nil {
 
 		if len("iat") > 8192 {
@@ -570,7 +571,7 @@ func (t *TokenPayloadModel1_0_0_rc1) UnmarshalCBOR(r io.Reader) (err error) {
 
 				t.Cmd = command.Command(sval)
 			}
-			// t.Exp (int64) (int64)
+			// t.Exp (ucan.UTCUnixTimestamp) (int64)
 		case "exp":
 			{
 
@@ -603,10 +604,10 @@ func (t *TokenPayloadModel1_0_0_rc1) UnmarshalCBOR(r io.Reader) (err error) {
 						return fmt.Errorf("wrong type for int64 field: %d", maj)
 					}
 
-					t.Exp = (*int64)(&extraI)
+					t.Exp = (*ucan.UTCUnixTimestamp)(&extraI)
 				}
 			}
-			// t.Iat (int64) (int64)
+			// t.Iat (ucan.UTCUnixTimestamp) (int64)
 		case "iat":
 			{
 
@@ -639,7 +640,7 @@ func (t *TokenPayloadModel1_0_0_rc1) UnmarshalCBOR(r io.Reader) (err error) {
 						return fmt.Errorf("wrong type for int64 field: %d", maj)
 					}
 
-					t.Iat = (*int64)(&extraI)
+					t.Iat = (*ucan.UTCUnixTimestamp)(&extraI)
 				}
 			}
 			// t.Iss (did.DID) (struct)

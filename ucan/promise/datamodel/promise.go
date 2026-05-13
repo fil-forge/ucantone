@@ -1,15 +1,15 @@
 package datamodel
 
-import "github.com/fil-forge/ucantone/ucan"
+import "github.com/ipfs/go-cid"
 
 type AwaitAnyModel struct {
-	AwaitAny ucan.Link `cborgen:"await/*" dagjsongen:"await/*"`
+	AwaitAny cid.Cid `cborgen:"await/*" dagjsongen:"await/*"`
 }
 
 type AwaitOKModel struct {
-	AwaitOK ucan.Link `cborgen:"await/ok" dagjsongen:"await/ok"`
+	AwaitOK cid.Cid `cborgen:"await/ok" dagjsongen:"await/ok"`
 }
 
 type AwaitErrorModel struct {
-	AwaitError ucan.Link `cborgen:"await/error" dagjsongen:"await/error"`
+	AwaitError cid.Cid `cborgen:"await/error" dagjsongen:"await/error"`
 }

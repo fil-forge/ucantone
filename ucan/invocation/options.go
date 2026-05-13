@@ -50,7 +50,7 @@ func WithNoExpiration() Option {
 }
 
 // WithNonce configures the nonce value for the UCAN.
-func WithNonce(nnc ucan.Nonce) Option {
+func WithNonce(nnc []byte) Option {
 	return func(cfg *invocationConfig) {
 		cfg.nnc = nnc
 	}
@@ -74,7 +74,7 @@ func WithMetadata(meta ipld.Map) Option {
 // `Invocation` is not the resource owner / service provider, for the delegated
 // capabilities, the `proofs` must contain valid `Proof`s containing
 // delegations to the `issuer`.
-func WithProofs(prf ...ucan.Link) Option {
+func WithProofs(prf ...cid.Cid) Option {
 	return func(cfg *invocationConfig) {
 		cfg.prf = prf
 	}
@@ -89,7 +89,7 @@ func WithIssuedAt(iat ucan.UTCUnixTimestamp) Option {
 }
 
 // WithCause configures the CID of the receipt that enqueued the task.
-func WithCause(cause ucan.Link) Option {
+func WithCause(cause cid.Cid) Option {
 	return func(cfg *invocationConfig) {
 		cfg.cause = &cause
 	}

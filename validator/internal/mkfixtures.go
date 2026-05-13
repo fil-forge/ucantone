@@ -50,7 +50,7 @@ var (
 		{1, 1, 3, 8, 1, 1, 3, 8, 1, 1, 3, 8, 1, 1, 3, 8},
 	}
 	iat = ucan.UTCUnixTimestamp(must(time.Parse(time.RFC3339, "2025-10-20T00:00:00Z")).Unix())
-	vat = ucan.UTCUnixTimestamp(must(time.Parse(time.RFC3339, "2026-01-01T00:00:00Z")).Unix())
+	vat = must(time.Parse(time.RFC3339, "2026-01-01T00:00:00Z")).Unix()
 )
 
 func main() {

@@ -140,7 +140,7 @@ func (inv *Invocation) SignedBytes() []byte {
 // (such as deterministic Wasm modules or standards-abiding HTTP PUT requests).
 //
 // https://github.com/ucan-wg/invocation/blob/main/README.md#nonce
-func (inv *Invocation) Nonce() ucan.Nonce {
+func (inv *Invocation) Nonce() []byte {
 	return inv.sigPayload.TokenPayload1_0_0_rc1.Nonce
 }
 

@@ -48,7 +48,7 @@ type Authorization struct {
 }
 
 // ProofResolverFunc finds a delegation corresponding to an external proof link.
-type ProofResolverFunc func(ctx context.Context, link ucan.Link) (ucan.Delegation, error)
+type ProofResolverFunc func(ctx context.Context, link cid.Cid) (ucan.Delegation, error)
 
 // CanIssueFunc determines whether given capability can be issued by a given
 // principal or whether it needs to be delegated to the issuer.
@@ -162,7 +162,7 @@ func Access(
 	}, nil
 }
 
-func ResolveProofs(ctx context.Context, providedProofs map[cid.Cid]ucan.Delegation, resolve ProofResolverFunc, links []ucan.Link) (map[cid.Cid]ucan.Delegation, error) {
+func ResolveProofs(ctx context.Context, providedProofs map[cid.Cid]ucan.Delegation, resolve ProofResolverFunc, links []cid.Cid) (map[cid.Cid]ucan.Delegation, error) {
 	proofs := map[cid.Cid]ucan.Delegation{}
 	for _, link := range links {
 		prf, ok := providedProofs[link]
@@ -440,7 +440,7 @@ func ParsePrincipal(str string) (principal.Verifier, error) {
 }
 
 // ProofUnavailable is a [ProofResolverFunc] that always fails.
-func ProofUnavailable(ctx context.Context, p ucan.Link) (ucan.Delegation, error) {
+func ProofUnavailable(ctx context.Context, p cid.Cid) (ucan.Delegation, error) {
 	return nil, verrs.NewUnavailableProofError(p, errors.New("no proof resolver configured"))
 }
 

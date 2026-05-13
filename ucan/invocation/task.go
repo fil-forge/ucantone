@@ -20,7 +20,7 @@ type Task struct {
 	sub      did.DID
 	cmd      ucan.Command
 	argBytes []byte
-	nnc      ucan.Nonce
+	nnc      []byte
 }
 
 // NewTask constructs a task from its component fields. argsBytes must be the
@@ -30,7 +30,7 @@ func NewTask(
 	subject did.DID,
 	command ucan.Command,
 	argsBytes []byte,
-	nonce ucan.Nonce,
+	nonce []byte,
 ) (*Task, error) {
 	if len(argsBytes) == 0 {
 		argsBytes = []byte{0xa0}
@@ -75,7 +75,7 @@ func (t *Task) Link() cid.Cid {
 	return t.link
 }
 
-func (t *Task) Nonce() ucan.Nonce {
+func (t *Task) Nonce() []byte {
 	return t.nnc
 }
 

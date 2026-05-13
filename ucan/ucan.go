@@ -24,10 +24,11 @@ import (
 type Command = command.Command
 
 // UTCUnixTimestamp is a timestamp in seconds since the Unix epoch.
-type UTCUnixTimestamp = int64
-
-// https://github.com/ucan-wg/spec/blob/main/README.md#nonce
-type Nonce = []byte
+//
+// Defined as a distinct type so the compiler catches accidental mixing with
+// raw int64s carrying other units (e.g. nanoseconds). Construct via [Now] or
+// an explicit conversion from a known-seconds value.
+type UTCUnixTimestamp int64
 
 // Signer is an entity that can sign UCANs on behalf of a DID.
 type Signer interface {
@@ -55,9 +56,6 @@ type Verifier interface {
 	// DID returns the DID this verifier verifies signatures for.
 	DID() did.DID
 }
-
-// Link is an IPLD link to a UCAN token.
-type Link = cid.Cid
 
 type Token interface {
 	ipld.Block
@@ -91,7 +89,7 @@ type Token interface {
 	// A unique, random nonce.
 	//
 	// https://github.com/ucan-wg/spec/blob/main/README.md#nonce
-	Nonce() Nonce
+	Nonce() []byte
 	// The timestamp at which the invocation becomes invalid.
 	//
 	// https://github.com/ucan-wg/spec/blob/main/README.md#time-bounds
@@ -182,7 +180,7 @@ type Task interface {
 	// HTTP PUT requests).
 	//
 	// https://github.com/ucan-wg/invocation/blob/main/README.md#nonce
-	Nonce() Nonce
+	Nonce() []byte
 }
 
 // UCAN Invocation defines a format for expressing the intention to execute
@@ -200,7 +198,7 @@ type Invocation interface {
 	// Delegations that prove the chain of authority.
 	//
 	// https://github.com/ucan-wg/invocation/blob/main/README.md#proofs
-	Proofs() []Link
+	Proofs() []cid.Cid
 	// The timestamp at which the invocation was created.
 	//
 	// https://github.com/ucan-wg/invocation/blob/main/README.md#issued-at
@@ -208,7 +206,7 @@ type Invocation interface {
 	// CID of the receipt that enqueued the Task.
 	//
 	// https://github.com/ucan-wg/invocation/blob/main/README.md#cause
-	Cause() *Link
+	Cause() *cid.Cid
 }
 
 // UCAN Invocation Receipt is a signed assertion of the executor state
@@ -234,12 +232,12 @@ type Container interface {
 	// Delegations the container contains.
 	Delegations() []Delegation
 	// Delegation retrieves a delegation from the container by it's CID.
-	Delegation(Link) (Delegation, bool)
+	Delegation(cid.Cid) (Delegation, bool)
 	// Receipts the container contains.
 	Receipts() []Receipt
 	// Receipt retrieves a receipt from the container by the CID of a [Task] that
 	// was executed.
-	Receipt(Link) (Receipt, bool)
+	Receipt(cid.Cid) (Receipt, bool)
 }
 
 // IsExpired checks if a UCAN is expired.

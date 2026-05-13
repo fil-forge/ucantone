@@ -22,7 +22,7 @@ type TokenPayloadModel1_0_0_rc1 struct {
 	// UCAN Policy Language.
 	Pol policy.Policy `cborgen:"pol" dagjsongen:"pol"`
 	// A unique, random nonce.
-	Nonce ucan.Nonce `cborgen:"nonce" dagjsongen:"nonce"`
+	Nonce []byte `cborgen:"nonce" dagjsongen:"nonce"`
 	// Arbitrary metadata.
 	Meta *datamodel.Raw `cborgen:"meta,omitempty" dagjsongen:"meta,omitempty"`
 	// "Not before" UTC Unix Timestamp in seconds (valid from).
