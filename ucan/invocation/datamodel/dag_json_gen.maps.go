@@ -328,7 +328,7 @@ func (t *TokenPayloadModel1_0_0_rc1) MarshalDagJSON(w io.Writer) error {
 		}
 	}
 
-	// t.Exp (uint64) (uint64)
+	// t.Exp (int64) (int64)
 	if len("exp") > 8192 {
 		return fmt.Errorf("String in field \"exp\" was too long")
 	}
@@ -344,7 +344,7 @@ func (t *TokenPayloadModel1_0_0_rc1) MarshalDagJSON(w io.Writer) error {
 			return fmt.Errorf("t.Exp: %w", err)
 		}
 	} else {
-		if err := jw.WriteUint64(uint64(*t.Exp)); err != nil {
+		if err := jw.WriteInt64(int64(*t.Exp)); err != nil {
 			return fmt.Errorf("t.Exp: %w", err)
 		}
 	}
@@ -358,7 +358,7 @@ func (t *TokenPayloadModel1_0_0_rc1) MarshalDagJSON(w io.Writer) error {
 		}
 	}
 
-	// t.Iat (uint64) (uint64)
+	// t.Iat (int64) (int64)
 	if t.Iat != nil {
 		if len("iat") > 8192 {
 			return fmt.Errorf("String in field \"iat\" was too long")
@@ -375,7 +375,7 @@ func (t *TokenPayloadModel1_0_0_rc1) MarshalDagJSON(w io.Writer) error {
 				return fmt.Errorf("t.Iat: %w", err)
 			}
 		} else {
-			if err := jw.WriteUint64(uint64(*t.Iat)); err != nil {
+			if err := jw.WriteInt64(int64(*t.Iat)); err != nil {
 				return fmt.Errorf("t.Iat: %w", err)
 			}
 		}
@@ -602,31 +602,31 @@ func (t *TokenPayloadModel1_0_0_rc1) UnmarshalDagJSON(r io.Reader) (err error) {
 					t.Cmd = command.Command(sval)
 				}
 
-				// t.Exp (uint64) (uint64)
+				// t.Exp (int64) (int64)
 			case "exp":
 				{
 
-					nval, err := jr.ReadNumberAsUint64OrNull()
+					nval, err := jr.ReadNumberAsInt64OrNull()
 					if err != nil {
 						return fmt.Errorf("t.Exp: %w", err)
 					}
 					if nval != nil {
-						typed := uint64(*nval)
+						typed := int64(*nval)
 						t.Exp = &typed
 					}
 
 				}
 
-				// t.Iat (uint64) (uint64)
+				// t.Iat (int64) (int64)
 			case "iat":
 				{
 
-					nval, err := jr.ReadNumberAsUint64OrNull()
+					nval, err := jr.ReadNumberAsInt64OrNull()
 					if err != nil {
 						return fmt.Errorf("t.Iat: %w", err)
 					}
 					if nval != nil {
-						typed := uint64(*nval)
+						typed := int64(*nval)
 						t.Iat = &typed
 					}
 

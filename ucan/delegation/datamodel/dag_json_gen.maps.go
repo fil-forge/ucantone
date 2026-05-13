@@ -74,7 +74,7 @@ func (t *TokenPayloadModel1_0_0_rc1) MarshalDagJSON(w io.Writer) error {
 		}
 	}
 
-	// t.Exp (uint64) (uint64)
+	// t.Exp (int64) (int64)
 	if len("exp") > 8192 {
 		return fmt.Errorf("String in field \"exp\" was too long")
 	}
@@ -90,7 +90,7 @@ func (t *TokenPayloadModel1_0_0_rc1) MarshalDagJSON(w io.Writer) error {
 			return fmt.Errorf("t.Exp: %w", err)
 		}
 	} else {
-		if err := jw.WriteUint64(uint64(*t.Exp)); err != nil {
+		if err := jw.WriteInt64(int64(*t.Exp)); err != nil {
 			return fmt.Errorf("t.Exp: %w", err)
 		}
 	}
@@ -148,7 +148,7 @@ func (t *TokenPayloadModel1_0_0_rc1) MarshalDagJSON(w io.Writer) error {
 		}
 	}
 
-	// t.Nbf (uint64) (uint64)
+	// t.Nbf (int64) (int64)
 	if t.Nbf != nil {
 		if len("nbf") > 8192 {
 			return fmt.Errorf("String in field \"nbf\" was too long")
@@ -165,7 +165,7 @@ func (t *TokenPayloadModel1_0_0_rc1) MarshalDagJSON(w io.Writer) error {
 				return fmt.Errorf("t.Nbf: %w", err)
 			}
 		} else {
-			if err := jw.WriteUint64(uint64(*t.Nbf)); err != nil {
+			if err := jw.WriteInt64(int64(*t.Nbf)); err != nil {
 				return fmt.Errorf("t.Nbf: %w", err)
 			}
 		}
@@ -296,16 +296,16 @@ func (t *TokenPayloadModel1_0_0_rc1) UnmarshalDagJSON(r io.Reader) (err error) {
 					t.Cmd = command.Command(sval)
 				}
 
-				// t.Exp (uint64) (uint64)
+				// t.Exp (int64) (int64)
 			case "exp":
 				{
 
-					nval, err := jr.ReadNumberAsUint64OrNull()
+					nval, err := jr.ReadNumberAsInt64OrNull()
 					if err != nil {
 						return fmt.Errorf("t.Exp: %w", err)
 					}
 					if nval != nil {
-						typed := uint64(*nval)
+						typed := int64(*nval)
 						t.Exp = &typed
 					}
 
@@ -338,16 +338,16 @@ func (t *TokenPayloadModel1_0_0_rc1) UnmarshalDagJSON(r io.Reader) (err error) {
 					}
 				}
 
-				// t.Nbf (uint64) (uint64)
+				// t.Nbf (int64) (int64)
 			case "nbf":
 				{
 
-					nval, err := jr.ReadNumberAsUint64OrNull()
+					nval, err := jr.ReadNumberAsInt64OrNull()
 					if err != nil {
 						return fmt.Errorf("t.Nbf: %w", err)
 					}
 					if nval != nil {
-						typed := uint64(*nval)
+						typed := int64(*nval)
 						t.Nbf = &typed
 					}
 

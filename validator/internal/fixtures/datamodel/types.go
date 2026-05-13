@@ -5,7 +5,7 @@ type ValidModel struct {
 	Description string   `dagjsongen:"description"`
 	Invocation  []byte   `dagjsongen:"invocation"`
 	Proofs      [][]byte `dagjsongen:"proofs"`
-	Time        uint64   `dagjsongen:"time"`
+	Time        int64    `dagjsongen:"time"`
 }
 
 type ErrorModel struct {
@@ -17,7 +17,7 @@ type InvalidModel struct {
 	Description string     `dagjsongen:"description"`
 	Invocation  []byte     `dagjsongen:"invocation"`
 	Proofs      [][]byte   `dagjsongen:"proofs"`
-	Time        uint64     `dagjsongen:"time"`
+	Time        int64      `dagjsongen:"time"`
 	Error       ErrorModel `dagjsongen:"error"`
 }
 

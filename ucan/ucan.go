@@ -34,7 +34,7 @@ type Principal interface {
 }
 
 // UTCUnixTimestamp is a timestamp in seconds since the Unix epoch.
-type UTCUnixTimestamp = uint64
+type UTCUnixTimestamp = int64
 
 // https://github.com/ucan-wg/spec/blob/main/README.md#nonce
 type Nonce = []byte

@@ -6,6 +6,9 @@ import (
 	"fmt"
 	"io"
 
+	"github.com/ipfs/go-cid"
+	multihash "github.com/multiformats/go-multihash/core"
+
 	"github.com/fil-forge/ucantone/did"
 	"github.com/fil-forge/ucantone/ipld/codec/dagcbor"
 	"github.com/fil-forge/ucantone/ipld/datamodel"
@@ -17,8 +20,6 @@ import (
 	"github.com/fil-forge/ucantone/ucan/nonce"
 	"github.com/fil-forge/ucantone/varsig"
 	varsig_dagcbor "github.com/fil-forge/ucantone/varsig/payload/dagcbor"
-	cid "github.com/ipfs/go-cid"
-	multihash "github.com/multiformats/go-multihash/core"
 )
 
 type Delegation struct {
@@ -288,7 +289,7 @@ func Delegate(
 	var exp *ucan.UTCUnixTimestamp
 	if !cfg.noexp {
 		if cfg.exp == nil {
-			in30s := uint64(ucan.Now() + 30)
+			in30s := ucan.Now() + 30
 			exp = &in30s
 		} else {
 			exp = cfg.exp

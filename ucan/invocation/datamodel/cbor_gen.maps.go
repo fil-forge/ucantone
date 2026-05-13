@@ -291,7 +291,7 @@ func (t *TokenPayloadModel1_0_0_rc1) MarshalCBOR(w io.Writer) error {
 		return err
 	}
 
-	// t.Exp (uint64) (uint64)
+	// t.Exp (int64) (int64)
 	if len("exp") > 8192 {
 		return xerrors.Errorf("Value in field \"exp\" was too long")
 	}
@@ -308,12 +308,18 @@ func (t *TokenPayloadModel1_0_0_rc1) MarshalCBOR(w io.Writer) error {
 			return err
 		}
 	} else {
-		if err := cw.WriteMajorTypeHeader(cbg.MajUnsignedInt, uint64(*t.Exp)); err != nil {
-			return err
+		if *t.Exp >= 0 {
+			if err := cw.WriteMajorTypeHeader(cbg.MajUnsignedInt, uint64(*t.Exp)); err != nil {
+				return err
+			}
+		} else {
+			if err := cw.WriteMajorTypeHeader(cbg.MajNegativeInt, uint64(-*t.Exp-1)); err != nil {
+				return err
+			}
 		}
 	}
 
-	// t.Iat (uint64) (uint64)
+	// t.Iat (int64) (int64)
 	if t.Iat != nil {
 
 		if len("iat") > 8192 {
@@ -332,8 +338,14 @@ func (t *TokenPayloadModel1_0_0_rc1) MarshalCBOR(w io.Writer) error {
 				return err
 			}
 		} else {
-			if err := cw.WriteMajorTypeHeader(cbg.MajUnsignedInt, uint64(*t.Iat)); err != nil {
-				return err
+			if *t.Iat >= 0 {
+				if err := cw.WriteMajorTypeHeader(cbg.MajUnsignedInt, uint64(*t.Iat)); err != nil {
+					return err
+				}
+			} else {
+				if err := cw.WriteMajorTypeHeader(cbg.MajNegativeInt, uint64(-*t.Iat-1)); err != nil {
+					return err
+				}
 			}
 		}
 
@@ -558,9 +570,8 @@ func (t *TokenPayloadModel1_0_0_rc1) UnmarshalCBOR(r io.Reader) (err error) {
 
 				t.Cmd = command.Command(sval)
 			}
-			// t.Exp (uint64) (uint64)
+			// t.Exp (int64) (int64)
 		case "exp":
-
 			{
 
 				b, err := cr.ReadByte()
@@ -571,21 +582,32 @@ func (t *TokenPayloadModel1_0_0_rc1) UnmarshalCBOR(r io.Reader) (err error) {
 					if err := cr.UnreadByte(); err != nil {
 						return err
 					}
-					maj, extra, err = cr.ReadHeader()
+					maj, extra, err := cr.ReadHeader()
 					if err != nil {
 						return err
 					}
-					if maj != cbg.MajUnsignedInt {
-						return fmt.Errorf("wrong type for uint64 field")
+					var extraI int64
+					switch maj {
+					case cbg.MajUnsignedInt:
+						extraI = int64(extra)
+						if extraI < 0 {
+							return fmt.Errorf("int64 positive overflow")
+						}
+					case cbg.MajNegativeInt:
+						extraI = int64(extra)
+						if extraI < 0 {
+							return fmt.Errorf("int64 negative overflow")
+						}
+						extraI = -1 - extraI
+					default:
+						return fmt.Errorf("wrong type for int64 field: %d", maj)
 					}
-					typed := uint64(extra)
-					t.Exp = &typed
-				}
 
+					t.Exp = (*int64)(&extraI)
+				}
 			}
-			// t.Iat (uint64) (uint64)
+			// t.Iat (int64) (int64)
 		case "iat":
-
 			{
 
 				b, err := cr.ReadByte()
@@ -596,17 +618,29 @@ func (t *TokenPayloadModel1_0_0_rc1) UnmarshalCBOR(r io.Reader) (err error) {
 					if err := cr.UnreadByte(); err != nil {
 						return err
 					}
-					maj, extra, err = cr.ReadHeader()
+					maj, extra, err := cr.ReadHeader()
 					if err != nil {
 						return err
 					}
-					if maj != cbg.MajUnsignedInt {
-						return fmt.Errorf("wrong type for uint64 field")
+					var extraI int64
+					switch maj {
+					case cbg.MajUnsignedInt:
+						extraI = int64(extra)
+						if extraI < 0 {
+							return fmt.Errorf("int64 positive overflow")
+						}
+					case cbg.MajNegativeInt:
+						extraI = int64(extra)
+						if extraI < 0 {
+							return fmt.Errorf("int64 negative overflow")
+						}
+						extraI = -1 - extraI
+					default:
+						return fmt.Errorf("wrong type for int64 field: %d", maj)
 					}
-					typed := uint64(extra)
-					t.Iat = &typed
-				}
 
+					t.Iat = (*int64)(&extraI)
+				}
 			}
 			// t.Iss (did.DID) (struct)
 		case "iss":
