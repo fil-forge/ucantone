@@ -1,4 +1,10 @@
-.PHONY: cover, gen
+.PHONY: build test cover gen
+
+build:
+	go build ./...
+
+test:
+	go test ./...
 
 cover:
 	mkdir -p coverage
