@@ -11,6 +11,7 @@ import (
 	"github.com/fil-forge/ucantone/ucan"
 	"github.com/fil-forge/ucantone/ucan/command"
 	"github.com/fil-forge/ucantone/ucan/invocation"
+	"github.com/fil-forge/ucantone/ucan/receipt"
 	"github.com/stretchr/testify/require"
 	cbg "github.com/whyrusleeping/cbor-gen"
 )
@@ -256,4 +257,31 @@ func TestInvokeRejectsNonMapArgs(t *testing.T) {
 	_, err := invocation.Invoke(issuer, subject, command, &notAMap)
 	require.Error(t, err)
 	require.Contains(t, err.Error(), "args must encode as a CBOR map")
+}
+
+// TestNotAReceipt is the mirror of receipt.TestWireFormatIsInvocation. A
+// receipt is wire-identical to a /ucan/assert/receipt invocation, but the
+// discrimination must hold in the other direction too: a plain invocation
+// with any other command MUST NOT decode as a receipt. This pins the
+// boundary so receipt.Decode can't silently accept arbitrary invocations.
+func TestNotAReceipt(t *testing.T) {
+	issuer := testutil.RandomSigner(t)
+	subject := testutil.RandomDID(t)
+	command := testutil.Must(command.Parse("/test/invoke"))(t)
+
+	inv, err := invocation.Invoke(issuer, subject, command, datamodel.Map{})
+	require.NoError(t, err)
+
+	encoded, err := invocation.Encode(inv)
+	require.NoError(t, err)
+
+	// The invocation decodes fine as an invocation...
+	_, err = invocation.Decode(encoded)
+	require.NoError(t, err)
+
+	// ...but must be rejected as a receipt: its command isn't the receipt
+	// command, so there are no Ran/Out fields to recover.
+	_, err = receipt.Decode(encoded)
+	require.Error(t, err, "a non-receipt invocation must not decode as a receipt")
+	require.Contains(t, err.Error(), "invalid receipt command")
 }
