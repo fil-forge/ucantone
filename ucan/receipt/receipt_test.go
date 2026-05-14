@@ -4,35 +4,125 @@ import (
 	"bytes"
 	"testing"
 
-	"github.com/fil-forge/ucantone/testutil"
-	"github.com/fil-forge/ucantone/ucan/receipt"
 	"github.com/stretchr/testify/require"
 	cbg "github.com/whyrusleeping/cbor-gen"
+
+	"github.com/fil-forge/ucantone/testutil"
+	"github.com/fil-forge/ucantone/ucan"
+	"github.com/fil-forge/ucantone/ucan/receipt"
 )
 
-func TestIssue(t *testing.T) {
-	t.Run("minimal", func(t *testing.T) {
-		executor := testutil.RandomSigner(t)
-		ran := testutil.RandomCID(t)
+func TestIssueOK(t *testing.T) {
+	executor := testutil.RandomSigner(t)
+	ran := testutil.RandomCID(t)
 
-		ok := cbg.CborInt(42)
-		initial, err := receipt.IssueOK(executor, ran, &ok)
+	ok := cbg.CborInt(42)
+	initial, err := receipt.IssueOK(executor, ran, &ok)
+	require.NoError(t, err)
+
+	encoded, err := receipt.Encode(initial)
+	require.NoError(t, err)
+
+	decoded, err := receipt.Decode(encoded)
+	require.NoError(t, err)
+
+	require.Equal(t, executor.DID(), decoded.Issuer())
+	require.Equal(t, ran, decoded.Ran())
+	require.NotEmpty(t, decoded.Nonce())
+
+	okBytes, errBytes := decoded.Out().Unpack()
+	require.Nil(t, errBytes)
+
+	var got cbg.CborInt
+	require.NoError(t, got.UnmarshalCBOR(bytes.NewReader(okBytes)))
+	require.Equal(t, cbg.CborInt(42), got)
+}
+
+func TestIssueErr(t *testing.T) {
+	executor := testutil.RandomSigner(t)
+	ran := testutil.RandomCID(t)
+
+	errVal := cbg.CborInt(7)
+	initial, err := receipt.IssueErr(executor, ran, &errVal)
+	require.NoError(t, err)
+
+	decoded, err := receipt.Decode(testutil.Must(receipt.Encode(initial))(t))
+	require.NoError(t, err)
+
+	okBytes, errBytes := decoded.Out().Unpack()
+	require.Nil(t, okBytes)
+
+	var got cbg.CborInt
+	require.NoError(t, got.UnmarshalCBOR(bytes.NewReader(errBytes)))
+	require.Equal(t, cbg.CborInt(7), got)
+}
+
+func TestOptions(t *testing.T) {
+	executor := testutil.RandomSigner(t)
+	ran := testutil.RandomCID(t)
+
+	t.Run("WithIssuedAt", func(t *testing.T) {
+		ok := cbg.CborInt(1)
+		now := ucan.Now()
+		rcpt, err := receipt.IssueOK(executor, ran, &ok, receipt.WithIssuedAt(now))
 		require.NoError(t, err)
-
-		encoded, err := receipt.Encode(initial)
-		require.NoError(t, err)
-
-		decoded, err := receipt.Decode(encoded)
-		require.NoError(t, err)
-
-		require.Equal(t, executor.DID(), decoded.Issuer())
-		require.Equal(t, ran, decoded.Ran())
-
-		okBytes, errBytes := decoded.Out().Unpack()
-		require.Nil(t, errBytes)
-
-		var got cbg.CborInt
-		require.NoError(t, got.UnmarshalCBOR(bytes.NewReader(okBytes)))
-		require.Equal(t, cbg.CborInt(42), got)
+		require.NotNil(t, rcpt.IssuedAt())
+		require.Equal(t, now, *rcpt.IssuedAt())
 	})
+
+	t.Run("WithNonce", func(t *testing.T) {
+		ok := cbg.CborInt(1)
+		nonce := []byte{1, 2, 3, 4, 5, 6, 7, 8}
+		rcpt, err := receipt.IssueOK(executor, ran, &ok, receipt.WithNonce(nonce))
+		require.NoError(t, err)
+		require.Equal(t, nonce, rcpt.Nonce())
+	})
+
+	t.Run("WithNoNonce", func(t *testing.T) {
+		ok := cbg.CborInt(1)
+		rcpt, err := receipt.IssueOK(executor, ran, &ok, receipt.WithNoNonce())
+		require.NoError(t, err)
+		require.Empty(t, rcpt.Nonce())
+	})
+}
+
+func TestVerifySignature(t *testing.T) {
+	executor := testutil.RandomSigner(t)
+	other := testutil.RandomSigner(t)
+	ran := testutil.RandomCID(t)
+
+	ok := cbg.CborInt(42)
+	rcpt, err := receipt.IssueOK(executor, ran, &ok)
+	require.NoError(t, err)
+
+	decoded, err := receipt.Decode(testutil.Must(receipt.Encode(rcpt))(t))
+	require.NoError(t, err)
+
+	t.Run("correct verifier", func(t *testing.T) {
+		ok, err := receipt.VerifySignature(decoded, executor.Verifier())
+		require.NoError(t, err)
+		require.True(t, ok)
+	})
+
+	t.Run("wrong verifier", func(t *testing.T) {
+		ok, err := receipt.VerifySignature(decoded, other.Verifier())
+		require.NoError(t, err)
+		require.False(t, ok)
+	})
+}
+
+// TestNotInvocation asserts a Receipt does NOT satisfy ucan.Invocation. The
+// wire format is still an invocation, but the Go type is deliberately its own
+// thing so callers can't accidentally pass a receipt where an invocation is
+// expected.
+func TestNotInvocation(t *testing.T) {
+	executor := testutil.RandomSigner(t)
+	ran := testutil.RandomCID(t)
+	ok := cbg.CborInt(1)
+	rcpt, err := receipt.IssueOK(executor, ran, &ok)
+	require.NoError(t, err)
+
+	var _ ucan.Receipt = rcpt
+	_, isInv := any(rcpt).(ucan.Invocation)
+	require.False(t, isInv, "Receipt must not be assignable to ucan.Invocation")
 }

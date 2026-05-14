@@ -208,17 +208,37 @@ type Invocation interface {
 	Cause() *cid.Cid
 }
 
-// UCAN Invocation Receipt is a signed assertion of the executor state
-// describing the result and effects of the invocation.
+// Receipt is a signed assertion by an executor that a task ran and produced a
+// particular result.
+//
+// On the wire a receipt is a /ucan/assert/receipt invocation (per the UCAN WG
+// draft, ucan-wg/receipt#1). At the Go level, however, Receipt is its own
+// type — it does not embed Invocation — so the interface exposes only what is
+// meaningful for a receipt. Receipt-shaped accessors for proofs and
+// expiration will be added once those semantics settle in the spec.
 type Receipt interface {
-	Token
-	Invocation
+	ipld.Block
+
+	// Issuer is the DID of the executor that signed this attestation.
+	Issuer() did.DID
 	// Ran is the CID of the executed task the receipt is for.
 	Ran() cid.Cid
 	// Out is the attested result of the execution of the task. The Result's
 	// Ok and Err branches hold raw CBOR bytes; consumers decode into the
 	// typed cborgen struct that matches the task's expected output.
 	Out() result.Result[[]byte, []byte]
+	// IssuedAt is the timestamp the executor signed at, or nil if unset.
+	IssuedAt() *UnixTimestamp
+	// Nonce is the receipt's nonce.
+	Nonce() []byte
+	// MetadataBytes returns the raw CBOR bytes of the meta field, or nil if
+	// metadata is not set.
+	MetadataBytes() []byte
+	// SignedBytes returns the raw CBOR bytes of the SigPayload — the bytes the
+	// issuer signed over.
+	SignedBytes() []byte
+	// Signature of the executor.
+	Signature() Signature
 }
 
 // Container is a format for transmitting one or more UCAN tokens as bytes,
