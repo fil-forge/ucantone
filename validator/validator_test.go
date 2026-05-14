@@ -54,7 +54,7 @@ func TestFixtures(t *testing.T) {
 			require.NoError(t, err)
 
 			opts := []validator.Option{
-				validator.WithValidationTime(ucan.UTCUnixTimestamp(vector.Time)),
+				validator.WithValidationTime(ucan.UnixTimestamp(vector.Time)),
 				validator.WithProofResolver(newMapProofResolver(proofs)),
 			}
 			cap, err := capability.New(cmd)
@@ -81,7 +81,7 @@ func TestFixtures(t *testing.T) {
 			require.NoError(t, err)
 
 			opts := []validator.Option{
-				validator.WithValidationTime(ucan.UTCUnixTimestamp(vector.Time)),
+				validator.WithValidationTime(ucan.UnixTimestamp(vector.Time)),
 				validator.WithProofResolver(newMapProofResolver(proofs)),
 			}
 			cap, err := capability.New(cmd)

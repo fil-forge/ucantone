@@ -292,7 +292,7 @@ func (t *TokenPayloadModel1_0_0_rc1) MarshalCBOR(w io.Writer) error {
 		return err
 	}
 
-	// t.Exp (ucan.UTCUnixTimestamp) (int64)
+	// t.Exp (ucan.UnixTimestamp) (int64)
 	if len("exp") > 8192 {
 		return xerrors.Errorf("Value in field \"exp\" was too long")
 	}
@@ -320,7 +320,7 @@ func (t *TokenPayloadModel1_0_0_rc1) MarshalCBOR(w io.Writer) error {
 		}
 	}
 
-	// t.Iat (ucan.UTCUnixTimestamp) (int64)
+	// t.Iat (ucan.UnixTimestamp) (int64)
 	if t.Iat != nil {
 
 		if len("iat") > 8192 {
@@ -571,7 +571,7 @@ func (t *TokenPayloadModel1_0_0_rc1) UnmarshalCBOR(r io.Reader) (err error) {
 
 				t.Cmd = command.Command(sval)
 			}
-			// t.Exp (ucan.UTCUnixTimestamp) (int64)
+			// t.Exp (ucan.UnixTimestamp) (int64)
 		case "exp":
 			{
 
@@ -604,10 +604,10 @@ func (t *TokenPayloadModel1_0_0_rc1) UnmarshalCBOR(r io.Reader) (err error) {
 						return fmt.Errorf("wrong type for int64 field: %d", maj)
 					}
 
-					t.Exp = (*ucan.UTCUnixTimestamp)(&extraI)
+					t.Exp = (*ucan.UnixTimestamp)(&extraI)
 				}
 			}
-			// t.Iat (ucan.UTCUnixTimestamp) (int64)
+			// t.Iat (ucan.UnixTimestamp) (int64)
 		case "iat":
 			{
 
@@ -640,7 +640,7 @@ func (t *TokenPayloadModel1_0_0_rc1) UnmarshalCBOR(r io.Reader) (err error) {
 						return fmt.Errorf("wrong type for int64 field: %d", maj)
 					}
 
-					t.Iat = (*ucan.UTCUnixTimestamp)(&extraI)
+					t.Iat = (*ucan.UnixTimestamp)(&extraI)
 				}
 			}
 			// t.Iss (did.DID) (struct)

@@ -10,7 +10,7 @@ type validationConfig struct {
 	resolveProof               ProofResolverFunc
 	resolveDIDKey              DIDResolverFunc
 	validateAuthorization      ValidateAuthorizationFunc
-	validationTime             ucan.UTCUnixTimestamp
+	validationTime             ucan.UnixTimestamp
 	verifyNonStandardSignature NonStandardSignatureVerifierFunc
 }
 
@@ -57,7 +57,7 @@ func WithAuthorizationValidator(validateAuthorization ValidateAuthorizationFunc)
 
 // WithValidationTime sets the time to be used as "now" when validation is
 // performed.
-func WithValidationTime(now ucan.UTCUnixTimestamp) Option {
+func WithValidationTime(now ucan.UnixTimestamp) Option {
 	return func(vc *validationConfig) {
 		vc.validationTime = now
 	}

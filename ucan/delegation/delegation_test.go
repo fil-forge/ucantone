@@ -119,7 +119,7 @@ func TestFixtures(t *testing.T) {
 			audience := principals[vector.Envelope.Payload.Aud]
 			subject := testutil.Must(did.Parse(vector.Envelope.Payload.Sub))(t)
 			command := testutil.Must(command.Parse(vector.Envelope.Payload.Cmd))(t)
-			expiration := ucan.UTCUnixTimestamp(vector.Envelope.Payload.Exp)
+			expiration := ucan.UnixTimestamp(vector.Envelope.Payload.Exp)
 			nonce := testutil.Must(base64.StdEncoding.DecodeString(vector.Envelope.Payload.Nonce))(t)
 			signature := testutil.Must(base64.StdEncoding.DecodeString(vector.Envelope.Signature))(t)
 

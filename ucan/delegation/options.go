@@ -10,8 +10,8 @@ import (
 type Option func(cfg *delegationConfig) error
 
 type delegationConfig struct {
-	exp   *ucan.UTCUnixTimestamp
-	nbf   *ucan.UTCUnixTimestamp
+	exp   *ucan.UnixTimestamp
+	nbf   *ucan.UnixTimestamp
 	noexp bool
 	nnc   []byte
 	nonnc bool
@@ -19,9 +19,9 @@ type delegationConfig struct {
 	pol   policy.Policy
 }
 
-// WithExpiration configures the expiration time in UTC seconds since Unix
+// WithExpiration configures the expiration time in  seconds since Unix
 // epoch.
-func WithExpiration(exp ucan.UTCUnixTimestamp) Option {
+func WithExpiration(exp ucan.UnixTimestamp) Option {
 	return func(cfg *delegationConfig) error {
 		cfg.exp = &exp
 		cfg.noexp = false
@@ -56,9 +56,9 @@ func WithNoNonce() Option {
 	}
 }
 
-// WithNotBefore configures the time in UTC seconds since Unix epoch that the
+// WithNotBefore configures the time in  seconds since Unix epoch that the
 // delegation becomes valid.
-func WithNotBefore(nbf ucan.UTCUnixTimestamp) Option {
+func WithNotBefore(nbf ucan.UnixTimestamp) Option {
 	return func(cfg *delegationConfig) error {
 		cfg.nbf = &nbf
 		return nil
