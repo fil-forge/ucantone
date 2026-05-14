@@ -13,7 +13,7 @@ type TaskModel struct {
 	Sub   did.DID       `cborgen:"sub" dagjsongen:"sub"`
 	Cmd   ucan.Command  `cborgen:"cmd" dagjsongen:"cmd"`
 	Args  datamodel.Raw `cborgen:"args" dagjsongen:"args"`
-	Nonce []byte    `cborgen:"nonce" dagjsongen:"nonce"`
+	Nonce []byte        `cborgen:"nonce" dagjsongen:"nonce"`
 }
 
 type TokenPayloadModel1_0_0_rc1 struct {
@@ -34,9 +34,9 @@ type TokenPayloadModel1_0_0_rc1 struct {
 	// A unique, random nonce.
 	Nonce []byte `cborgen:"nonce" dagjsongen:"nonce"`
 	// The timestamp at which the invocation becomes invalid.
-	Exp *ucan.UTCUnixTimestamp `cborgen:"exp" dagjsongen:"exp"`
+	Exp *ucan.UnixTimestamp `cborgen:"exp" dagjsongen:"exp"`
 	// The timestamp at which the invocation was created.
-	Iat *ucan.UTCUnixTimestamp `cborgen:"iat,omitempty" dagjsongen:"iat,omitempty"`
+	Iat *ucan.UnixTimestamp `cborgen:"iat,omitempty" dagjsongen:"iat,omitempty"`
 	// CID of the receipt that enqueued the Task.
 	Cause *cid.Cid `cborgen:"cause,omitempty" dagjsongen:"cause,omitempty"`
 }

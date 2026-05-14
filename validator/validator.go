@@ -128,7 +128,7 @@ func Access(
 		resolveProof:               ProofUnavailable,
 		resolveDIDKey:              FailDIDKeyResolution,
 		validateAuthorization:      NopValidateAuthorization,
-		validationTime:             ucan.UTCUnixTimestamp(time.Now().Unix()),
+		validationTime:             ucan.UnixTimestamp(time.Now().Unix()),
 		verifyNonStandardSignature: FailNonStandardSignatureVerification,
 	}
 	for _, opt := range options {
@@ -187,7 +187,7 @@ func Validate(
 	parsePrincipal PrincipalParserFunc,
 	resolveDIDKey DIDResolverFunc,
 	verifyNonStandardSignature NonStandardSignatureVerifierFunc,
-	now ucan.UTCUnixTimestamp,
+	now ucan.UnixTimestamp,
 	inv ucan.Invocation,
 	prfs map[cid.Cid]ucan.Delegation,
 	meta ucan.Container,
@@ -211,7 +211,7 @@ func Validate(
 	return VerifyAuthorization(ctx, authority, canIssue, parsePrincipal, resolveDIDKey, verifyNonStandardSignature, inv, prfs, meta)
 }
 
-func ValidateNotExpired(token ucan.Token, now ucan.UTCUnixTimestamp) error {
+func ValidateNotExpired(token ucan.Token, now ucan.UnixTimestamp) error {
 	exp := token.Expiration()
 	if exp == nil {
 		return nil
@@ -222,7 +222,7 @@ func ValidateNotExpired(token ucan.Token, now ucan.UTCUnixTimestamp) error {
 	return nil
 }
 
-func ValidateNotTooEarly(dlg ucan.Delegation, now ucan.UTCUnixTimestamp) error {
+func ValidateNotTooEarly(dlg ucan.Delegation, now ucan.UnixTimestamp) error {
 	nbf := dlg.NotBefore()
 	if nbf == nil {
 		return nil

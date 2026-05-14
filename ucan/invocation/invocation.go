@@ -84,14 +84,14 @@ func (inv *Invocation) Command() ucan.Command {
 // The timestamp at which the invocation becomes invalid.
 //
 // https://github.com/ucan-wg/invocation/blob/main/README.md#expiration
-func (inv *Invocation) Expiration() *ucan.UTCUnixTimestamp {
+func (inv *Invocation) Expiration() *ucan.UnixTimestamp {
 	return inv.sigPayload.TokenPayload1_0_0_rc1.Exp
 }
 
 // An issuance timestamp.
 //
 // https://github.com/ucan-wg/invocation/blob/main/README.md#issued-at
-func (inv *Invocation) IssuedAt() *ucan.UTCUnixTimestamp {
+func (inv *Invocation) IssuedAt() *ucan.UnixTimestamp {
 	return inv.sigPayload.TokenPayload1_0_0_rc1.Iat
 }
 
@@ -358,10 +358,10 @@ func Invoke(
 		}
 	}
 
-	var exp *ucan.UTCUnixTimestamp
+	var exp *ucan.UnixTimestamp
 	if !cfg.noexp {
 		if cfg.exp == nil {
-			in30s := ucan.Now() + ucan.UTCUnixTimestamp(Validity.Seconds())
+			in30s := ucan.Now() + ucan.UnixTimestamp(Validity.Seconds())
 			exp = &in30s
 		} else {
 			exp = cfg.exp

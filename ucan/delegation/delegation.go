@@ -52,7 +52,7 @@ func (d *Delegation) Command() ucan.Command {
 // Expiration is the time at which the delegation becomes invalid.
 //
 // https://github.com/ucan-wg/spec/blob/main/README.md#time-bounds
-func (d *Delegation) Expiration() *ucan.UTCUnixTimestamp {
+func (d *Delegation) Expiration() *ucan.UnixTimestamp {
 	return d.sigPayload.TokenPayload1_0_0_rc1.Exp
 }
 
@@ -106,7 +106,7 @@ func (d *Delegation) Nonce() []byte {
 // NotBefore delays the ability to invoke a UCAN.
 //
 // https://github.com/ucan-wg/spec/blob/main/README.md#time-bounds
-func (d *Delegation) NotBefore() *ucan.UTCUnixTimestamp {
+func (d *Delegation) NotBefore() *ucan.UnixTimestamp {
 	return d.sigPayload.TokenPayload1_0_0_rc1.Nbf
 }
 
@@ -278,7 +278,7 @@ func Delegate(
 		}
 	}
 
-	var exp *ucan.UTCUnixTimestamp
+	var exp *ucan.UnixTimestamp
 	if !cfg.noexp {
 		if cfg.exp == nil {
 			in30s := ucan.Now() + 30

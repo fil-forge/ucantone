@@ -23,12 +23,11 @@ import (
 // https://github.com/ucan-wg/spec/blob/main/README.md#command
 type Command = command.Command
 
-// UTCUnixTimestamp is a timestamp in seconds since the Unix epoch.
-//
+// UnixTimestamp is a timestamp in seconds since the Unix epoch.
 // Defined as a distinct type so the compiler catches accidental mixing with
 // raw int64s carrying other units (e.g. nanoseconds). Construct via [Now] or
 // an explicit conversion from a known-seconds value.
-type UTCUnixTimestamp int64
+type UnixTimestamp int64
 
 // Signer is an entity that can sign UCANs on behalf of a DID.
 type Signer interface {
@@ -93,7 +92,7 @@ type Token interface {
 	// The timestamp at which the invocation becomes invalid.
 	//
 	// https://github.com/ucan-wg/spec/blob/main/README.md#time-bounds
-	Expiration() *UTCUnixTimestamp
+	Expiration() *UnixTimestamp
 	// Signature of the UCAN issuer.
 	Signature() Signature
 }
@@ -149,7 +148,7 @@ type Delegation interface {
 	// becomes valid.
 	//
 	// https://github.com/ucan-wg/spec/blob/main/README.md#time-bounds
-	NotBefore() *UTCUnixTimestamp
+	NotBefore() *UnixTimestamp
 }
 
 // A Task is the subset of Invocation fields that uniquely determine the work to
@@ -202,7 +201,7 @@ type Invocation interface {
 	// The timestamp at which the invocation was created.
 	//
 	// https://github.com/ucan-wg/invocation/blob/main/README.md#issued-at
-	IssuedAt() *UTCUnixTimestamp
+	IssuedAt() *UnixTimestamp
 	// CID of the receipt that enqueued the Task.
 	//
 	// https://github.com/ucan-wg/invocation/blob/main/README.md#cause
@@ -258,8 +257,8 @@ func IsTooEarly(delegation Delegation) bool {
 	return *nbf != 0 && Now() <= *nbf
 }
 
-// Now returns a UTC Unix timestamp for comparing it against time window of the
+// Now returns a  Unix timestamp for comparing it against time window of the
 // UCAN.
-func Now() UTCUnixTimestamp {
-	return UTCUnixTimestamp(time.Now().Unix())
+func Now() UnixTimestamp {
+	return UnixTimestamp(time.Now().Unix())
 }

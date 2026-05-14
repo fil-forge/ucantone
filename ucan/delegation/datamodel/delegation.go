@@ -25,10 +25,10 @@ type TokenPayloadModel1_0_0_rc1 struct {
 	Nonce []byte `cborgen:"nonce" dagjsongen:"nonce"`
 	// Arbitrary metadata.
 	Meta *datamodel.Raw `cborgen:"meta,omitempty" dagjsongen:"meta,omitempty"`
-	// "Not before" UTC Unix Timestamp in seconds (valid from).
-	Nbf *ucan.UTCUnixTimestamp `cborgen:"nbf,omitempty" dagjsongen:"nbf,omitempty"`
-	// Expiration UTC Unix Timestamp in seconds (valid until).
-	Exp *ucan.UTCUnixTimestamp `cborgen:"exp" dagjsongen:"exp"`
+	// "Not before"  Unix Timestamp in seconds (valid from).
+	Nbf *ucan.UnixTimestamp `cborgen:"nbf,omitempty" dagjsongen:"nbf,omitempty"`
+	// Expiration  Unix Timestamp in seconds (valid until).
+	Exp *ucan.UnixTimestamp `cborgen:"exp" dagjsongen:"exp"`
 }
 
 type SigPayloadModel struct {

@@ -12,13 +12,13 @@ type Option func(cfg *invocationConfig)
 
 type invocationConfig struct {
 	aud   *did.DID
-	exp   *ucan.UTCUnixTimestamp
+	exp   *ucan.UnixTimestamp
 	noexp bool
 	nnc   []byte
 	nonnc bool
 	meta  ipld.Map
 	prf   []cid.Cid
-	iat   *ucan.UTCUnixTimestamp
+	iat   *ucan.UnixTimestamp
 	cause *cid.Cid
 }
 
@@ -30,9 +30,9 @@ func WithAudience(aud did.DID) Option {
 	}
 }
 
-// WithExpiration configures the expiration time in UTC seconds since Unix
+// WithExpiration configures the expiration time in  seconds since Unix
 // epoch.
-func WithExpiration(exp ucan.UTCUnixTimestamp) Option {
+func WithExpiration(exp ucan.UnixTimestamp) Option {
 	return func(cfg *invocationConfig) {
 		cfg.exp = &exp
 		cfg.noexp = false
@@ -80,9 +80,9 @@ func WithProofs(prf ...cid.Cid) Option {
 	}
 }
 
-// WithIssuedAt sets the time at which the invocation was issued at in UTC
+// WithIssuedAt sets the time at which the invocation was issued at in
 // seconds since Unix epoch.
-func WithIssuedAt(iat ucan.UTCUnixTimestamp) Option {
+func WithIssuedAt(iat ucan.UnixTimestamp) Option {
 	return func(cfg *invocationConfig) {
 		cfg.iat = &iat
 	}

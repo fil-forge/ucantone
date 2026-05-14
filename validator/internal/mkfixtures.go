@@ -49,7 +49,7 @@ var (
 		{5, 6, 7, 8, 5, 6, 7, 8, 5, 6, 7, 8, 5, 6, 7, 8},
 		{1, 1, 3, 8, 1, 1, 3, 8, 1, 1, 3, 8, 1, 1, 3, 8},
 	}
-	iat = ucan.UTCUnixTimestamp(must(time.Parse(time.RFC3339, "2025-10-20T00:00:00Z")).Unix())
+	iat = ucan.UnixTimestamp(must(time.Parse(time.RFC3339, "2025-10-20T00:00:00Z")).Unix())
 	vat = must(time.Parse(time.RFC3339, "2026-01-01T00:00:00Z")).Unix()
 )
 
@@ -141,7 +141,7 @@ func makeValidSingleNonTimeBoundedProofFixture() fdm.ValidModel {
 }
 
 func makeValidSingleActiveProofFixture() fdm.ValidModel {
-	nbf := ucan.UTCUnixTimestamp(must(time.Parse(time.RFC3339, "2025-10-20T11:08:35Z")).Unix())
+	nbf := ucan.UnixTimestamp(must(time.Parse(time.RFC3339, "2025-10-20T11:08:35Z")).Unix())
 	dlg0 := must(delegation.Delegate(
 		bob,
 		alice.DID(),
@@ -221,7 +221,7 @@ func makeValidMultipleActiveProofsFixture() fdm.ValidModel {
 		delegation.WithNonce(nonce[0]),
 	))
 
-	nbf := ucan.UTCUnixTimestamp(must(time.Parse(time.RFC3339, "2025-10-20T11:08:35Z")).Unix())
+	nbf := ucan.UnixTimestamp(must(time.Parse(time.RFC3339, "2025-10-20T11:08:35Z")).Unix())
 	dlg1 := must(delegation.Delegate(
 		bob,
 		alice.DID(),
@@ -375,7 +375,7 @@ func makeInvalidMissingProofFixture() fdm.InvalidModel {
 }
 
 func makeInvalidExpiredProofFixture() fdm.InvalidModel {
-	exp := ucan.UTCUnixTimestamp(must(time.Parse(time.RFC3339, "2025-10-20T11:08:35Z")).Unix())
+	exp := ucan.UnixTimestamp(must(time.Parse(time.RFC3339, "2025-10-20T11:08:35Z")).Unix())
 	dlg0 := must(delegation.Delegate(
 		bob,
 		alice.DID(),
@@ -408,7 +408,7 @@ func makeInvalidExpiredProofFixture() fdm.InvalidModel {
 }
 
 func makeInvalidInactiveProofFixture() fdm.InvalidModel {
-	nbf := ucan.UTCUnixTimestamp(must(time.Parse(time.RFC3339, "9999-12-31T23:59:59Z")).Unix())
+	nbf := ucan.UnixTimestamp(must(time.Parse(time.RFC3339, "9999-12-31T23:59:59Z")).Unix())
 	dlg0 := must(delegation.Delegate(
 		bob,
 		alice.DID(),
@@ -611,7 +611,7 @@ func makeInvalidExpiredInvocationFixture() fdm.InvalidModel {
 		delegation.WithNonce(nonce[0]),
 	))
 
-	exp := ucan.UTCUnixTimestamp(must(time.Parse(time.RFC3339, "2025-10-20T11:08:35Z")).Unix())
+	exp := ucan.UnixTimestamp(must(time.Parse(time.RFC3339, "2025-10-20T11:08:35Z")).Unix())
 	inv := must(invocation.Invoke(
 		alice,
 		bob.DID(),

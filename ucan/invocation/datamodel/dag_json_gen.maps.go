@@ -329,7 +329,7 @@ func (t *TokenPayloadModel1_0_0_rc1) MarshalDagJSON(w io.Writer) error {
 		}
 	}
 
-	// t.Exp (ucan.UTCUnixTimestamp) (int64)
+	// t.Exp (ucan.UnixTimestamp) (int64)
 	if len("exp") > 8192 {
 		return fmt.Errorf("String in field \"exp\" was too long")
 	}
@@ -359,7 +359,7 @@ func (t *TokenPayloadModel1_0_0_rc1) MarshalDagJSON(w io.Writer) error {
 		}
 	}
 
-	// t.Iat (ucan.UTCUnixTimestamp) (int64)
+	// t.Iat (ucan.UnixTimestamp) (int64)
 	if t.Iat != nil {
 		if len("iat") > 8192 {
 			return fmt.Errorf("String in field \"iat\" was too long")
@@ -603,7 +603,7 @@ func (t *TokenPayloadModel1_0_0_rc1) UnmarshalDagJSON(r io.Reader) (err error) {
 					t.Cmd = command.Command(sval)
 				}
 
-				// t.Exp (ucan.UTCUnixTimestamp) (int64)
+				// t.Exp (ucan.UnixTimestamp) (int64)
 			case "exp":
 				{
 
@@ -612,13 +612,13 @@ func (t *TokenPayloadModel1_0_0_rc1) UnmarshalDagJSON(r io.Reader) (err error) {
 						return fmt.Errorf("t.Exp: %w", err)
 					}
 					if nval != nil {
-						typed := ucan.UTCUnixTimestamp(*nval)
+						typed := ucan.UnixTimestamp(*nval)
 						t.Exp = &typed
 					}
 
 				}
 
-				// t.Iat (ucan.UTCUnixTimestamp) (int64)
+				// t.Iat (ucan.UnixTimestamp) (int64)
 			case "iat":
 				{
 
@@ -627,7 +627,7 @@ func (t *TokenPayloadModel1_0_0_rc1) UnmarshalDagJSON(r io.Reader) (err error) {
 						return fmt.Errorf("t.Iat: %w", err)
 					}
 					if nval != nil {
-						typed := ucan.UTCUnixTimestamp(*nval)
+						typed := ucan.UnixTimestamp(*nval)
 						t.Iat = &typed
 					}
 
