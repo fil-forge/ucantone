@@ -10,21 +10,20 @@ const separator = "/"
 // Command is a concrete message (a "verb") that MUST be unambiguously
 // interpretable by the Subject of a UCAN.
 //
-// A [Command] is composed of a leading slash which is optionally followed
-// by one or more slash-separated Segments of lowercase characters.
+// A [Command] is composed of a leading slash which is optionally followed by
+// one or more slash-separated Segments of lowercase characters.
 //
 // [Command]: https://github.com/ucan-wg/spec#command
 type Command string
 
-// New creates a validated command from the provided list of segment strings.
-// An error is returned if an invalid Command would be formed
+// New creates a validated command from the provided list of segment strings. An
+// error is returned if an invalid Command would be formed
 func New(segments ...string) Command {
 	return Top().Join(segments...)
 }
 
-// Parse verifies that the provided string contains the required
-// [segment structure] and, if valid, returns the resulting
-// Command.
+// Parse verifies that the provided string contains the required [segment
+// structure] and, if valid, returns the resulting Command.
 //
 // [segment structure]: https://github.com/ucan-wg/spec#segment-structure
 func Parse(s string) (Command, error) {
@@ -40,7 +39,7 @@ func Parse(s string) (Command, error) {
 		return "", ErrRequiresLowercase
 	}
 
-	// The leading slash will result in the first element from strings.Split
+	// The leading slash will result in the first element from strings. Split
 	// being an empty string which is removed as strings.Join will ignore it.
 	return Command(s), nil
 }

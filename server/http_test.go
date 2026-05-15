@@ -25,19 +25,20 @@ func TestHTTPServer(t *testing.T) {
 		server := server.NewHTTP(service, server.WithReceiptTimestamps(true))
 
 		var messages []ipld.Any
-		server.Handle(testutil.ConsoleLogCapability.Command(), func(req execution.Request, res execution.Response) error {
+		server.Handle(testutil.ConsoleLogCommand, func(req execution.Request, res execution.Response) error {
 			msg := testutil.ArgsMap(t, req.Invocation())["message"]
 			t.Log(msg)
 			messages = append(messages, msg)
 			return res.SetSuccess(datamodel.Map{})
 		})
-		server.Handle(testutil.TestEchoCapability.Command(), func(req execution.Request, res execution.Response) error {
+		server.Handle(testutil.TestEchoCommand, func(req execution.Request, res execution.Response) error {
 			return res.SetSuccess(testutil.ArgsMap(t, req.Invocation()))
 		})
 
-		logInv, err := testutil.ConsoleLogCapability.Invoke(
+		logInv, err := invocation.Invoke(
 			alice,
 			alice.DID(),
+			testutil.ConsoleLogCommand,
 			datamodel.Map{"message": "Hello, World!"},
 			invocation.WithAudience(service.DID()),
 		)
@@ -69,9 +70,10 @@ func TestHTTPServer(t *testing.T) {
 		require.Len(t, messages, 1)
 		require.Equal(t, "Hello, World!", messages[0])
 
-		echoInv, err := testutil.TestEchoCapability.Invoke(
+		echoInv, err := invocation.Invoke(
 			alice,
 			alice.DID(),
+			testutil.TestEchoCommand,
 			datamodel.Map{"message": "echo!"},
 			invocation.WithAudience(service.DID()),
 		)

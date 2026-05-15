@@ -10,7 +10,7 @@ import (
 	"github.com/fil-forge/ucantone/ucan/delegation"
 	"github.com/fil-forge/ucantone/ucan/invocation"
 	"github.com/fil-forge/ucantone/ucan/promise"
-	"github.com/fil-forge/ucantone/validator/bindcap"
+	"github.com/fil-forge/ucantone/validator/bindcom"
 )
 
 func TestPromises(t *testing.T) {
@@ -83,14 +83,14 @@ func TestPromises(t *testing.T) {
 }
 
 func TestTypedPromises(t *testing.T) {
-	// Define a capability for sending emails
-	msgSendCap, err := bindcap.New[*types.PromisedMsgSendArguments]("/msg/send")
+	// Define a command for sending emails
+	msgSend, err := bindcom.Parse[*types.PromisedMsgSendArguments]("/msg/send")
 	if err != nil {
 		panic(err)
 	}
 
-	// Define a capability listing emails on a mailing list
-	emailListCap, err := bindcap.New[*types.EmailsListArguments]("/emails/list")
+	// Define a command listing emails on a mailing list
+	emailList, err := bindcom.Parse[*types.EmailsListArguments]("/emails/list")
 	if err != nil {
 		panic(err)
 	}
@@ -113,20 +113,20 @@ func TestTypedPromises(t *testing.T) {
 	}
 
 	// A delegation from the mailer to alice allowing her to send emails
-	msgSendDlg, err := msgSendCap.Delegate(mailer, alice.DID(), mailer.DID())
+	msgSendDlg, err := msgSend.Delegate(mailer, alice.DID(), mailer.DID())
 	if err != nil {
 		panic(err)
 	}
 
 	// A delegation from the mailing list to alice allowing her to read the emails
-	listEmailsDlg, err := emailListCap.Delegate(mailingList, alice.DID(), mailingList.DID())
+	listEmailsDlg, err := emailList.Delegate(mailingList, alice.DID(), mailingList.DID())
 	if err != nil {
 		panic(err)
 	}
 
 	// Read the emails on the mailing list. The mailer stores the email listings
 	// so the invocation audience is the mailer.
-	readListInv, err := emailListCap.Invoke(
+	readListInv, err := emailList.Invoke(
 		alice,
 		mailingList.DID(),
 		&types.EmailsListArguments{
@@ -142,7 +142,7 @@ func TestTypedPromises(t *testing.T) {
 	// Send a test email to the list.
 	// This invocation is blocked on the successful result of the  `/emails/list`
 	// task above, due to the `await/ok` promise.
-	msgSendInv, err := msgSendCap.Invoke(
+	msgSendInv, err := msgSend.Invoke(
 		alice,
 		mailer.DID(),
 		&types.PromisedMsgSendArguments{
