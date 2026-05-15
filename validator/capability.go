@@ -38,7 +38,11 @@ func (c Capability) Policy() ucan.Policy {
 	return c.pol
 }
 
-func (c Capability) Constrain(cmd ucan.Command, pol ucan.Policy) (Capability, error) {
+// Attenuate the capability by constraining its command and adding additional
+// policy statements.
+//
+// https://github.com/ucan-wg/spec#attenuation
+func (c Capability) Attenuate(cmd ucan.Command, pol ucan.Policy) (Capability, error) {
 	if c.cmd.Proves(cmd) {
 		// If the current command proves the new command, then we can constrain to
 		// the new command.

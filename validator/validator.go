@@ -164,7 +164,7 @@ func capabilityFromProofChain(ctx context.Context, inv ucan.Invocation, cfg vali
 
 		currentAuthority = prf.Audience()
 		var err error
-		currentCapability, err = currentCapability.Constrain(prf.Command(), prf.Policy())
+		currentCapability, err = currentCapability.Attenuate(prf.Command(), prf.Policy())
 		if err != nil {
 			return Capability{}, fmt.Errorf("proof chain is broken at proof %d: %w", i, err)
 		}

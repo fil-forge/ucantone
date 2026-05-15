@@ -43,7 +43,7 @@ func TestCapability(t *testing.T) {
 
 				var err error
 				for _, cmd := range tcase.cmds {
-					cap, err = cap.Constrain(
+					cap, err = cap.Attenuate(
 						testutil.Must(command.Parse(cmd))(t),
 						policy.Policy{},
 					)
@@ -67,7 +67,7 @@ func TestCapability(t *testing.T) {
 	t.Run("can constrain its policy", func(t *testing.T) {
 		cap := cap
 
-		cap, err := cap.Constrain(
+		cap, err := cap.Attenuate(
 			command.Top(),
 			testutil.Must(policy.Build(
 				policy.Equal(".widget.color", "green"),
@@ -78,7 +78,7 @@ func TestCapability(t *testing.T) {
 			testutil.Must(policy.Equal(".widget.color", "green")())(t),
 		}, cap.Policy().Statements())
 
-		cap, err = cap.Constrain(
+		cap, err = cap.Attenuate(
 			command.Top(),
 			testutil.Must(policy.Build(
 				policy.GreaterThan(".widget.size", 3),
