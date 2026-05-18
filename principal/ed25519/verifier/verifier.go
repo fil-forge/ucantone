@@ -2,17 +2,22 @@ package verifier
 
 import (
 	"crypto/ed25519"
-	"errors"
 	"fmt"
-	"strings"
 
 	"github.com/fil-forge/ucantone/did"
 	"github.com/fil-forge/ucantone/principal"
 	"github.com/fil-forge/ucantone/principal/multiformat"
+	keyverifier "github.com/fil-forge/ucantone/principal/verifier"
 	varsig_ed25519 "github.com/fil-forge/ucantone/varsig/algorithm/ed25519"
 	"github.com/multiformats/go-multibase"
 	"github.com/multiformats/go-varint"
 )
+
+func init() {
+	keyverifier.Register(Code, func(b []byte) (principal.Verifier, error) {
+		return Decode(b)
+	})
+}
 
 const Code = 0xed
 
@@ -23,20 +28,6 @@ var publicTagSize = varint.UvarintSize(Code)
 const keySize = ed25519.PublicKeySize
 
 var size = publicTagSize + keySize
-
-func Parse(str string) (Verifier, error) {
-	if !strings.HasPrefix(str, did.KeyPrefix) {
-		return nil, fmt.Errorf("must start with '%s'", did.KeyPrefix)
-	}
-	code, bytes, err := multibase.Decode(str[len(did.KeyPrefix):])
-	if err != nil {
-		return nil, err
-	}
-	if code != multibase.Base58BTC {
-		return nil, errors.New("not Base58BTC encoded")
-	}
-	return Decode(bytes)
-}
 
 func Format(verifier principal.Verifier) string {
 	return verifier.DID().String()

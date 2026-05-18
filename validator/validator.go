@@ -11,6 +11,8 @@ import (
 
 	"github.com/fil-forge/ucantone/did"
 	"github.com/fil-forge/ucantone/ipld/datamodel"
+	_ "github.com/fil-forge/ucantone/principal/ed25519/verifier"
+	_ "github.com/fil-forge/ucantone/principal/secp256k1/verifier"
 	"github.com/fil-forge/ucantone/principal/verifier"
 	"github.com/fil-forge/ucantone/ucan"
 	"github.com/fil-forge/ucantone/ucan/token"

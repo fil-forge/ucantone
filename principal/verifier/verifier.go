@@ -7,11 +7,18 @@ import (
 
 	"github.com/fil-forge/ucantone/did"
 	"github.com/fil-forge/ucantone/principal"
-	ed25519 "github.com/fil-forge/ucantone/principal/ed25519/verifier"
-	secp256k1 "github.com/fil-forge/ucantone/principal/secp256k1/verifier"
 	"github.com/multiformats/go-multibase"
 	"github.com/multiformats/go-varint"
 )
+
+// Decoder decodes multiformat-tagged public key bytes into a Verifier.
+type Decoder func([]byte) (principal.Verifier, error)
+
+var decoders = map[uint64]Decoder{}
+
+func Register(code uint64, d Decoder) {
+	decoders[code] = d
+}
 
 type Unwrapper interface {
 	// Unwrap returns the unwrapped did:key of this signer.
@@ -78,12 +85,9 @@ func Parse(str string) (principal.Verifier, error) {
 		return nil, fmt.Errorf("reading uvarint: %w", err)
 	}
 
-	switch keyTypeCode {
-	case ed25519.Code:
-		return ed25519.Decode(bytes)
-	case secp256k1.Code:
-		return secp256k1.Decode(bytes)
-	default:
+	d, ok := decoders[keyTypeCode]
+	if !ok {
 		return nil, fmt.Errorf("unsupported key type code: 0x%x", keyTypeCode)
 	}
+	return d(bytes)
 }
