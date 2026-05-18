@@ -22,103 +22,74 @@ func Match(policy ucan.Policy, value any) (bool, error) {
 	return true, nil
 }
 
+// normalize converts values to their normalized forms for comparison.
+// Currently, it converts int to int64. It may do more in the future to cover
+// other types.
+func normalize(value any) any {
+	if intVal, ok := value.(int); ok {
+		return int64(intVal)
+	}
+	return value
+}
+
 func MatchStatement(statement ucan.Statement, value any) (bool, error) {
 	s, err := toStatement(statement)
 	if err != nil {
 		return false, err
 	}
+
 	switch statement.Operator() {
-	case OpEqual:
+	case OpEqual, OpNotEqual, OpGreaterThan, OpGreaterThanOrEqual, OpLessThan, OpLessThanOrEqual:
+		// https://github.com/ucan-wg/delegation#comparisons
 		selectedValue, err := selector.Select(s.selector, value)
 		if err != nil {
 			return false, err
 		}
+		selectedValue = normalize(selectedValue)
+
 		var statementValue any
 		if s.model.Value != nil {
 			statementValue = s.model.Value.Value
+			statementValue = normalize(statementValue)
 		}
-		if !reflect.DeepEqual(statementValue, selectedValue) {
-			return false, NewMatchError(statement, fmt.Errorf(`matching "%s": "%v" does not equal "%v"`, s.Selector(), selectedValue, statementValue))
+
+		switch statement.Operator() {
+		case OpEqual:
+			if !reflect.DeepEqual(statementValue, selectedValue) {
+				return false, NewMatchError(statement, fmt.Errorf(`matching "%s": "%v" does not equal "%v"`, s.Selector(), selectedValue, statementValue))
+			}
+			return true, nil
+		case OpNotEqual:
+			if reflect.DeepEqual(statementValue, selectedValue) {
+				return false, NewMatchError(statement, fmt.Errorf(`matching "%s": "%v" equals "%v"`, s.Selector(), selectedValue, statementValue))
+			}
+			return true, nil
+
+		case OpGreaterThan, OpGreaterThanOrEqual, OpLessThan, OpLessThanOrEqual:
+			var comp func(order int) bool
+			switch statement.Operator() {
+			case OpGreaterThan:
+				comp = gt
+			case OpGreaterThanOrEqual:
+				comp = gte
+			case OpLessThan:
+				comp = lt
+			case OpLessThanOrEqual:
+				comp = lte
+			}
+
+			if selectedValue == nil {
+				return false, NewMatchError(statement, fmt.Errorf(`matching "%s": "%v" is not applicable to operator "%s"`, s.Selector(), selectedValue, statement.Operator()))
+			}
+
+			if !isOrdered(selectedValue, statementValue, comp) {
+				return false, NewMatchError(statement, fmt.Errorf(`matching "%s": "%v" is not %s than "%v"`, s.Selector(), selectedValue, statement.Operator(), statementValue))
+			}
+			return true, nil
 		}
-		return true, nil
-	case OpNotEqual:
-		selectedValue, err := selector.Select(s.selector, value)
-		if err != nil {
-			return false, err
-		}
-		var statementValue any
-		if s.model.Value != nil {
-			statementValue = s.model.Value.Value
-		}
-		if reflect.DeepEqual(statementValue, selectedValue) {
-			return false, NewMatchError(statement, fmt.Errorf(`matching "%s": "%v" equals "%v"`, s.Selector(), selectedValue, statementValue))
-		}
-		return true, nil
-	case OpGreaterThan:
-		selectedValue, err := selector.Select(s.selector, value)
-		if err != nil {
-			return false, err
-		}
-		if selectedValue == nil {
-			return false, NewMatchError(statement, fmt.Errorf(`matching "%s": "%v" is not applicable to operator "%s"`, s.Selector(), selectedValue, OpGreaterThan))
-		}
-		var statementValue any
-		if s.model.Value != nil {
-			statementValue = s.model.Value.Value
-		}
-		if !isOrdered(selectedValue, statementValue, gt) {
-			return false, NewMatchError(statement, fmt.Errorf(`matching "%s": "%v" is not greater than "%v"`, s.Selector(), selectedValue, statementValue))
-		}
-		return true, nil
-	case OpGreaterThanOrEqual:
-		selectedValue, err := selector.Select(s.selector, value)
-		if err != nil {
-			return false, err
-		}
-		if selectedValue == nil {
-			return false, NewMatchError(statement, fmt.Errorf(`matching "%s": "%v" is not applicable to operator "%s"`, s.Selector(), selectedValue, OpGreaterThanOrEqual))
-		}
-		var statementValue any
-		if s.model.Value != nil {
-			statementValue = s.model.Value.Value
-		}
-		if !isOrdered(selectedValue, statementValue, gte) {
-			return false, NewMatchError(statement, fmt.Errorf(`matching "%s": "%v" is not greater than or equal to "%v"`, s.Selector(), selectedValue, statementValue))
-		}
-		return true, nil
-	case OpLessThan:
-		selectedValue, err := selector.Select(s.selector, value)
-		if err != nil {
-			return false, err
-		}
-		if selectedValue == nil {
-			return false, NewMatchError(statement, fmt.Errorf(`matching "%s": "%v" is not applicable to operator "%s"`, s.Selector(), selectedValue, OpLessThan))
-		}
-		var statementValue any
-		if s.model.Value != nil {
-			statementValue = s.model.Value.Value
-		}
-		if !isOrdered(selectedValue, statementValue, lt) {
-			return false, NewMatchError(statement, fmt.Errorf(`matching "%s": "%v" is not less than "%v"`, s.Selector(), selectedValue, statementValue))
-		}
-		return true, nil
-	case OpLessThanOrEqual:
-		selectedValue, err := selector.Select(s.selector, value)
-		if err != nil {
-			return false, err
-		}
-		if selectedValue == nil {
-			return false, NewMatchError(statement, fmt.Errorf(`matching "%s": "%v" is not applicable to operator "%s"`, s.Selector(), selectedValue, OpLessThanOrEqual))
-		}
-		var statementValue any
-		if s.model.Value != nil {
-			statementValue = s.model.Value.Value
-		}
-		if !isOrdered(selectedValue, statementValue, lte) {
-			return false, NewMatchError(statement, fmt.Errorf(`matching "%s": "%v" is not less than or equal to "%v"`, s.Selector(), selectedValue, statementValue))
-		}
-		return true, nil
+
 	case OpNot:
+		// https://github.com/ucan-wg/delegation#not
 		ss, ok := statement.Argument().(ucan.Statement)
 		if !ok {
 			return false, fmt.Errorf(`"%s" operator argument is not a statement`, s.Operator())
@@ -129,6 +100,7 @@ func MatchStatement(statement ucan.Statement, value any) (bool, error) {
 		}
 		return true, nil
 	case OpAnd:
+		// https://github.com/ucan-wg/delegation#and
 		for _, s := range s.statements {
 			ok, err := MatchStatement(s, value)
 			if !ok {
@@ -137,6 +109,7 @@ func MatchStatement(statement ucan.Statement, value any) (bool, error) {
 		}
 		return true, nil
 	case OpOr:
+		// https://github.com/ucan-wg/delegation#or
 		if len(s.statements) == 0 {
 			return true, nil
 		}
@@ -148,6 +121,7 @@ func MatchStatement(statement ucan.Statement, value any) (bool, error) {
 		}
 		return false, fmt.Errorf(`"%v" did not match any statements`, value)
 	case OpLike:
+		// https://github.com/ucan-wg/delegation#like
 		selectedValue, err := selector.Select(s.selector, value)
 		if err != nil {
 			return false, err
@@ -161,6 +135,7 @@ func MatchStatement(statement ucan.Statement, value any) (bool, error) {
 		}
 		return true, nil
 	case OpAll:
+		// https://github.com/ucan-wg/delegation#all
 		selectedValue, err := selector.Select(s.selector, value)
 		if err != nil {
 			return false, err
@@ -192,6 +167,7 @@ func MatchStatement(statement ucan.Statement, value any) (bool, error) {
 		}
 		return true, nil
 	case OpAny:
+		// https://github.com/ucan-wg/delegation#any
 		selectedValue, err := selector.Select(s.selector, value)
 		if err != nil {
 			return false, err
@@ -224,12 +200,6 @@ func MatchStatement(statement ucan.Statement, value any) (bool, error) {
 }
 
 func isOrdered(a any, b any, satisfies func(order int) bool) bool {
-	if aint, ok := a.(int); ok {
-		a = int64(aint)
-	}
-	if bint, ok := b.(int); ok {
-		b = int64(bint)
-	}
 	if aint64, ok := a.(int64); ok {
 		if bint64, ok := b.(int64); ok {
 			return satisfies(cmp.Compare(aint64, bint64))
