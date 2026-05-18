@@ -13,7 +13,7 @@ import (
 	"github.com/fil-forge/ucantone/validator/bindcom"
 )
 
-func TestCapabilityDefinition(t *testing.T) {
+func TestCommandDefinition(t *testing.T) {
 	messageSend, err := command.Parse("/message/send")
 	if err != nil {
 		panic(err)
@@ -42,7 +42,7 @@ func TestCapabilityDefinition(t *testing.T) {
 		"message": "Hello Bob, How do you do?",
 	}
 
-	// invoke the capability
+	// invoke the command
 	inv, err := invocation.Invoke(
 		alice,
 		mailer.DID(),
@@ -59,7 +59,7 @@ func TestCapabilityDefinition(t *testing.T) {
 	// invocation and delegation in a Container and send a HTTP request...
 }
 
-func TestTypedCapabilityDefinition(t *testing.T) {
+func TestTypedCommandDefinition(t *testing.T) {
 	// Defining a command with a arguments type is useful because you get an
 	// Invoke method with a typed arguments parameter.
 	messageSend, err := bindcom.Parse[*types.MessageSendArguments]("/message/send")
