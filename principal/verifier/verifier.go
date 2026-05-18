@@ -3,7 +3,6 @@ package verifier
 import (
 	"errors"
 	"fmt"
-	"strings"
 
 	"github.com/fil-forge/ucantone/did"
 	"github.com/fil-forge/ucantone/principal"
@@ -69,10 +68,15 @@ func Format(verifier principal.Verifier) string {
 }
 
 func Parse(str string) (principal.Verifier, error) {
-	if !strings.HasPrefix(str, did.KeyPrefix) {
-		return nil, fmt.Errorf("must start with '%s'", did.KeyPrefix)
+	did, err := did.Parse(str)
+	if err != nil {
+		return nil, fmt.Errorf("parsing DID: %w", err)
 	}
-	code, bytes, err := multibase.Decode(str[len(did.KeyPrefix):])
+	if did.Method() != "key" {
+		return nil, fmt.Errorf("unsupported DID method: %s", did.Method())
+	}
+
+	code, bytes, err := multibase.Decode(did.Identifier())
 	if err != nil {
 		return nil, err
 	}
