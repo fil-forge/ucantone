@@ -56,6 +56,8 @@ type Verifier interface {
 	DID() did.DID
 }
 
+// Token is the common ancestor of elements of UCAN which make claims, including
+// [Delegation], [Invocation], and [Receipt].
 type Token interface {
 	ipld.Block
 	// Issuer DID (sender).

@@ -5,21 +5,16 @@ import (
 	"testing"
 
 	"github.com/fil-forge/ucantone/examples/types"
-	"github.com/fil-forge/ucantone/ipld"
+	"github.com/fil-forge/ucantone/ipld/datamodel"
 	"github.com/fil-forge/ucantone/principal/ed25519"
-	"github.com/fil-forge/ucantone/ucan/delegation/policy"
+	"github.com/fil-forge/ucantone/ucan/command"
+	"github.com/fil-forge/ucantone/ucan/delegation"
 	"github.com/fil-forge/ucantone/ucan/invocation"
-	"github.com/fil-forge/ucantone/validator/bindcap"
-	"github.com/fil-forge/ucantone/validator/capability"
+	"github.com/fil-forge/ucantone/validator/bindcom"
 )
 
-func TestCapabilityDefinition(t *testing.T) {
-	messageSendCapability, err := capability.New(
-		"/message/send",
-		capability.WithPolicyBuilder(
-			policy.NotEqual(".to", []string{}),
-		),
-	)
+func TestCommandDefinition(t *testing.T) {
+	messageSend, err := command.Parse("/message/send")
 	if err != nil {
 		panic(err)
 	}
@@ -36,43 +31,38 @@ func TestCapabilityDefinition(t *testing.T) {
 	}
 
 	// delegate alice capability to use the email service
-	dlg, err := messageSendCapability.Delegate(mailer, alice.DID(), mailer.DID())
+	dlg, err := delegation.Delegate(mailer, alice.DID(), mailer.DID(), messageSend)
 	if err != nil {
 		panic(err)
 	}
 
-	args := ipld.Map{
+	args := datamodel.Map{
 		"to":      []string{"bob@example.com"},
 		"subject": "Hello!",
 		"message": "Hello Bob, How do you do?",
 	}
 
-	// invoke the capability
-	invocation, err := messageSendCapability.Invoke(
+	// invoke the command
+	inv, err := invocation.Invoke(
 		alice,
 		mailer.DID(),
+		messageSend,
 		args,
 		invocation.WithProofs(dlg.Link()),
 	)
 	if err != nil {
 		panic(err)
 	}
-	fmt.Println(invocation.Link())
+	fmt.Println(inv.Link())
 
 	// Now, send the invocation to the service. You'll probably want to put the
 	// invocation and delegation in a Container and send a HTTP request...
 }
 
-func TestTypedCapabilityDefinition(t *testing.T) {
-	// Defining a capability with a arguments type is useful because you get a
-	// typed Invoke method (see below).
-	// i.e. the args parameter for this method is the type you define here.
-	messageSendCapability, err := bindcap.New[*types.MessageSendArguments](
-		"/message/send",
-		capability.WithPolicyBuilder(
-			policy.NotEqual(".to", []string{}),
-		),
-	)
+func TestTypedCommandDefinition(t *testing.T) {
+	// Defining a command with a arguments type is useful because you get an
+	// Invoke method with a typed arguments parameter.
+	messageSend, err := bindcom.Parse[*types.MessageSendArguments]("/message/send")
 	if err != nil {
 		panic(err)
 	}
@@ -89,13 +79,13 @@ func TestTypedCapabilityDefinition(t *testing.T) {
 	}
 
 	// delegate alice capability to use the email service
-	dlg, err := messageSendCapability.Delegate(mailer, alice.DID(), mailer.DID())
+	dlg, err := messageSend.Delegate(mailer, alice.DID(), mailer.DID())
 	if err != nil {
 		panic(err)
 	}
 
-	// invoke the capability
-	invocation, err := messageSendCapability.Invoke(
+	// invoke the command
+	inv, err := messageSend.Invoke(
 		alice,
 		mailer.DID(),
 		&types.MessageSendArguments{
@@ -108,7 +98,7 @@ func TestTypedCapabilityDefinition(t *testing.T) {
 	if err != nil {
 		panic(err)
 	}
-	fmt.Println(invocation.Link())
+	fmt.Println(inv.Link())
 
 	// Now, send the invocation to the service. You'll probably want to put the
 	// invocation and delegation in a Container and send a HTTP request...

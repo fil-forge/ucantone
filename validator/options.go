@@ -3,39 +3,15 @@ package validator
 import "github.com/fil-forge/ucantone/ucan"
 
 type validationConfig struct {
-	canIssue                   CanIssueFunc
-	metadata                   ucan.Container
-	parsePrincipal             PrincipalParserFunc
-	proofs                     []ucan.Delegation
 	resolveProof               ProofResolverFunc
-	resolveDIDKey              DIDResolverFunc
-	validateAuthorization      ValidateAuthorizationFunc
+	resolveDIDVerifier         DIDVerifierResolverFunc
 	validationTime             ucan.UnixTimestamp
 	verifyNonStandardSignature NonStandardSignatureVerifierFunc
+	metadata                   ucan.Container
 }
 
 // Option is an option configuring the validator.
 type Option func(*validationConfig)
-
-// WithCanIssue informs validator whether given capability can be issued by a
-// given principal or whether it needs to be delegated to the issuer.
-func WithCanIssue(canIssue CanIssueFunc) Option {
-	return func(vc *validationConfig) {
-		vc.canIssue = canIssue
-	}
-}
-
-func WithPrincipalParser(parsePrincipal PrincipalParserFunc) Option {
-	return func(vc *validationConfig) {
-		vc.parsePrincipal = parsePrincipal
-	}
-}
-
-func WithProofs(proofs ...ucan.Delegation) Option {
-	return func(vc *validationConfig) {
-		vc.proofs = append(vc.proofs, proofs...)
-	}
-}
 
 func WithProofResolver(resolveProof ProofResolverFunc) Option {
 	return func(vc *validationConfig) {
@@ -43,15 +19,20 @@ func WithProofResolver(resolveProof ProofResolverFunc) Option {
 	}
 }
 
-func WithDIDResolver(resolveDIDKey DIDResolverFunc) Option {
+// WithDIDVerifierResolver sets the function to be used for resolving a DID to a
+// verifier.
+func WithDIDVerifierResolver(resolveDIDVerifier DIDVerifierResolverFunc) Option {
 	return func(vc *validationConfig) {
-		vc.resolveDIDKey = resolveDIDKey
+		vc.resolveDIDVerifier = resolveDIDVerifier
 	}
 }
 
-func WithAuthorizationValidator(validateAuthorization ValidateAuthorizationFunc) Option {
+// WithDIDVerifierResolvers is a convenience option for composing a verifier
+// resolver from multiple DID method-specific resolvers using
+// [NewDIDVerifierResolverByMethod].
+func WithDIDVerifierResolvers(resolvers VerifierResolverMap) Option {
 	return func(vc *validationConfig) {
-		vc.validateAuthorization = validateAuthorization
+		vc.resolveDIDVerifier = NewDIDVerifierResolverByMethod(resolvers)
 	}
 }
 

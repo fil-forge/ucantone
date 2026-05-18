@@ -462,14 +462,3 @@ func marshalArgs(args cbg.CBORMarshaler) ([]byte, error) {
 	}
 	return raw, nil
 }
-
-// VerifySignature verifies the invocation's signature against the literal
-// signed-payload bytes preserved on decode. No reconstruction of the signing
-// payload from typed fields — verification operates on the exact bytes the
-// issuer signed, per the UCAN spec.
-func VerifySignature(inv ucan.Invocation, verifier ucan.Verifier) (bool, error) {
-	if inv.Issuer() != verifier.DID() {
-		return false, nil
-	}
-	return verifier.Verify(inv.SignedBytes(), inv.Signature().Bytes()), nil
-}

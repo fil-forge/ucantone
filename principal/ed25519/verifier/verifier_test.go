@@ -8,11 +8,18 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-func TestParse(t *testing.T) {
-	str := "did:key:z6MkgZN5cRgWqesJeaZCEs7eKzyQsfpzmhnSEqTL6FZt56Ym"
-	v, err := verifier.Parse(str)
-	require.NoError(t, err)
-	require.Equal(t, str, v.DID().String())
+func TestDecode(t *testing.T) {
+	t.Run("round trip", func(t *testing.T) {
+		pub, _, err := ed25519.GenerateKey(nil)
+		require.NoError(t, err)
+
+		v, err := verifier.FromRaw(pub)
+		require.NoError(t, err)
+
+		v2, err := verifier.Decode(v.Bytes())
+		require.NoError(t, err)
+		require.Equal(t, v, v2)
+	})
 }
 
 func TestFromRaw(t *testing.T) {

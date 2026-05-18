@@ -338,14 +338,3 @@ func Delegate(
 		sigPayload: &sigPayload,
 	}, nil
 }
-
-// VerifySignature verifies the delegation's signature against the literal
-// signed-payload bytes preserved on decode. No reconstruction of the signing
-// payload from typed fields — verification operates on the exact bytes the
-// issuer signed, per the UCAN spec.
-func VerifySignature(dlg ucan.Delegation, verifier ucan.Verifier) (bool, error) {
-	if dlg.Issuer() != verifier.DID() {
-		return false, nil
-	}
-	return verifier.Verify(dlg.SignedBytes(), dlg.Signature().Bytes()), nil
-}

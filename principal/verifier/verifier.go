@@ -1,11 +1,23 @@
 package verifier
 
 import (
+	"errors"
 	"fmt"
 
 	"github.com/fil-forge/ucantone/did"
 	"github.com/fil-forge/ucantone/principal"
+	"github.com/multiformats/go-multibase"
+	"github.com/multiformats/go-varint"
 )
+
+// Decoder decodes multiformat-tagged public key bytes into a Verifier.
+type Decoder func([]byte) (principal.Verifier, error)
+
+var decoders = map[uint64]Decoder{}
+
+func Register(code uint64, d Decoder) {
+	decoders[code] = d
+}
 
 type Unwrapper interface {
 	// Unwrap returns the unwrapped did:key of this signer.
@@ -53,4 +65,33 @@ func Wrap(key principal.Verifier, id did.DID) (*WrappedVerifier, error) {
 
 func Format(verifier principal.Verifier) string {
 	return verifier.DID().String()
+}
+
+// FromDIDKey decodes a did:key DID into a Verifier. An appropriate decoder
+// should be registered in advance with [Register] for the key type code.
+// Returns an error if the DID is not a did:key, if the did:key is malformed, or
+// if there is no decoder registered for the key type code.
+func FromDIDKey(did did.DID) (principal.Verifier, error) {
+	if did.Method() != "key" {
+		return nil, fmt.Errorf("unsupported DID method: %s", did.Method())
+	}
+
+	code, bytes, err := multibase.Decode(did.Identifier())
+	if err != nil {
+		return nil, err
+	}
+	if code != multibase.Base58BTC {
+		return nil, errors.New("not Base58BTC encoded")
+	}
+
+	keyTypeCode, _, err := varint.FromUvarint(bytes)
+	if err != nil {
+		return nil, fmt.Errorf("reading uvarint: %w", err)
+	}
+
+	d, ok := decoders[keyTypeCode]
+	if !ok {
+		return nil, fmt.Errorf("no decoder registered for key type code: 0x%x", keyTypeCode)
+	}
+	return d(bytes)
 }

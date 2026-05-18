@@ -463,13 +463,11 @@ func TestMatch(t *testing.T) {
 	for _, tc := range testCases {
 		t.Run(tc.name, func(t *testing.T) {
 			pol := testutil.Must(policy.Build(tc.policy))(t)
-			ok, err := policy.Match(pol, tc.value)
+			err := policy.Match(pol, tc.value)
 			if tc.match {
 				require.NoError(t, err)
-				require.True(t, ok)
 			} else {
 				require.Error(t, err)
-				require.False(t, ok)
 				t.Log(err)
 			}
 		})

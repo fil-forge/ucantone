@@ -17,13 +17,14 @@ import (
 	"github.com/fil-forge/ucantone/principal/ed25519"
 	"github.com/fil-forge/ucantone/server"
 	"github.com/fil-forge/ucantone/testutil"
+	"github.com/fil-forge/ucantone/ucan/command"
+	"github.com/fil-forge/ucantone/ucan/delegation"
 	"github.com/fil-forge/ucantone/ucan/invocation"
-	"github.com/fil-forge/ucantone/validator/bindcap"
-	"github.com/fil-forge/ucantone/validator/capability"
+	"github.com/fil-forge/ucantone/validator/bindcom"
 )
 
 func TestServer(t *testing.T) {
-	echoCapability, err := capability.New("/example/echo")
+	echo, err := command.Parse("/example/echo")
 	if err != nil {
 		panic(err)
 	}
@@ -36,7 +37,7 @@ func TestServer(t *testing.T) {
 	ucanSrv := server.NewHTTP(serviceID)
 
 	// Register an echo handler that returns the invocation arguments as the result
-	ucanSrv.Handle(echoCapability, func(req execution.Request, res execution.Response) error {
+	ucanSrv.Handle(echo, func(req execution.Request, res execution.Response) error {
 		args := testutil.ArgsMap(t, req.Invocation())
 		fmt.Printf("Echo: %s\n", args["message"])
 		return res.SetSuccess(args)
@@ -71,14 +72,15 @@ func TestServer(t *testing.T) {
 	}
 
 	// Allow alice to invoke the echo capability
-	dlg, err := echoCapability.Delegate(serviceID, alice.DID(), serviceID.DID())
+	dlg, err := delegation.Delegate(serviceID, alice.DID(), serviceID.DID(), echo)
 	if err != nil {
 		panic(err)
 	}
 
-	inv, err := echoCapability.Invoke(
+	inv, err := invocation.Invoke(
 		alice,
 		serviceID.DID(),
+		echo,
 		datamodel.Map{"message": "Hello, UCAN!"},
 		invocation.WithProofs(dlg.Link()),
 	)
@@ -112,7 +114,7 @@ func TestServer(t *testing.T) {
 }
 
 func TestTypedServer(t *testing.T) {
-	echoCapability, err := bindcap.New[*types.EchoArguments]("/example/echo")
+	echoCommand, err := bindcom.Parse[*types.EchoArguments]("/example/echo")
 	if err != nil {
 		panic(err)
 	}
@@ -124,8 +126,9 @@ func TestTypedServer(t *testing.T) {
 
 	ucanSrv := server.NewHTTP(serviceID)
 
-	// Register an echo handler that returns the invocation arguments as the result
-	ucanSrv.Handle(echoCapability, bindexec.NewHandler(func(req *bindexec.Request[*types.EchoArguments], res *bindexec.Response[*types.EchoArguments]) error {
+	// Register an echo handler that returns the invocation arguments as the
+	// result
+	ucanSrv.Handle(command.Command(echoCommand), bindexec.NewHandler(func(req *bindexec.Request[*types.EchoArguments], res *bindexec.Response[*types.EchoArguments]) error {
 		task := req.Task()
 		args := task.Arguments()
 		fmt.Printf("Echo: %s\n", args.Message)
@@ -161,12 +164,12 @@ func TestTypedServer(t *testing.T) {
 	}
 
 	// Allow alice to invoke the echo capability
-	dlg, err := echoCapability.Delegate(serviceID, alice.DID(), serviceID.DID())
+	dlg, err := echoCommand.Delegate(serviceID, alice.DID(), serviceID.DID())
 	if err != nil {
 		panic(err)
 	}
 
-	inv, err := echoCapability.Invoke(
+	inv, err := echoCommand.Invoke(
 		alice,
 		serviceID.DID(),
 		&types.EchoArguments{Message: "Hello, UCAN!"},
@@ -209,7 +212,7 @@ func TestTypedServer(t *testing.T) {
 // directly to the UCAN server by using it as a [http.RoundTripper] in a custom
 // HTTP client.
 func TestServerRoundTripper(t *testing.T) {
-	echoCapability, err := capability.New("/example/echo")
+	echo, err := command.Parse("/example/echo")
 	if err != nil {
 		panic(err)
 	}
@@ -222,7 +225,7 @@ func TestServerRoundTripper(t *testing.T) {
 	ucanSrv := server.NewHTTP(serviceID)
 
 	// Register an echo handler that returns the invocation arguments as the result
-	ucanSrv.Handle(echoCapability, func(req execution.Request, res execution.Response) error {
+	ucanSrv.Handle(echo, func(req execution.Request, res execution.Response) error {
 		args := testutil.ArgsMap(t, req.Invocation())
 		fmt.Printf("Echo: %s\n", args["message"])
 		return res.SetSuccess(args)
@@ -240,14 +243,15 @@ func TestServerRoundTripper(t *testing.T) {
 	}
 
 	// Allow alice to invoke the echo capability
-	dlg, err := echoCapability.Delegate(serviceID, alice.DID(), serviceID.DID())
+	dlg, err := delegation.Delegate(serviceID, alice.DID(), serviceID.DID(), echo)
 	if err != nil {
 		panic(err)
 	}
 
-	inv, err := echoCapability.Invoke(
+	inv, err := invocation.Invoke(
 		alice,
 		serviceID.DID(),
+		echo,
 		datamodel.Map{"message": "Hello, UCAN!"},
 		invocation.WithProofs(dlg.Link()),
 	)

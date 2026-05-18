@@ -86,25 +86,29 @@ func NewUnverifiableSignatureError(token ucan.Token, cause error) edm.ErrorModel
 
 const PrincipalAlignmentErrorName = "InvalidAudience"
 
-func NewPrincipalAlignmentError(audience did.DID, dlg ucan.Delegation) edm.ErrorModel {
-	return edm.ErrorModel{
-		ErrorName: PrincipalAlignmentErrorName,
-		Message:   fmt.Sprintf("delegation %q audience is %q not %q", dlg.Link(), audience, dlg.Audience()),
+func NewPrincipalAlignmentError(expectedIssuer did.DID, tok ucan.Token) edm.ErrorModel {
+	switch t := tok.(type) {
+	case ucan.Delegation:
+		return edm.ErrorModel{
+			ErrorName: PrincipalAlignmentErrorName,
+			Message:   fmt.Sprintf("delegation %q issuer is %q not %q", t.Link(), expectedIssuer, t.Issuer()),
+		}
+	case ucan.Invocation:
+		return edm.ErrorModel{
+			ErrorName: PrincipalAlignmentErrorName,
+			Message:   fmt.Sprintf("invocation %q issuer is %q not %q", t.Link(), expectedIssuer, t.Issuer()),
+		}
+	default:
+		panic(fmt.Sprintf("unexpected token type: %T", tok))
 	}
 }
 
 const SubjectAlignmentErrorName = "InvalidSubject"
 
-func NewSubjectAlignmentError(subject did.DID, t ucan.Token) edm.ErrorModel {
-	var name string
-	if _, ok := t.(ucan.Invocation); ok {
-		name = "invocation"
-	} else {
-		name = "delegation"
-	}
+func NewSubjectAlignmentError(expectedSubject did.DID, dlg ucan.Delegation) edm.ErrorModel {
 	return edm.ErrorModel{
 		ErrorName: SubjectAlignmentErrorName,
-		Message:   fmt.Sprintf("%s %q subject is %q not %q", name, t.Link(), t.Subject(), subject),
+		Message:   fmt.Sprintf("delegation %q subject is %q not %q", dlg.Link(), dlg.Subject(), expectedSubject),
 	}
 }
 
@@ -123,5 +127,14 @@ func NewInvalidClaimError(msg string) edm.ErrorModel {
 	return edm.ErrorModel{
 		ErrorName: InvalidClaimErrorName,
 		Message:   msg,
+	}
+}
+
+const AttenuationErrorName = "ImpossibleAttenuation"
+
+func NewAttenuationError(currentCmd, newCmd ucan.Command) edm.ErrorModel {
+	return edm.ErrorModel{
+		ErrorName: AttenuationErrorName,
+		Message:   fmt.Sprintf("cannot attenuate capability from command %s to command %s", currentCmd, newCmd),
 	}
 }
