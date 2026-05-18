@@ -19,9 +19,20 @@ func WithProofResolver(resolveProof ProofResolverFunc) Option {
 	}
 }
 
+// WithVerifierResolver sets the function to be used for resolving a DID to a
+// verifier.
 func WithVerifierResolver(resolveDIDKey DIDVerifierResolverFunc) Option {
 	return func(vc *validationConfig) {
 		vc.resolveDIDVerifier = resolveDIDKey
+	}
+}
+
+// WithVerifierResolvers is a convenience option for composing a verifier
+// resolver from multiple DID method-specific resolvers using
+// [NewDIDVerifierResolverByMethod].
+func WithVerifierResolvers(resolvers VerifierResolverMap) Option {
+	return func(vc *validationConfig) {
+		vc.resolveDIDVerifier = NewDIDVerifierResolverByMethod(resolvers)
 	}
 }
 

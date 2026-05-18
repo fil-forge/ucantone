@@ -474,9 +474,12 @@ func TestValidate(t *testing.T) {
 				t.Context(),
 				inv,
 				validator.WithProofResolver(resolveProof),
-				validator.WithVerifierResolver(func(ctx context.Context, did did.DID) (ucan.Verifier, error) {
-					require.NotEqual(t, "did:mailto:web.mail:alice", did.String(), "shouldn't try to resolve a verifier for a non-standard signature")
-					return validator.ResolveDIDKeyVerifier(ctx, did)
+				validator.WithVerifierResolvers(validator.VerifierResolverMap{
+					"key": validator.ResolveDIDKeyVerifier,
+					"mailto": func(ctx context.Context, d did.DID) (ucan.Verifier, error) {
+						require.Fail(t, "shouldn't try to resolve a verifier for a non-standard signature")
+						return nil, nil
+					},
 				}),
 			)
 			require.ErrorContains(t, err, "no non-standard signature verifier configured")
@@ -573,5 +576,68 @@ func TestResolveDIDKeyVerifier(t *testing.T) {
 				require.Nil(t, v)
 			})
 		}
+	})
+}
+
+type StubVerifier struct {
+	did          did.DID
+	resolverUsed string
+}
+
+func (s StubVerifier) DID() did.DID {
+	return s.did
+}
+
+func (s StubVerifier) Verify(msg []byte, sig []byte) bool {
+	return false
+}
+
+func TestNewDIDVerifierResolverByMethod(t *testing.T) {
+	resolveExample1DID := func(ctx context.Context, d did.DID) (ucan.Verifier, error) {
+		if d.Method() != "example1" {
+			return nil, errors.New("unsupported DID method")
+		}
+		return StubVerifier{did: d, resolverUsed: "example1"}, nil
+	}
+
+	resolveExample2DID := func(ctx context.Context, d did.DID) (ucan.Verifier, error) {
+		if d.Method() != "example2" {
+			return nil, errors.New("unsupported DID method")
+		}
+		return StubVerifier{did: d, resolverUsed: "example2"}, nil
+	}
+
+	resolver := validator.NewDIDVerifierResolverByMethod(validator.VerifierResolverMap{
+		"example1": resolveExample1DID,
+		"example2": resolveExample2DID,
+	})
+
+	t.Run("dispatches to the correct resolver based on DID method", func(t *testing.T) {
+		d1, err := did.Parse("did:example1:alice")
+		require.NoError(t, err)
+
+		v1, err := resolver(t.Context(), d1)
+		require.NoError(t, err)
+		require.NotNil(t, v1)
+		require.Equal(t, d1, v1.DID())
+		require.Equal(t, "example1", v1.(StubVerifier).resolverUsed)
+
+		d2, err := did.Parse("did:example2:bob")
+		require.NoError(t, err)
+
+		v2, err := resolver(t.Context(), d2)
+		require.NoError(t, err)
+		require.NotNil(t, v2)
+		require.Equal(t, d2, v2.DID())
+		require.Equal(t, "example2", v2.(StubVerifier).resolverUsed)
+	})
+
+	t.Run("returns an error for unsupported DID methods", func(t *testing.T) {
+		d, err := did.Parse("did:unsupported:example")
+		require.NoError(t, err)
+
+		v, err := resolver(t.Context(), d)
+		require.Error(t, err)
+		require.Nil(t, v)
 	})
 }

@@ -216,8 +216,27 @@ func ProofsFromContainer(c ucan.Container) ProofResolverFunc {
 
 // ResolveDIDKeyVerifier is a [DIDVerifierResolverFunc] that only supports `did:key`
 // DIDs and returns an error for any other DID method.
+//
+// To support multiple DID methods, use [NewDIDVerifierResolverByMethod] and
+// include [ResolveDIDKeyVerifier] in the resolvers map for the "key" method.
 func ResolveDIDKeyVerifier(ctx context.Context, d did.DID) (ucan.Verifier, error) {
-	return verifier.Parse(d.String())
+	return verifier.FromDIDKey(d)
+}
+
+type VerifierResolverMap map[string]DIDVerifierResolverFunc
+
+// NewDIDVerifierResolverByMethod returns a [DIDVerifierResolverFunc] that
+// dispatches to different resolver functions based on the method of the DID. If
+// a DID is given in with a method that is not present in the resolvers map, the
+// resolver will return an error.
+func NewDIDVerifierResolverByMethod(resolvers VerifierResolverMap) DIDVerifierResolverFunc {
+	return func(ctx context.Context, d did.DID) (ucan.Verifier, error) {
+		resolver, ok := resolvers[d.Method()]
+		if !ok {
+			return nil, fmt.Errorf("unsupported DID method: %s", d.Method())
+		}
+		return resolver(ctx, d)
+	}
 }
 
 func ValidateNotExpired(token ucan.Token, now ucan.UnixTimestamp) error {

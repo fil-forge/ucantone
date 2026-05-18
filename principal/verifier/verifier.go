@@ -67,11 +67,11 @@ func Format(verifier principal.Verifier) string {
 	return verifier.DID().String()
 }
 
-func Parse(str string) (principal.Verifier, error) {
-	did, err := did.Parse(str)
-	if err != nil {
-		return nil, fmt.Errorf("parsing DID: %w", err)
-	}
+// FromDIDKey decodes a did:key DID into a Verifier. An appropriate decoder
+// should be registered in advance with [Register] for the key type code.
+// Returns an error if the DID is not a did:key, if the did:key is malformed, or
+// if there is no decoder registered for the key type code.
+func FromDIDKey(did did.DID) (principal.Verifier, error) {
 	if did.Method() != "key" {
 		return nil, fmt.Errorf("unsupported DID method: %s", did.Method())
 	}
@@ -91,7 +91,7 @@ func Parse(str string) (principal.Verifier, error) {
 
 	d, ok := decoders[keyTypeCode]
 	if !ok {
-		return nil, fmt.Errorf("unsupported key type code: 0x%x", keyTypeCode)
+		return nil, fmt.Errorf("no decoder registered for key type code: 0x%x", keyTypeCode)
 	}
 	return d(bytes)
 }
