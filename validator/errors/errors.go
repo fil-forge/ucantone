@@ -125,3 +125,57 @@ func NewInvalidClaimError(msg string) edm.ErrorModel {
 		Message:   msg,
 	}
 }
+
+const BrokenProofChainErrorName = "BrokenProofChain"
+
+func NewBrokenProofChainError(inv ucan.Invocation, prf ucan.Delegation, expectedIssuer did.DID) edm.ErrorModel {
+	return edm.ErrorModel{
+		ErrorName: BrokenProofChainErrorName,
+		Message:   fmt.Sprintf("proof chain of invocation %s is broken at proof %s: expected issuer %s, got %s", inv.Link(), prf.Link(), expectedIssuer, prf.Issuer()),
+	}
+}
+
+const PowerlineRootErrorName = "PowerlineRoot"
+
+func NewPowerlineRootError(inv ucan.Invocation, prf ucan.Delegation) edm.ErrorModel {
+	return edm.ErrorModel{
+		ErrorName: PowerlineRootErrorName,
+		Message:   fmt.Sprintf("proof chain of invocation %s is broken at proof %s: first proof may not be a powerline delegation", inv.Link(), prf.Link()),
+	}
+}
+
+const WrongSubjectErrorName = "WrongSubject"
+
+func NewWrongSubjectError(inv ucan.Invocation, prf ucan.Delegation) edm.ErrorModel {
+	return edm.ErrorModel{
+		ErrorName: WrongSubjectErrorName,
+		Message:   fmt.Sprintf("proof chain of invocation %s is broken at proof %s: expected subject to be either %s or null, got %s", inv.Link(), prf.Link(), inv.Subject(), prf.Subject()),
+	}
+}
+
+const IncompleteProofChainErrorName = "IncompleteProofChain"
+
+func NewIncompleteProofChainError(inv ucan.Invocation, lastAuthority did.DID) edm.ErrorModel {
+	return edm.ErrorModel{
+		ErrorName: IncompleteProofChainErrorName,
+		Message:   fmt.Sprintf("proof chain of invocation %s is incomplete: invocation is issued by %s, but final audience is %s", inv.Link(), inv.Issuer(), lastAuthority),
+	}
+}
+
+const InsufficientCapabilityErrorName = "InsufficientCapability"
+
+func NewInsufficientCapabilityError(inv ucan.Invocation, cap fmt.Stringer) edm.ErrorModel {
+	return edm.ErrorModel{
+		ErrorName: InsufficientCapabilityErrorName,
+		Message:   fmt.Sprintf("invocation %s is not authorized under capability %s", inv.Link(), cap),
+	}
+}
+
+const AttenuationErrorName = "Attenuation"
+
+func NewAttenuationError(currentCmd, newCmd ucan.Command) edm.ErrorModel {
+	return edm.ErrorModel{
+		ErrorName: AttenuationErrorName,
+		Message:   fmt.Sprintf("cannot attenuate capability from command %s to command %s", currentCmd, newCmd),
+	}
+}

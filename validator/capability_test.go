@@ -36,7 +36,7 @@ func TestCapability(t *testing.T) {
 			{cmds: []string{"/widget", "/widget"}, expected: "/widget"},
 			{cmds: []string{"/widget/crank", "/widget"}, expected: "/widget/crank"},
 			{cmds: []string{"/widget/crank", "/"}, expected: "/widget/crank"},
-			{cmds: []string{"/widget", "/gadget"}, error: "cannot constrain to an unrelated command"},
+			{cmds: []string{"/widget", "/gadget"}, error: "cannot attenuate capability from command /widget to command /gadget"},
 		} {
 			t.Run("/ + "+strings.Join(tcase.cmds, " + "), func(t *testing.T) {
 				cap := cap

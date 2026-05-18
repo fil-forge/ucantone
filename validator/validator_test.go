@@ -3,7 +3,6 @@ package validator_test
 import (
 	"context"
 	"errors"
-	"fmt"
 	"testing"
 
 	"github.com/stretchr/testify/require"
@@ -512,61 +511,6 @@ func TestValidate(t *testing.T) {
 			)
 			require.NoError(t, err)
 		})
-	})
-}
-
-func TestNewProofChainError(t *testing.T) {
-	crankWidget := testutil.Must(command.Parse("/widget/crank"))(t)
-
-	t.Run("no prior proofs", func(t *testing.T) {
-		sub := testutil.RandomSigner(t)
-		eve := testutil.RandomSigner(t)
-		mallory := testutil.RandomSigner(t)
-
-		badPrf, err := delegation.Delegate(eve, mallory.DID(), eve.DID(), crankWidget)
-		require.NoError(t, err)
-
-		got := validator.NewProofChainError(sub.DID(), nil, badPrf)
-		want := fmt.Sprintf("Proof chain is broken (%s, next proof is %s → %s)",
-			sub.DID(), eve.DID(), mallory.DID())
-		require.EqualError(t, got, want)
-	})
-
-	t.Run("one prior proof", func(t *testing.T) {
-		sub := testutil.RandomSigner(t)
-		bob := testutil.RandomSigner(t)
-		eve := testutil.RandomSigner(t)
-		mallory := testutil.RandomSigner(t)
-
-		prf1, err := delegation.Delegate(sub, bob.DID(), sub.DID(), crankWidget)
-		require.NoError(t, err)
-		badPrf, err := delegation.Delegate(eve, mallory.DID(), eve.DID(), crankWidget)
-		require.NoError(t, err)
-
-		got := validator.NewProofChainError(sub.DID(), []ucan.Delegation{prf1}, badPrf)
-		want := fmt.Sprintf("Proof chain is broken (%s → %s, next proof is %s → %s)",
-			sub.DID(), bob.DID(), eve.DID(), mallory.DID())
-		require.EqualError(t, got, want)
-	})
-
-	t.Run("two prior proofs", func(t *testing.T) {
-		sub := testutil.RandomSigner(t)
-		bob := testutil.RandomSigner(t)
-		carol := testutil.RandomSigner(t)
-		eve := testutil.RandomSigner(t)
-		mallory := testutil.RandomSigner(t)
-
-		prf1, err := delegation.Delegate(sub, bob.DID(), sub.DID(), crankWidget)
-		require.NoError(t, err)
-		prf2, err := delegation.Delegate(bob, carol.DID(), sub.DID(), crankWidget)
-		require.NoError(t, err)
-		badPrf, err := delegation.Delegate(eve, mallory.DID(), eve.DID(), crankWidget)
-		require.NoError(t, err)
-
-		got := validator.NewProofChainError(sub.DID(), []ucan.Delegation{prf1, prf2}, badPrf)
-		want := fmt.Sprintf("Proof chain is broken (%s → %s → %s, next proof is %s → %s)",
-			sub.DID(), bob.DID(), carol.DID(), eve.DID(), mallory.DID())
-		require.EqualError(t, got, want)
 	})
 }
 

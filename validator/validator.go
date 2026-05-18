@@ -7,7 +7,6 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"strings"
 	"time"
 
 	"github.com/fil-forge/ucantone/did"
@@ -19,8 +18,6 @@ import (
 	"github.com/fil-forge/ucantone/varsig/algorithm/nonstandard"
 	"github.com/ipfs/go-cid"
 )
-
-// TK: Should Validate return something?
 
 // ValidateInvocation determines whether an [ucan.Invocation] is a valid request
 // to execute a task. If an invocation is valid, its audience is expected to
@@ -68,7 +65,7 @@ func ValidateInvocation(
 		return err
 	}
 	if !ok {
-		return errors.New("invocation is not authorized under the proof chain")
+		return verrs.NewInsufficientCapabilityError(invocation, cap)
 	}
 
 	return nil
@@ -146,45 +143,39 @@ func capabilityFromProofChain(ctx context.Context, inv ucan.Invocation, cfg vali
 			return Capability{}, err
 		}
 
+		// Every proof's issuer must match the previous proof's audience (or the
+		// invocation's subject, for the first proof).
 		if prf.Issuer() != currentAuthority {
-			return Capability{}, NewProofChainError(inv.Subject(), prfs[:i], prf)
+			return Capability{}, verrs.NewBrokenProofChainError(inv, prf, currentAuthority)
 		}
 
-		// The root proof must have a subject (powerline is not allowed as root).
-		// Subsequent proofs may have a null subject (powerline delegation).
+		// The first proof must have a non-null subject (that is, may not be a
+		// powerline delegation).
+		//
+		// https://github.com/ucan-wg/delegation#powerline
 		if i == 0 && prf.Subject() == did.Undef {
-			return Capability{}, NewProofChainError(inv.Subject(), prfs[:i], prf)
+			return Capability{}, verrs.NewPowerlineRootError(inv, prf)
 		}
 
-		// Every proof's subject must match the invocation's subject, or be nil
-		// (powerline delegation).
+		// Every proof's subject must match the invocation's subject, or be null
+		// (a powerline delegation).
 		if prf.Subject() != did.Undef && prf.Subject() != inv.Subject() {
-			return Capability{}, NewProofChainError(inv.Subject(), prfs[:i], prf)
+			return Capability{}, verrs.NewWrongSubjectError(inv, prf)
 		}
 
 		currentAuthority = prf.Audience()
 		var err error
 		currentCapability, err = currentCapability.Attenuate(prf.Command(), prf.Policy())
 		if err != nil {
-			return Capability{}, fmt.Errorf("proof chain is broken at proof %d: %w", i, err)
+			return Capability{}, err
 		}
 	}
 
 	if currentAuthority != inv.Issuer() {
-		return Capability{}, errors.New("ERROR TK: invocation issuer does not match final authority in proof chain")
+		return Capability{}, verrs.NewIncompleteProofChainError(inv, currentAuthority)
 	}
 
 	return currentCapability, nil
-}
-
-func NewProofChainError(sub did.DID, priorPrfs []ucan.Delegation, badPrf ucan.Delegation) error {
-	prs := []string{sub.String()}
-	for _, pf := range priorPrfs {
-		prs = append(prs, pf.Audience().String())
-	}
-	// "Error: Proof chain is broken (did:example:alice → did:example:bob, but
-	// next proof is did:example:eve → did:example:mallory)"
-	return fmt.Errorf("Proof chain is broken (%v, next proof is %v → %v)", strings.Join(prs, " → "), badPrf.Issuer(), badPrf.Audience())
 }
 
 // ProofResolverFunc finds a delegation corresponding to an external proof link.
