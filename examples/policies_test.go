@@ -25,12 +25,9 @@ func TestParsePolicy(t *testing.T) {
 		panic(err)
 	}
 
-	ok, err := policy.Match(pol, msg)
-	if err != nil {
-		panic(err)
-	}
+	err = policy.Match(pol, msg)
 	// expect this policy to match the data
-	if ok != true {
+	if err != nil {
 		panic("policy did not match")
 	}
 
@@ -43,12 +40,9 @@ func TestParsePolicy(t *testing.T) {
 		panic(err)
 	}
 
-	ok, err = policy.Match(pol, msg)
-	if err != nil {
-		panic(err)
-	}
+	err = policy.Match(pol, msg)
 	// expect this policy to match the data
-	if ok != true {
+	if err != nil {
 		panic("policy did not match")
 	}
 }

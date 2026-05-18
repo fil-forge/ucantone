@@ -86,25 +86,29 @@ func NewUnverifiableSignatureError(token ucan.Token, cause error) edm.ErrorModel
 
 const PrincipalAlignmentErrorName = "InvalidAudience"
 
-func NewPrincipalAlignmentError(audience did.DID, dlg ucan.Delegation) edm.ErrorModel {
-	return edm.ErrorModel{
-		ErrorName: PrincipalAlignmentErrorName,
-		Message:   fmt.Sprintf("delegation %q audience is %q not %q", dlg.Link(), audience, dlg.Audience()),
+func NewPrincipalAlignmentError(expectedIssuer did.DID, tok ucan.Token) edm.ErrorModel {
+	switch t := tok.(type) {
+	case ucan.Delegation:
+		return edm.ErrorModel{
+			ErrorName: PrincipalAlignmentErrorName,
+			Message:   fmt.Sprintf("delegation %q issuer is %q not %q", t.Link(), expectedIssuer, t.Issuer()),
+		}
+	case ucan.Invocation:
+		return edm.ErrorModel{
+			ErrorName: PrincipalAlignmentErrorName,
+			Message:   fmt.Sprintf("invocation %q issuer is %q not %q", t.Link(), expectedIssuer, t.Issuer()),
+		}
+	default:
+		panic(fmt.Sprintf("unexpected token type: %T", tok))
 	}
 }
 
 const SubjectAlignmentErrorName = "InvalidSubject"
 
-func NewSubjectAlignmentError(subject did.DID, t ucan.Token) edm.ErrorModel {
-	var name string
-	if _, ok := t.(ucan.Invocation); ok {
-		name = "invocation"
-	} else {
-		name = "delegation"
-	}
+func NewSubjectAlignmentError(expectedSubject did.DID, dlg ucan.Delegation) edm.ErrorModel {
 	return edm.ErrorModel{
 		ErrorName: SubjectAlignmentErrorName,
-		Message:   fmt.Sprintf("%s %q subject is %q not %q", name, t.Link(), t.Subject(), subject),
+		Message:   fmt.Sprintf("delegation %q subject is %q not %q", dlg.Link(), dlg.Subject(), expectedSubject),
 	}
 }
 
@@ -126,52 +130,7 @@ func NewInvalidClaimError(msg string) edm.ErrorModel {
 	}
 }
 
-const BrokenProofChainErrorName = "BrokenProofChain"
-
-func NewBrokenProofChainError(inv ucan.Invocation, prf ucan.Delegation, expectedIssuer did.DID) edm.ErrorModel {
-	return edm.ErrorModel{
-		ErrorName: BrokenProofChainErrorName,
-		Message:   fmt.Sprintf("proof chain of invocation %s is broken at proof %s: expected issuer %s, got %s", inv.Link(), prf.Link(), expectedIssuer, prf.Issuer()),
-	}
-}
-
-const PowerlineRootErrorName = "PowerlineRoot"
-
-func NewPowerlineRootError(inv ucan.Invocation, prf ucan.Delegation) edm.ErrorModel {
-	return edm.ErrorModel{
-		ErrorName: PowerlineRootErrorName,
-		Message:   fmt.Sprintf("proof chain of invocation %s is broken at proof %s: first proof may not be a powerline delegation", inv.Link(), prf.Link()),
-	}
-}
-
-const WrongSubjectErrorName = "WrongSubject"
-
-func NewWrongSubjectError(inv ucan.Invocation, prf ucan.Delegation) edm.ErrorModel {
-	return edm.ErrorModel{
-		ErrorName: WrongSubjectErrorName,
-		Message:   fmt.Sprintf("proof chain of invocation %s is broken at proof %s: expected subject to be either %s or null, got %s", inv.Link(), prf.Link(), inv.Subject(), prf.Subject()),
-	}
-}
-
-const IncompleteProofChainErrorName = "IncompleteProofChain"
-
-func NewIncompleteProofChainError(inv ucan.Invocation, lastAuthority did.DID) edm.ErrorModel {
-	return edm.ErrorModel{
-		ErrorName: IncompleteProofChainErrorName,
-		Message:   fmt.Sprintf("proof chain of invocation %s is incomplete: invocation is issued by %s, but final audience is %s", inv.Link(), inv.Issuer(), lastAuthority),
-	}
-}
-
-const InsufficientCapabilityErrorName = "InsufficientCapability"
-
-func NewInsufficientCapabilityError(inv ucan.Invocation, cap fmt.Stringer) edm.ErrorModel {
-	return edm.ErrorModel{
-		ErrorName: InsufficientCapabilityErrorName,
-		Message:   fmt.Sprintf("invocation %s is not authorized under capability %s", inv.Link(), cap),
-	}
-}
-
-const AttenuationErrorName = "Attenuation"
+const AttenuationErrorName = "ImpossibleAttenuation"
 
 func NewAttenuationError(currentCmd, newCmd ucan.Command) edm.ErrorModel {
 	return edm.ErrorModel{

@@ -52,9 +52,8 @@ func TestFixtures(t *testing.T) {
 				t.Logf("Args: %s\n", vector.Args.Raw)
 				t.Logf("Policy: %s\n", p)
 
-				match, err := policy.Match(p, args)
+				err = policy.Match(p, args)
 				require.NoError(t, err)
-				require.True(t, match)
 			})
 		}
 	}
@@ -68,10 +67,9 @@ func TestFixtures(t *testing.T) {
 				t.Logf("Args: %s\n", vector.Args.Raw)
 				t.Logf("Policy: %s\n", p)
 
-				match, err := policy.Match(p, args)
+				err = policy.Match(p, args)
 				require.Error(t, err)
 				t.Logf("Error: %s\n", err)
-				require.False(t, match)
 			})
 		}
 	}

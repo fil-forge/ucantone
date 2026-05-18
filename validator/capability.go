@@ -67,17 +67,17 @@ func (c Capability) Attenuate(cmd ucan.Command, pol ucan.Policy) (Capability, er
 	return c, nil
 }
 
-func (c Capability) Allows(sub did.DID, cmd ucan.Command, args ipld.Map) (bool, error) {
+func (c Capability) Allows(sub did.DID, cmd ucan.Command, args ipld.Map) error {
 	if c.sub != sub {
-		return false, fmt.Errorf("capability subject %s does not match given subject %s", c.sub, sub)
+		return fmt.Errorf("capability subject %s does not match given subject %s", c.sub, sub)
 	}
 	if !c.cmd.Proves(cmd) {
-		return false, fmt.Errorf("capability command %s does not prove given command %s", c.cmd, cmd)
+		return fmt.Errorf("capability command %s does not prove given command %s", c.cmd, cmd)
 	}
 
-	ok, err := policy.Match(c.pol, args)
+	err := policy.Match(c.pol, args)
 	if err != nil {
-		return false, fmt.Errorf("invocation arguments do not satisfy capability policy: %w", err)
+		return fmt.Errorf("invocation arguments do not satisfy capability policy: %w", err)
 	}
-	return ok, nil
+	return nil
 }

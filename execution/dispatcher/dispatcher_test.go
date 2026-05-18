@@ -167,6 +167,6 @@ func TestDispatcher(t *testing.T) {
 		require.NotNil(t, x)
 		t.Log(x)
 
-		require.Equal(t, verrs.IncompleteProofChainErrorName, testutil.ResultMap(t, x)["name"])
+		require.Equal(t, verrs.InvalidClaimErrorName, testutil.ResultMap(t, x)["name"])
 	})
 }

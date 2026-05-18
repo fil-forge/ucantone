@@ -3,8 +3,10 @@ package validator_test
 import (
 	"context"
 	"errors"
+	"os"
 	"testing"
 
+	"github.com/ipfs/go-cid"
 	"github.com/stretchr/testify/require"
 
 	"github.com/fil-forge/ucantone/did"
@@ -20,6 +22,8 @@ import (
 	"github.com/fil-forge/ucantone/ucan/delegation/policy"
 	"github.com/fil-forge/ucantone/ucan/invocation"
 	"github.com/fil-forge/ucantone/validator"
+	verrs "github.com/fil-forge/ucantone/validator/errors"
+	fdm "github.com/fil-forge/ucantone/validator/internal/fixtures/datamodel"
 )
 
 const (
@@ -640,4 +644,81 @@ func TestNewDIDVerifierResolverByMethod(t *testing.T) {
 		require.Error(t, err)
 		require.Nil(t, v)
 	})
+}
+
+type NamedError interface {
+	error
+	Name() string
+}
+
+func TestFixtures(t *testing.T) {
+	fixturesFile, err := os.Open("./internal/fixtures/invocations.json")
+	require.NoError(t, err)
+
+	var fixtures fdm.FixturesModel
+	err = fixtures.UnmarshalDagJSON(fixturesFile)
+	require.NoError(t, err)
+
+	for _, vector := range fixtures.Valid {
+		t.Run("valid "+vector.Name, func(t *testing.T) {
+			inv, err := invocation.Decode(vector.Invocation)
+			require.NoError(t, err)
+			t.Log("invocation", inv.Link())
+
+			proofs := decodeProofs(t, vector.Proofs)
+
+			opts := []validator.Option{
+				validator.WithValidationTime(ucan.UnixTimestamp(vector.Time)),
+				validator.WithProofResolver(newMapProofResolver(proofs)),
+			}
+
+			err = validator.ValidateInvocation(t.Context(), inv, opts...)
+			require.NoError(t, err, "validation should have passed for invocation with %s", vector.Description)
+		})
+	}
+
+	for _, vector := range fixtures.Invalid {
+		t.Run("invalid "+vector.Name, func(t *testing.T) {
+
+			inv, err := invocation.Decode(vector.Invocation)
+			require.NoError(t, err)
+			t.Log("invocation", inv.Link())
+
+			proofs := decodeProofs(t, vector.Proofs)
+
+			opts := []validator.Option{
+				validator.WithValidationTime(ucan.UnixTimestamp(vector.Time)),
+				validator.WithProofResolver(newMapProofResolver(proofs)),
+			}
+
+			err = validator.ValidateInvocation(t.Context(), inv, opts...)
+			require.Error(t, err, "validation should not have passed for invocation because %s", vector.Description)
+			t.Log(err)
+
+			var namedErr NamedError
+			require.True(t, errors.As(err, &namedErr))
+			require.Equal(t, vector.Error.Name, namedErr.Name())
+		})
+	}
+}
+
+func newMapProofResolver(proofs map[cid.Cid]ucan.Delegation) validator.ProofResolverFunc {
+	return func(_ context.Context, link cid.Cid) (ucan.Delegation, error) {
+		dlg, ok := proofs[link]
+		if !ok {
+			return nil, verrs.NewUnavailableProofError(link, errors.New("not provided"))
+		}
+		return dlg, nil
+	}
+}
+
+func decodeProofs(t *testing.T, vectorProofs [][]byte) map[cid.Cid]ucan.Delegation {
+	proofs := map[cid.Cid]ucan.Delegation{}
+	for _, p := range vectorProofs {
+		dlg, err := delegation.Decode(p)
+		require.NoError(t, err)
+		proofs[dlg.Link()] = dlg
+		t.Log("proof", dlg.Link())
+	}
+	return proofs
 }

@@ -27,7 +27,7 @@ import (
 // reject the request.
 func ValidateInvocation(
 	ctx context.Context,
-	invocation ucan.Invocation,
+	inv ucan.Invocation,
 	options ...Option,
 ) error {
 	cfg := validationConfig{
@@ -41,33 +41,30 @@ func ValidateInvocation(
 	}
 
 	// To be valid, an invocation must be a valid token...
-	err := ValidateToken(ctx, invocation, cfg)
+	err := ValidateToken(ctx, inv, cfg)
 	if err != nil {
 		return err
 	}
 
 	// ...and have a valid proof chain...
-	cap, err := capabilityFromProofChain(ctx, invocation, cfg)
+	cap, err := capabilityFromProofChain(ctx, inv, cfg)
 	if err != nil {
 		return err
 	}
 
 	// ...and have the capability to perform its task under the proof chain.
 	var mapArgs datamodel.Map
-	err = mapArgs.UnmarshalCBOR(bytes.NewReader(invocation.ArgumentsBytes()))
+	err = mapArgs.UnmarshalCBOR(bytes.NewReader(inv.ArgumentsBytes()))
 	if err != nil {
 		return fmt.Errorf("decoding invocation arguments for capability check: %w", err)
 	}
-	ok, err := cap.Allows(
-		invocation.Subject(),
-		invocation.Command(),
+	err = cap.Allows(
+		inv.Subject(),
+		inv.Command(),
 		mapArgs,
 	)
 	if err != nil {
 		return err
-	}
-	if !ok {
-		return verrs.NewInsufficientCapabilityError(invocation, cap)
 	}
 
 	return nil
@@ -145,24 +142,24 @@ func capabilityFromProofChain(ctx context.Context, inv ucan.Invocation, cfg vali
 			return Capability{}, err
 		}
 
-		// Every proof's issuer must match the previous proof's audience (or the
-		// invocation's subject, for the first proof).
-		if prf.Issuer() != currentAuthority {
-			return Capability{}, verrs.NewBrokenProofChainError(inv, prf, currentAuthority)
-		}
-
 		// The first proof must have a non-null subject (that is, may not be a
 		// powerline delegation).
 		//
 		// https://github.com/ucan-wg/delegation#powerline
 		if i == 0 && prf.Subject() == did.Undef {
-			return Capability{}, verrs.NewPowerlineRootError(inv, prf)
+			return Capability{}, verrs.NewInvalidClaimError("root delegation subject is null")
 		}
 
 		// Every proof's subject must match the invocation's subject, or be null
 		// (a powerline delegation).
 		if prf.Subject() != did.Undef && prf.Subject() != inv.Subject() {
-			return Capability{}, verrs.NewWrongSubjectError(inv, prf)
+			return Capability{}, verrs.NewSubjectAlignmentError(inv.Subject(), prf)
+		}
+
+		// Every proof's issuer must match the previous proof's audience (or the
+		// invocation's subject, for the first proof).
+		if prf.Issuer() != currentAuthority {
+			return Capability{}, verrs.NewPrincipalAlignmentError(currentAuthority, prf)
 		}
 
 		currentAuthority = prf.Audience()
@@ -174,7 +171,12 @@ func capabilityFromProofChain(ctx context.Context, inv ucan.Invocation, cfg vali
 	}
 
 	if currentAuthority != inv.Issuer() {
-		return Capability{}, verrs.NewIncompleteProofChainError(inv, currentAuthority)
+		if len(prfs) == 0 {
+			// The spec fixtures call this out as a different error case from a
+			// principal alignment error (`InvalidAudience`).
+			return Capability{}, verrs.NewInvalidClaimError(fmt.Sprintf("invocation %s is not issued by subject and has no proofs", inv.Link()))
+		}
+		return Capability{}, verrs.NewPrincipalAlignmentError(currentAuthority, inv)
 	}
 
 	return currentCapability, nil
