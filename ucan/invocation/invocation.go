@@ -125,7 +125,7 @@ func (inv *Invocation) Envelope() *edm.EnvelopeModel {
 }
 
 // SigPayload returns the decoded signature payload (varsig header + token payload).
-func (inv *Invocation) SigPayload() cbg.CBORMarshaler {
+func (inv *Invocation) SigPayload() *idm.SigPayloadModel {
 	return inv.sigPayload
 }
 
