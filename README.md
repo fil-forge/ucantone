@@ -129,13 +129,13 @@ buf, err := container.Encode(container.Base64Gzip, ct)
 See examples in [server_test.go](./examples/server_test.go)
 
 ```go
-echoCapability, err := capability.New("/example/echo")
+echo, err := command.Parse("/example/echo")
 serviceID, err := ed25519.Generate()
 
 ucanSrv := server.NewHTTP(serviceID)
 
 // Register an echo handler that returns the invocation arguments as the result
-ucanSrv.Handle(echoCapability, func(req execution.Request, res execution.Response) error {
+ucanSrv.Handle(echo, func(req execution.Request, res execution.Response) error {
   return res.SetSuccess(req.Invocation().Arguments())
 })
 
@@ -148,12 +148,13 @@ See examples in [server_test.go](./examples/server_test.go)
 
 ```go
 // delegate echo capability to alice
-dlg, err := echoCapability.Delegate(serviceID, alice, serviceID)
+dlg, err := delegation.Delegate(serviceID, alice, serviceID, echo)
 
 // invoke (exercise) the capability
-inv, err := echoCapability.Invoke(
+inv, err := invocation.Invoke(
   alice,
   serviceID,
+  echo,
   ipld.Map{"message": "Hello, UCAN!"},
   invocation.WithProofs(dlg.Link()),
 )
