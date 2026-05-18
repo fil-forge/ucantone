@@ -478,7 +478,7 @@ func TestValidate(t *testing.T) {
 				t.Context(),
 				inv,
 				validator.WithProofResolver(resolveProof),
-				validator.WithVerifierResolvers(validator.VerifierResolverMap{
+				validator.WithDIDVerifierResolvers(validator.VerifierResolverMap{
 					"key": validator.ResolveDIDKeyVerifier,
 					"mailto": func(ctx context.Context, d did.DID) (ucan.Verifier, error) {
 						require.Fail(t, "shouldn't try to resolve a verifier for a non-standard signature")
