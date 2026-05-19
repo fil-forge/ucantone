@@ -114,7 +114,7 @@ func TestServer(t *testing.T) {
 }
 
 func TestTypedServer(t *testing.T) {
-	echoCommand, err := bindcom.Parse[*types.EchoArguments]("/example/echo")
+	echo, err := bindcom.Parse[*types.EchoArguments]("/example/echo")
 	if err != nil {
 		panic(err)
 	}
@@ -128,7 +128,7 @@ func TestTypedServer(t *testing.T) {
 
 	// Register an echo handler that returns the invocation arguments as the
 	// result
-	ucanSrv.Handle(command.Command(echoCommand), bindexec.NewHandler(func(req *bindexec.Request[*types.EchoArguments], res *bindexec.Response[*types.EchoArguments]) error {
+	ucanSrv.Handle(echo.Command, bindexec.NewHandler(func(req *bindexec.Request[*types.EchoArguments], res *bindexec.Response[*types.EchoArguments]) error {
 		task := req.Task()
 		args := task.Arguments()
 		fmt.Printf("Echo: %s\n", args.Message)
@@ -164,12 +164,12 @@ func TestTypedServer(t *testing.T) {
 	}
 
 	// Allow alice to invoke the echo capability
-	dlg, err := echoCommand.Delegate(serviceID, alice.DID(), serviceID.DID())
+	dlg, err := echo.Delegate(serviceID, alice.DID(), serviceID.DID())
 	if err != nil {
 		panic(err)
 	}
 
-	inv, err := echoCommand.Invoke(
+	inv, err := echo.Invoke(
 		alice,
 		serviceID.DID(),
 		&types.EchoArguments{Message: "Hello, UCAN!"},

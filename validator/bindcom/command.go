@@ -15,12 +15,14 @@ type Arguments interface {
 }
 
 // Command that can be used to validate an invocation against proof policies.
-type Command[A Arguments] command.Command
+type Command[A Arguments] struct {
+	command.Command
+}
 
 // New creates a validated command from the provided list of segment strings.
 // An error is returned if an invalid Command would be formed
 func New[A Arguments](segments ...string) Command[A] {
-	return Command[A](command.New(segments...))
+	return Command[A]{Command: command.New(segments...)}
 }
 
 // Parse verifies that the provided string contains the required [segment
@@ -30,15 +32,15 @@ func New[A Arguments](segments ...string) Command[A] {
 func Parse[A Arguments](s string) (Command[A], error) {
 	cmd, err := command.Parse(s)
 	if err != nil {
-		return "", err
+		return Command[A]{}, err
 	}
-	return Command[A](cmd), nil
+	return Command[A]{Command: cmd}, nil
 }
 
 func (c Command[A]) Delegate(issuer ucan.Signer, audience did.DID, subject did.DID, options ...delegation.Option) (*delegation.Delegation, error) {
-	return delegation.Delegate(issuer, audience, subject, command.Command(c), options...)
+	return delegation.Delegate(issuer, audience, subject, c.Command, options...)
 }
 
 func (c Command[A]) Invoke(issuer ucan.Signer, subject did.DID, arguments A, options ...invocation.Option) (*invocation.Invocation, error) {
-	return invocation.Invoke(issuer, subject, command.Command(c), arguments, options...)
+	return invocation.Invoke(issuer, subject, c.Command, arguments, options...)
 }
