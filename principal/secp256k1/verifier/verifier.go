@@ -3,6 +3,7 @@ package verifier
 import (
 	"crypto"
 	"crypto/sha256"
+	"errors"
 	"fmt"
 
 	"github.com/fil-forge/ucantone/did"
@@ -30,6 +31,24 @@ var publicTagSize = varint.UvarintSize(Code)
 const keySize = 33
 
 var size = publicTagSize + keySize
+
+func Parse(str string) (Verifier, error) {
+	did, err := did.Parse(str)
+	if err != nil {
+		return nil, fmt.Errorf("invalid DID: %w", err)
+	}
+	if did.Method() != "key" {
+		return nil, fmt.Errorf("invalid DID method: %s, expected: key", did.Method())
+	}
+	code, bytes, err := multibase.Decode(did.Identifier())
+	if err != nil {
+		return nil, err
+	}
+	if code != multibase.Base58BTC {
+		return nil, errors.New("not Base58BTC encoded")
+	}
+	return Decode(bytes)
+}
 
 func Format(verifier principal.Verifier) string {
 	return verifier.DID().String()
