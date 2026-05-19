@@ -35,10 +35,15 @@ func Parse[A Arguments](s string) (Command[A], error) {
 	return Command[A](cmd), nil
 }
 
+// Command returns the underlying command.Command value of this Command.
+func (c Command[A]) Command() command.Command {
+	return command.Command(c)
+}
+
 func (c Command[A]) Delegate(issuer ucan.Signer, audience did.DID, subject did.DID, options ...delegation.Option) (*delegation.Delegation, error) {
-	return delegation.Delegate(issuer, audience, subject, command.Command(c), options...)
+	return delegation.Delegate(issuer, audience, subject, c.Command(), options...)
 }
 
 func (c Command[A]) Invoke(issuer ucan.Signer, subject did.DID, arguments A, options ...invocation.Option) (*invocation.Invocation, error) {
-	return invocation.Invoke(issuer, subject, command.Command(c), arguments, options...)
+	return invocation.Invoke(issuer, subject, c.Command(), arguments, options...)
 }
