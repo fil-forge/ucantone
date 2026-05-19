@@ -67,6 +67,17 @@ func Format(verifier principal.Verifier) string {
 	return verifier.DID().String()
 }
 
+// Parse parses a string into a Verifier. The string must be a valid did:key
+// DID. An appropriate decoder should be registered in advance with [Register]
+// for the key type code.
+func Parse(s string) (principal.Verifier, error) {
+	did, err := did.Parse(s)
+	if err != nil {
+		return nil, err
+	}
+	return FromDIDKey(did)
+}
+
 // FromDIDKey decodes a did:key DID into a Verifier. An appropriate decoder
 // should be registered in advance with [Register] for the key type code.
 // Returns an error if the DID is not a did:key, if the did:key is malformed, or
