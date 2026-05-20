@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"io"
 	"maps"
+	"math/big"
 	"reflect"
 	"slices"
 
@@ -22,6 +23,8 @@ import (
 //   - Null (nil)
 //   - Boolean (bool)
 //   - Integer (int64, int)
+//   - BigInteger (*big.Int) — encoded as a CBOR bignum (tag 2), matching
+//     cbor-gen's *big.Int wire format. Non-negative only.
 //   - String (string)
 //   - Bytes ([]byte)
 //   - List ([]Any)
@@ -66,6 +69,10 @@ func (a *Any) MarshalCBOR(w io.Writer) error {
 		return cbg.CborInt(v).MarshalCBOR(w)
 	case int:
 		return cbg.CborInt(v).MarshalCBOR(w)
+	case *big.Int:
+		return marshalCborBigInt(w, v)
+	case big.Int:
+		return marshalCborBigInt(w, &v)
 	case bool:
 		return cbg.CborBool(v).MarshalCBOR(w)
 	case cid.Cid:
@@ -153,6 +160,17 @@ func (a *Any) UnmarshalCBOR(r io.Reader) (err error) {
 		}
 	case cbg.MajTag:
 		switch extra {
+		case 2: // CBOR bignum (tag 2 + byte string): cbor-gen's *big.Int wire format.
+			cr := cbg.NewCborReader(pr)
+			if _, _, err := cr.ReadHeader(); err != nil { // consume the bignum tag header
+				return err
+			}
+			b, err := cbg.ReadByteArray(cr, 256)
+			if err != nil {
+				return err
+			}
+			a.Value = new(big.Int).SetBytes(b)
+			return nil
 		case 42:
 			cbc := cbg.CborCid{}
 			if err = cbc.UnmarshalCBOR(pr); err != nil {
@@ -417,6 +435,29 @@ func (a *Any) UnmarshalDagJSON(r io.Reader) (err error) {
 		}
 	}
 	return nil
+}
+
+// marshalCborBigInt writes a non-negative *big.Int as a CBOR bignum
+// (tag 2 + byte string), matching cbor-gen's *big.Int encoding so values
+// round-trip through Any. cbor-gen does not support negative bignums.
+func marshalCborBigInt(w io.Writer, v *big.Int) error {
+	if v == nil {
+		_, err := w.Write(cbg.CborNull)
+		return err
+	}
+	if v.Sign() < 0 {
+		return fmt.Errorf("negative big.Int not supported")
+	}
+	cw := cbg.NewCborWriter(w)
+	if err := cw.WriteMajorTypeHeader(cbg.MajTag, 2); err != nil {
+		return err
+	}
+	b := v.Bytes()
+	if err := cw.WriteMajorTypeHeader(cbg.MajByteString, uint64(len(b))); err != nil {
+		return err
+	}
+	_, err := cw.Write(b)
+	return err
 }
 
 func peekCborHeader(r io.Reader) (byte, uint64, io.Reader, error) {
