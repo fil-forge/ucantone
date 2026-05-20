@@ -12,7 +12,6 @@ import (
 	"github.com/fil-forge/ucantone/client"
 	"github.com/fil-forge/ucantone/examples/types"
 	"github.com/fil-forge/ucantone/execution"
-	"github.com/fil-forge/ucantone/execution/bindexec"
 	"github.com/fil-forge/ucantone/ipld/datamodel"
 	"github.com/fil-forge/ucantone/principal/ed25519"
 	"github.com/fil-forge/ucantone/server"
@@ -20,7 +19,8 @@ import (
 	"github.com/fil-forge/ucantone/ucan/command"
 	"github.com/fil-forge/ucantone/ucan/delegation"
 	"github.com/fil-forge/ucantone/ucan/invocation"
-	"github.com/fil-forge/ucantone/validator/bindcom"
+
+	"github.com/fil-forge/ucantone/bind"
 )
 
 func TestServer(t *testing.T) {
@@ -114,7 +114,7 @@ func TestServer(t *testing.T) {
 }
 
 func TestTypedServer(t *testing.T) {
-	echo, err := bindcom.Parse[*types.EchoArguments]("/example/echo")
+	echo, err := bind.Parse[*types.EchoArguments, *types.EchoArguments]("/example/echo")
 	if err != nil {
 		panic(err)
 	}
@@ -128,7 +128,7 @@ func TestTypedServer(t *testing.T) {
 
 	// Register an echo handler that returns the invocation arguments as the
 	// result
-	ucanSrv.Handle(echo.Command, bindexec.NewHandler(func(req *bindexec.Request[*types.EchoArguments], res *bindexec.Response[*types.EchoArguments]) error {
+	ucanSrv.Handle(echo.Command, bind.NewHandler(func(req *bind.Request[*types.EchoArguments], res *bind.Response[*types.EchoArguments]) error {
 		task := req.Task()
 		args := task.Arguments()
 		fmt.Printf("Echo: %s\n", args.Message)
