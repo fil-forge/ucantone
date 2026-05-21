@@ -42,14 +42,15 @@ func TestInvoke(t *testing.T) {
 		require.GreaterOrEqual(t, *decoded.Expiration(), then)
 	})
 
-	t.Run("bad command", func(t *testing.T) {
+	t.Run("undefined command", func(t *testing.T) {
 		issuer := testutil.RandomSigner(t)
 		subject := testutil.RandomDID(t)
 		arguments := datamodel.Map{}
 
-		_, err := invocation.Invoke(issuer, subject, "testinvoke", arguments)
-		require.Error(t, err)
-		require.ErrorIs(t, err, command.ErrRequiresLeadingSlash)
+		// An invalid command can no longer be constructed; the remaining
+		// reachable error path is passing the undefined zero value.
+		_, err := invocation.Invoke(issuer, subject, command.Undef, arguments)
+		require.ErrorContains(t, err, "command is undefined")
 	})
 
 	t.Run("no nonce", func(t *testing.T) {

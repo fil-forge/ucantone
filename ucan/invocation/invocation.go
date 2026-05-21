@@ -15,7 +15,6 @@ import (
 	"github.com/fil-forge/ucantone/ipld/codec/dagcbor"
 	"github.com/fil-forge/ucantone/ipld/datamodel"
 	"github.com/fil-forge/ucantone/ucan"
-	cmd "github.com/fil-forge/ucantone/ucan/command"
 	"github.com/fil-forge/ucantone/ucan/crypto/signature"
 	edm "github.com/fil-forge/ucantone/ucan/envelope/datamodel"
 	idm "github.com/fil-forge/ucantone/ucan/invocation/datamodel"
@@ -328,9 +327,8 @@ func Invoke(
 		return nil, fmt.Errorf("encoding varsig header: %w", err)
 	}
 
-	cmd, err := cmd.Parse(string(command))
-	if err != nil {
-		return nil, fmt.Errorf("parsing command: %w", err)
+	if !command.Defined() {
+		return nil, fmt.Errorf("command is undefined")
 	}
 
 	argsBytes, err := marshalArgs(args)
@@ -378,7 +376,7 @@ func Invoke(
 		Iss:   issuer.DID(),
 		Sub:   subject,
 		Aud:   cfg.aud,
-		Cmd:   cmd,
+		Cmd:   command,
 		Args:  datamodel.NewRaw(argsBytes),
 		Prf:   cfg.prf,
 		Meta:  meta,

@@ -6,6 +6,7 @@ import (
 
 	"github.com/fil-forge/ucantone/ipld/datamodel"
 	"github.com/fil-forge/ucantone/principal/ed25519"
+	"github.com/fil-forge/ucantone/ucan/command"
 	"github.com/fil-forge/ucantone/ucan/delegation"
 	"github.com/fil-forge/ucantone/ucan/invocation"
 )
@@ -24,10 +25,10 @@ func TestInvocations(t *testing.T) {
 
 	// delegate alice capability to use the email service
 	dlg, err := delegation.Delegate(
-		mailer,          // issuer
-		alice.DID(),     // audience (receiver)
-		mailer.DID(),    // subject
-		"/message/send", // command
+		mailer,                             // issuer
+		alice.DID(),                        // audience (receiver)
+		mailer.DID(),                       // subject
+		command.MustParse("/message/send"), // command
 	)
 	if err != nil {
 		panic(err)
@@ -36,7 +37,7 @@ func TestInvocations(t *testing.T) {
 	inv, err := invocation.Invoke(
 		alice,
 		mailer.DID(),
-		"/message/send",
+		command.MustParse("/message/send"),
 		datamodel.Map{
 			"from":    "alice@example.com",
 			"to":      "bob@example.com",

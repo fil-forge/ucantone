@@ -4,6 +4,7 @@ import (
 	"testing"
 
 	"github.com/fil-forge/ucantone/principal/ed25519"
+	"github.com/fil-forge/ucantone/ucan/command"
 	"github.com/fil-forge/ucantone/ucan/delegation"
 	"github.com/fil-forge/ucantone/ucan/delegation/policy"
 )
@@ -27,10 +28,10 @@ func TestDelegations(t *testing.T) {
 
 	// delegate alice capability to use the email service
 	_, err = delegation.Delegate(
-		mailer,          // issuer
-		alice.DID(),     // audience (receiver)
-		mailer.DID(),    // subject
-		"/message/send", // command
+		mailer,                             // issuer
+		alice.DID(),                        // audience (receiver)
+		mailer.DID(),                       // subject
+		command.MustParse("/message/send"), // command
 	)
 	if err != nil {
 		panic(err)
@@ -40,7 +41,7 @@ func TestDelegations(t *testing.T) {
 		alice,
 		bob.DID(),
 		mailer.DID(),
-		"/message/send",
+		command.MustParse("/message/send"),
 		// alice delegates bob capability to use the email service, but only allows
 		// bob to send to example.com email addresses
 		delegation.WithPolicyBuilder(

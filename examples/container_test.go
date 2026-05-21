@@ -6,6 +6,7 @@ import (
 
 	"github.com/fil-forge/ucantone/ipld/datamodel"
 	"github.com/fil-forge/ucantone/principal/ed25519"
+	"github.com/fil-forge/ucantone/ucan/command"
 	"github.com/fil-forge/ucantone/ucan/container"
 	"github.com/fil-forge/ucantone/ucan/delegation"
 	"github.com/fil-forge/ucantone/ucan/delegation/policy"
@@ -30,7 +31,7 @@ func TestContainer(t *testing.T) {
 		mailer,
 		alice.DID(),
 		mailer.DID(),
-		"/message/send",
+		command.MustParse("/message/send"),
 		delegation.WithPolicyBuilder(
 			policy.All(".to", policy.Like(".", "*.example.com")),
 		),
@@ -44,7 +45,7 @@ func TestContainer(t *testing.T) {
 	inv, err := invocation.Invoke(
 		alice,
 		mailer.DID(),
-		"/message/send",
+		command.MustParse("/message/send"),
 		datamodel.Map{
 			"to":      []string{"bob@example.com"},
 			"subject": "Hello!",

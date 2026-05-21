@@ -12,7 +12,6 @@ import (
 	jsg "github.com/alanshaw/dag-json-gen"
 	datamodel "github.com/fil-forge/ucantone/ipld/datamodel"
 	ucan "github.com/fil-forge/ucantone/ucan"
-	command "github.com/fil-forge/ucantone/ucan/command"
 	cid "github.com/ipfs/go-cid"
 )
 
@@ -52,7 +51,7 @@ func (t *TokenPayloadModel1_0_0_rc1) MarshalDagJSON(w io.Writer) error {
 		}
 	}
 
-	// t.Cmd (command.Command) (string)
+	// t.Cmd (command.Command) (struct)
 	if len("cmd") > 8192 {
 		return fmt.Errorf("String in field \"cmd\" was too long")
 	}
@@ -62,10 +61,7 @@ func (t *TokenPayloadModel1_0_0_rc1) MarshalDagJSON(w io.Writer) error {
 	if err := jw.WriteObjectColon(); err != nil {
 		return err
 	}
-	if len(t.Cmd) > 8192 {
-		return fmt.Errorf("String in field t.Cmd was too long")
-	}
-	if err := jw.WriteString(string(t.Cmd)); err != nil {
+	if err := t.Cmd.MarshalDagJSON(jw); err != nil {
 		return fmt.Errorf("t.Cmd: %w", err)
 	}
 	written++
@@ -284,17 +280,11 @@ func (t *TokenPayloadModel1_0_0_rc1) UnmarshalDagJSON(r io.Reader) (err error) {
 					return fmt.Errorf("unmarshaling t.Aud: %w", err)
 				}
 
-				// t.Cmd (command.Command) (string)
+				// t.Cmd (command.Command) (struct)
 			case "cmd":
-				{
-					sval, err := jr.ReadString(8192)
-					if err != nil {
-						if errors.Is(err, jsg.ErrLimitExceeded) {
-							return fmt.Errorf("t.Cmd: string too long")
-						}
-						return fmt.Errorf("t.Cmd: %w", err)
-					}
-					t.Cmd = command.Command(sval)
+
+				if err := t.Cmd.UnmarshalDagJSON(jr); err != nil {
+					return fmt.Errorf("unmarshaling t.Cmd: %w", err)
 				}
 
 				// t.Exp (ucan.UnixTimestamp) (int64)

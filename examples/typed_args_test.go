@@ -11,6 +11,7 @@ import (
 	"github.com/fil-forge/ucantone/examples/types"
 	"github.com/fil-forge/ucantone/ipld/datamodel"
 	"github.com/fil-forge/ucantone/principal/ed25519"
+	"github.com/fil-forge/ucantone/ucan/command"
 	"github.com/fil-forge/ucantone/ucan/invocation"
 	"github.com/fil-forge/ucantone/ucan/receipt"
 )
@@ -44,7 +45,7 @@ func TestExtractTypedArgsFromInvocation(t *testing.T) {
 	inv, err := invocation.Invoke(
 		alice,
 		alice.DID(), // subject
-		"/example/echo",
+		command.MustParse("/example/echo"),
 		&types.EchoArguments{Message: "Hello, UCAN!"},
 		invocation.WithMetadata(map[string]any{
 			"trace_id":   "abc-123",
