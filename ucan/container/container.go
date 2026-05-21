@@ -7,7 +7,6 @@ import (
 	"errors"
 	"fmt"
 	"io"
-	"maps"
 	"slices"
 
 	"github.com/fil-forge/ucantone/ucan"
@@ -51,13 +50,14 @@ func FormatCodec(codec byte) string {
 //
 // https://github.com/ucan-wg/container
 type Container struct {
-	invs  map[cid.Cid]ucan.Invocation
-	rcpts map[cid.Cid]ucan.Receipt
-	dlgs  map[cid.Cid]ucan.Delegation
+	cids  *cid.Set
+	invs  []ucan.Invocation
+	rcpts []ucan.Receipt
+	dlgs  []ucan.Delegation
 }
 
 func (c *Container) Delegations() []ucan.Delegation {
-	return slices.Collect(maps.Values(c.dlgs))
+	return c.dlgs
 }
 
 func (c *Container) Delegation(root cid.Cid) (ucan.Delegation, bool) {
@@ -70,11 +70,11 @@ func (c *Container) Delegation(root cid.Cid) (ucan.Delegation, bool) {
 }
 
 func (c *Container) Invocations() []ucan.Invocation {
-	return slices.Collect(maps.Values(c.invs))
+	return c.invs
 }
 
 func (c *Container) Receipts() []ucan.Receipt {
-	return slices.Collect(maps.Values(c.rcpts))
+	return c.rcpts
 }
 
 func (c *Container) Receipt(task cid.Cid) (ucan.Receipt, bool) {
@@ -143,7 +143,9 @@ type Option func(c *Container)
 func WithInvocations(invocations ...ucan.Invocation) Option {
 	return func(c *Container) {
 		for _, inv := range invocations {
-			c.invs[inv.Link()] = inv
+			if c.cids.Visit(inv.Link()) {
+				c.invs = append(c.invs, inv)
+			}
 		}
 	}
 }
@@ -151,7 +153,9 @@ func WithInvocations(invocations ...ucan.Invocation) Option {
 func WithDelegations(delegations ...ucan.Delegation) Option {
 	return func(c *Container) {
 		for _, dlg := range delegations {
-			c.dlgs[dlg.Link()] = dlg
+			if c.cids.Visit(dlg.Link()) {
+				c.dlgs = append(c.dlgs, dlg)
+			}
 		}
 	}
 }
@@ -159,17 +163,15 @@ func WithDelegations(delegations ...ucan.Delegation) Option {
 func WithReceipts(receipts ...ucan.Receipt) Option {
 	return func(c *Container) {
 		for _, rcpt := range receipts {
-			c.rcpts[rcpt.Link()] = rcpt
+			if c.cids.Visit(rcpt.Link()) {
+				c.rcpts = append(c.rcpts, rcpt)
+			}
 		}
 	}
 }
 
 func New(options ...Option) *Container {
-	ct := Container{
-		invs:  map[cid.Cid]ucan.Invocation{},
-		dlgs:  map[cid.Cid]ucan.Delegation{},
-		rcpts: map[cid.Cid]ucan.Receipt{},
-	}
+	ct := Container{cids: cid.NewSet()}
 	for _, opt := range options {
 		opt(&ct)
 	}
@@ -271,7 +273,7 @@ func Decode(input []byte) (*Container, error) {
 	return &ct, nil
 }
 
-func encodeTokens(invs map[cid.Cid]ucan.Invocation, dlgs map[cid.Cid]ucan.Delegation, rcpts map[cid.Cid]ucan.Receipt) ([][]byte, error) {
+func encodeTokens(invs []ucan.Invocation, dlgs []ucan.Delegation, rcpts []ucan.Receipt) ([][]byte, error) {
 	var tokens [][]byte
 	for _, inv := range invs {
 		b, err := invocation.Encode(inv)
@@ -298,21 +300,21 @@ func encodeTokens(invs map[cid.Cid]ucan.Invocation, dlgs map[cid.Cid]ucan.Delega
 	return tokens, nil
 }
 
-func decodeTokens(tokens [][]byte) (map[cid.Cid]ucan.Invocation, map[cid.Cid]ucan.Delegation, map[cid.Cid]ucan.Receipt, error) {
-	invs := map[cid.Cid]ucan.Invocation{}
-	dlgs := map[cid.Cid]ucan.Delegation{}
-	rcpts := map[cid.Cid]ucan.Receipt{}
+func decodeTokens(tokens [][]byte) ([]ucan.Invocation, []ucan.Delegation, []ucan.Receipt, error) {
+	invs := []ucan.Invocation{}
+	dlgs := []ucan.Delegation{}
+	rcpts := []ucan.Receipt{}
 	for _, b := range tokens {
 		if dlg, err := delegation.Decode(b); err == nil {
-			dlgs[dlg.Link()] = dlg
+			dlgs = append(dlgs, dlg)
 			continue
 		}
 		if rcpt, err := receipt.Decode(b); err == nil {
-			rcpts[rcpt.Link()] = rcpt
+			rcpts = append(rcpts, rcpt)
 			continue
 		}
 		if inv, err := invocation.Decode(b); err == nil {
-			invs[inv.Link()] = inv
+			invs = append(invs, inv)
 			continue
 		}
 	}
