@@ -114,10 +114,7 @@ func TestServer(t *testing.T) {
 }
 
 func TestTypedServer(t *testing.T) {
-	echo, err := binding.Parse[*types.EchoArguments, *types.EchoArguments]("/example/echo")
-	if err != nil {
-		panic(err)
-	}
+	echo := binding.Bind[*types.EchoArguments, *types.EchoArguments](command.MustParse("/example/echo"))
 
 	serviceID, err := ed25519.Generate()
 	if err != nil {

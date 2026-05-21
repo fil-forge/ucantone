@@ -86,16 +86,10 @@ func TestPromises(t *testing.T) {
 
 func TestTypedPromises(t *testing.T) {
 	// Define a command for sending emails
-	msgSend, err := binding.Parse[*types.PromisedMsgSendArguments, *datamodel.Map]("/msg/send")
-	if err != nil {
-		panic(err)
-	}
+	msgSend := binding.Bind[*types.PromisedMsgSendArguments, *datamodel.Map](command.MustParse("/msg/send"))
 
 	// Define a command listing emails on a mailing list
-	emailList, err := binding.Parse[*types.EmailsListArguments, *datamodel.Map]("/emails/list")
-	if err != nil {
-		panic(err)
-	}
+	emailList := binding.Bind[*types.EmailsListArguments, *datamodel.Map](command.MustParse("/emails/list"))
 
 	// Mailer is an email service that can send emails
 	mailer, err := ed25519.Generate()

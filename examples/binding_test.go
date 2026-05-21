@@ -13,6 +13,7 @@ import (
 	"github.com/fil-forge/ucantone/execution"
 	"github.com/fil-forge/ucantone/principal/ed25519"
 	"github.com/fil-forge/ucantone/server"
+	"github.com/fil-forge/ucantone/ucan/command"
 	"github.com/fil-forge/ucantone/ucan/invocation"
 )
 
@@ -24,7 +25,7 @@ import (
 //
 // Production code usually wraps this in a MustParse-style helper (see
 // libforge's commands.MustParse) to panic on a malformed command at init.
-var echoCmd, _ = binding.Parse[*types.EchoArguments, *types.EchoArguments]("/example/echo")
+var echoCmd = binding.Bind[*types.EchoArguments, *types.EchoArguments](command.MustParse("/example/echo"))
 
 // TestBindingEndToEnd demonstrates the full lifecycle of a typed command
 // [binding.Binding] — invoke, handle, and read the result — using the server

@@ -63,10 +63,7 @@ func TestCommandDefinition(t *testing.T) {
 func TestTypedCommandDefinition(t *testing.T) {
 	// Defining a command with a arguments type is useful because you get an
 	// Invoke method with a typed arguments parameter.
-	messageSend, err := binding.Parse[*types.MessageSendArguments, *datamodel.Map]("/message/send")
-	if err != nil {
-		panic(err)
-	}
+	messageSend := binding.Bind[*types.MessageSendArguments, *datamodel.Map](command.MustParse("/message/send"))
 
 	// mailer is an email service that can send emails
 	mailer, err := ed25519.Generate()
