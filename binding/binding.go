@@ -5,12 +5,34 @@
 //
 //   - Invoke encodes Args into an invocation (on the client).
 //   - A handler decodes Args from the invocation and encodes OK into the
-//     receipt (on the server), through Request[Args] and Response[OK].
-//   - ReadResult decodes OK out of the receipt (on the client).
+//     receipt (on the server), through [Request][Args] and [Response][OK].
+//   - Unpack decodes OK out of the receipt (on the client).
 //
 // These checks happen at compile time. The wire is still validated at run time:
 // a peer may send bytes that do not conform to Args or OK, which surfaces as a
 // decode error.
+//
+// Declare each command once with [Bind] and a command from the command package,
+// then derive every use from that one value:
+//
+//	var Info = binding.Bind[*InfoArgs, *InfoOK](command.MustParse("/space/info"))
+//
+//	inv, err := Info.Invoke(issuer, subject, &InfoArgs{...}) // client
+//	out, err := Info.Unpack(receipt)                         // client
+//
+// On the server, register a handler for the command in one of three ways,
+// from most to least typed:
+//
+//   - server.NewRoute bundles the command and a typed handler into a Route,
+//     so they cannot diverge — the usual choice.
+//   - [Binding.Handler] (or the free [NewHandler]) adapts a typed handler into
+//     the untyped [execution.HandlerFunc] a server registers.
+//   - registering a raw [execution.HandlerFunc] against the embedded
+//     [command.Command] directly, bypassing Args/OK typing, when a handler
+//     needs the lower-level request and response (e.g. custom transport
+//     metadata).
+//
+// See the package example for the full client-and-server round trip.
 package binding
 
 import (
@@ -40,23 +62,20 @@ type CBORValue interface {
 // Binding ties a command to its typed argument (Args) and result (OK) types.
 // Both must round-trip through CBOR ([CBORValue]): Args is encoded by
 // Invoke and decoded when the command is handled; OK is encoded by the handler
-// and decoded by ReadResult.
+// and decoded by Unpack.
 type Binding[Args, OK CBORValue] struct {
 	command.Command
 }
 
-// New creates a binding from the provided command segments.
-func New[Args, OK CBORValue](segments ...string) Binding[Args, OK] {
-	return Binding[Args, OK]{Command: command.New(segments...)}
-}
-
-// Parse verifies that s is a well-formed command and returns its binding.
-func Parse[Args, OK CBORValue](s string) (Binding[Args, OK], error) {
-	cmd, err := command.Parse(s)
-	if err != nil {
-		return Binding[Args, OK]{}, err
-	}
-	return Binding[Args, OK]{Command: cmd}, nil
+// Bind pairs an already-valid command with the Go types of its arguments
+// (Args) and result (OK). The command carries its own validity (it cannot be
+// constructed except through command.Parse, command.MustParse, or
+// command.New), so Bind cannot fail. Construct or parse the command with the
+// command package, then attach its types here:
+//
+//	b := binding.Bind[*Args, *OK](command.MustParse("/space/info"))
+func Bind[Args, OK CBORValue](cmd command.Command) Binding[Args, OK] {
+	return Binding[Args, OK]{Command: cmd}
 }
 
 // Invoke constructs a signed invocation of the command carrying the given
