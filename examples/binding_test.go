@@ -81,7 +81,7 @@ func TestBindingEndToEnd(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	resp, err := c.Execute(execution.NewRequest(context.Background(), inv, execution.WithProofs(dlg)))
+	resp, err := c.Execute(execution.NewRequest(context.Background(), inv, execution.WithDelegations(dlg)))
 	if err != nil {
 		t.Fatal(err)
 	}

@@ -94,7 +94,7 @@ func TestServer(t *testing.T) {
 		panic(err)
 	}
 
-	resp, err := c.Execute(execution.NewRequest(context.Background(), inv, execution.WithProofs(dlg)))
+	resp, err := c.Execute(execution.NewRequest(context.Background(), inv, execution.WithDelegations(dlg)))
 	if err != nil {
 		panic(err)
 	}
@@ -182,7 +182,7 @@ func TestTypedServer(t *testing.T) {
 		panic(err)
 	}
 
-	resp, err := c.Execute(execution.NewRequest(context.Background(), inv, execution.WithProofs(dlg)))
+	resp, err := c.Execute(execution.NewRequest(context.Background(), inv, execution.WithDelegations(dlg)))
 	if err != nil {
 		panic(err)
 	}
@@ -267,7 +267,7 @@ func TestServerRoundTripper(t *testing.T) {
 		panic(err)
 	}
 
-	resp, err := c.Execute(execution.NewRequest(context.Background(), inv, execution.WithProofs(dlg)))
+	resp, err := c.Execute(execution.NewRequest(context.Background(), inv, execution.WithDelegations(dlg)))
 	if err != nil {
 		panic(err)
 	}
