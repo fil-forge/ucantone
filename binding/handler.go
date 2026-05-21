@@ -20,15 +20,8 @@ type requestConfig struct {
 // the invocation in a [Request] built by [NewRequest].
 type RequestOption = func(cfg *requestConfig)
 
-// WithProofs adds delegations to the execution request. They should be linked
-// from the invocation to be executed.
-func WithProofs(delegations ...ucan.Delegation) RequestOption {
-	return func(cfg *requestConfig) {
-		cfg.delegations = append(cfg.delegations, delegations...)
-	}
-}
-
-// WithDelegations adds delegations to the execution request.
+// WithDelegations adds delegations to the execution request. They should be
+// linked from the invocation to be executed.
 func WithDelegations(delegations ...ucan.Delegation) RequestOption {
 	return func(cfg *requestConfig) {
 		cfg.delegations = append(cfg.delegations, delegations...)
