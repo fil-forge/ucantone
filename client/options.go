@@ -26,8 +26,8 @@ func WithHTTPCodec(codec transport.OutboundCodec[*http.Request, *http.Response])
 	}
 }
 
-// WithEventListener adds an event listener to the HTTP client for monitoring
-// requests and responses.
+// WithEventListener registers an [EventListener] to observe the client's
+// requests and responses as they are encoded and decoded.
 func WithEventListener(listener EventListener) HTTPOption {
 	return func(cfg *httpClientConfig) {
 		cfg.listeners = append(cfg.listeners, listener)

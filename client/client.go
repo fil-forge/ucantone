@@ -27,11 +27,8 @@ func New[Req transport.Request, Res any](transport transport.RoundTripper[Req, R
 func (c *Client[Req, Res]) emitRequestEncode(ctx context.Context, ct ucan.Container) error {
 	var errs error
 	for _, listener := range c.Listeners {
-		if reqEncodeListener, ok := listener.(RequestEncodeListener); ok {
-			err := reqEncodeListener.OnRequestEncode(ctx, ct)
-			if err != nil {
-				errs = errors.Join(errs, err)
-			}
+		if err := listener.OnRequestEncode(ctx, ct); err != nil {
+			errs = errors.Join(errs, err)
 		}
 	}
 	return errs
@@ -40,11 +37,8 @@ func (c *Client[Req, Res]) emitRequestEncode(ctx context.Context, ct ucan.Contai
 func (c *Client[Req, Res]) emitResponseDecode(ctx context.Context, ct ucan.Container) error {
 	var errs error
 	for _, listener := range c.Listeners {
-		if resDecodeListener, ok := listener.(ResponseDecodeListener); ok {
-			err := resDecodeListener.OnResponseDecode(ctx, ct)
-			if err != nil {
-				errs = errors.Join(errs, err)
-			}
+		if err := listener.OnResponseDecode(ctx, ct); err != nil {
+			errs = errors.Join(errs, err)
 		}
 	}
 	return errs

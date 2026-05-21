@@ -6,7 +6,13 @@ import (
 	"github.com/fil-forge/ucantone/ucan"
 )
 
-type EventListener = any
+// EventListener observes both halves of the request/response round trip a
+// server handles: a request being decoded and a response being encoded.
+// Register one with [WithEventListener].
+type EventListener interface {
+	RequestDecodeListener
+	ResponseEncodeListener
+}
 
 // RequestDecodeListener is an observer with a function that is called after an
 // execution request has been decoded by the codec.

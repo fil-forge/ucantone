@@ -37,8 +37,8 @@ func WithReceiptTimestamps(enabled bool) HTTPOption {
 	}
 }
 
-// WithEventListener adds an event listener to the HTTP server for monitoring
-// requests and responses.
+// WithEventListener registers an [EventListener] to observe the server's
+// requests and responses as they are decoded and encoded.
 func WithEventListener(listener EventListener) HTTPOption {
 	return func(cfg *httpServerConfig) {
 		cfg.listeners = append(cfg.listeners, listener)
