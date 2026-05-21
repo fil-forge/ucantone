@@ -12,6 +12,7 @@ import (
 
 	jsg "github.com/alanshaw/dag-json-gen"
 	"github.com/fil-forge/ucantone/ipld"
+	"github.com/filecoin-project/go-state-types/big"
 	"github.com/ipfs/go-cid"
 	cbg "github.com/whyrusleeping/cbor-gen"
 )
@@ -22,6 +23,9 @@ import (
 //   - Null (nil)
 //   - Boolean (bool)
 //   - Integer (int64, int)
+//   - BigInteger (go-state-types/big.Int) — encoded as a CBOR bignum: tag 2
+//     for non-negative values and tag 3 for negative values (RFC 8949).
+//     CBOR only; big integers are not supported in DAG-JSON.
 //   - String (string)
 //   - Bytes ([]byte)
 //   - List ([]Any)
@@ -40,6 +44,7 @@ type Any struct {
 //   - bool
 //   - int
 //   - int64
+//   - big.Int (go-state-types/big; CBOR only)
 //   - string
 //   - []byte
 //   - slice
@@ -66,6 +71,14 @@ func (a *Any) MarshalCBOR(w io.Writer) error {
 		return cbg.CborInt(v).MarshalCBOR(w)
 	case int:
 		return cbg.CborInt(v).MarshalCBOR(w)
+	case big.Int:
+		return marshalCborBigInt(w, v)
+	case *big.Int:
+		if v == nil {
+			_, err := w.Write(cbg.CborNull)
+			return err
+		}
+		return marshalCborBigInt(w, *v)
 	case bool:
 		return cbg.CborBool(v).MarshalCBOR(w)
 	case cid.Cid:
@@ -153,6 +166,20 @@ func (a *Any) UnmarshalCBOR(r io.Reader) (err error) {
 		}
 	case cbg.MajTag:
 		switch extra {
+		case 2: // CBOR positive bignum (tag 2 + byte string): value = n
+			b, err := readBignumBytes(pr)
+			if err != nil {
+				return err
+			}
+			a.Value = big.PositiveFromUnsignedBytes(b)
+			return nil
+		case 3: // CBOR negative bignum (tag 3 + byte string): value = -1 - n
+			b, err := readBignumBytes(pr)
+			if err != nil {
+				return err
+			}
+			a.Value = big.Sub(big.NewInt(-1), big.PositiveFromUnsignedBytes(b))
+			return nil
 		case 42:
 			cbc := cbg.CborCid{}
 			if err = cbc.UnmarshalCBOR(pr); err != nil {
@@ -246,6 +273,8 @@ func (a *Any) MarshalDagJSON(w io.Writer) error {
 		return jw.WriteInt64(v)
 	case int:
 		return jw.WriteInt64(int64(v))
+	case big.Int, *big.Int:
+		return fmt.Errorf("big integers are not supported in DAG-JSON")
 	case bool:
 		return jw.WriteBool(v)
 	case cid.Cid:
@@ -417,6 +446,43 @@ func (a *Any) UnmarshalDagJSON(r io.Reader) (err error) {
 		}
 	}
 	return nil
+}
+
+// marshalCborBigInt writes a big.Int as a CBOR bignum (RFC 8949): tag 2 for
+// non-negative values and tag 3 for negative values, each followed by a byte
+// string holding the big-endian magnitude. A negative value v is encoded as
+// the magnitude of n = -1 - v, so it round-trips via value = -1 - n on decode.
+func marshalCborBigInt(w io.Writer, v big.Int) error {
+	if v.Nil() {
+		_, err := w.Write(cbg.CborNull)
+		return err
+	}
+	tag := uint64(2)
+	mag := v // non-negative: encode the magnitude directly
+	if v.Sign() < 0 {
+		tag = 3
+		mag = big.Sub(big.NewInt(-1), v) // n = -1 - v
+	}
+	cw := cbg.NewCborWriter(w)
+	if err := cw.WriteMajorTypeHeader(cbg.MajTag, tag); err != nil {
+		return err
+	}
+	b := mag.Int.Bytes() // raw big-endian magnitude (no sign prefix)
+	if err := cw.WriteMajorTypeHeader(cbg.MajByteString, uint64(len(b))); err != nil {
+		return err
+	}
+	_, err := cw.Write(b)
+	return err
+}
+
+// readBignumBytes consumes a CBOR bignum tag header and returns the bytes of
+// the following byte string (the big-endian magnitude).
+func readBignumBytes(r io.Reader) ([]byte, error) {
+	cr := cbg.NewCborReader(r)
+	if _, _, err := cr.ReadHeader(); err != nil { // consume the bignum tag header
+		return nil, err
+	}
+	return cbg.ReadByteArray(cr, 256)
 }
 
 func peekCborHeader(r io.Reader) (byte, uint64, io.Reader, error) {
