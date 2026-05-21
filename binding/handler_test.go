@@ -1,10 +1,10 @@
-package bind_test
+package binding_test
 
 import (
 	"bytes"
 	"testing"
 
-	"github.com/fil-forge/ucantone/bind"
+	"github.com/fil-forge/ucantone/binding"
 	"github.com/fil-forge/ucantone/execution"
 	"github.com/fil-forge/ucantone/ipld/datamodel"
 	"github.com/fil-forge/ucantone/testutil"
@@ -15,7 +15,7 @@ import (
 
 func TestHandler(t *testing.T) {
 	alice := testutil.RandomSigner(t)
-	handler := bind.NewHandler(func(req *bind.Request[*tdm.TestObject], res *bind.Response[*tdm.TestObject2]) error {
+	handler := binding.NewHandler(func(req *binding.Request[*tdm.TestObject], res *binding.Response[*tdm.TestObject2]) error {
 		args := req.Task().Arguments()
 		require.Equal(t, args.Bytes, []byte{0x01, 0x02, 0x03})
 		return res.SetSuccess(&tdm.TestObject2{Str: "testy"})

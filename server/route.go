@@ -1,7 +1,7 @@
 package server
 
 import (
-	"github.com/fil-forge/ucantone/bind"
+	"github.com/fil-forge/ucantone/binding"
 	"github.com/fil-forge/ucantone/execution"
 	"github.com/fil-forge/ucantone/ucan"
 )
@@ -19,9 +19,9 @@ type Route struct {
 }
 
 // NewRoute builds a [Route] from a command binding and its handler. The command
-// and handler are taken from the same [bind.Binding], so they cannot diverge,
+// and handler are taken from the same [binding.Binding], so they cannot diverge,
 // and the handler's argument and result types are checked against the command's
 // (Args and OK) at compile time.
-func NewRoute[Args, OK ucan.CBORValue](cmd bind.Binding[Args, OK], fn bind.HandlerFunc[Args, OK]) Route {
+func NewRoute[Args, OK binding.CBORValue](cmd binding.Binding[Args, OK], fn binding.HandlerFunc[Args, OK]) Route {
 	return Route{Command: cmd.Command, Handler: cmd.Handler(fn)}
 }

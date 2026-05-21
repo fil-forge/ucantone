@@ -7,7 +7,7 @@ import (
 	"net/url"
 	"testing"
 
-	"github.com/fil-forge/ucantone/bind"
+	"github.com/fil-forge/ucantone/binding"
 	"github.com/fil-forge/ucantone/client"
 	"github.com/fil-forge/ucantone/examples/types"
 	"github.com/fil-forge/ucantone/execution"
@@ -24,10 +24,10 @@ import (
 //
 // Production code usually wraps this in a MustParse-style helper (see
 // libforge's commands.MustParse) to panic on a malformed command at init.
-var echoCmd, _ = bind.Parse[*types.EchoArguments, *types.EchoArguments]("/example/echo")
+var echoCmd, _ = binding.Parse[*types.EchoArguments, *types.EchoArguments]("/example/echo")
 
 // TestBindingEndToEnd demonstrates the full lifecycle of a typed command
-// [bind.Binding] — invoke, handle, and read the result — using the server
+// [binding.Binding] — invoke, handle, and read the result — using the server
 // itself as an in-process HTTP transport, so the invocation runs through the
 // real encode/decode/handle/encode/decode cycle without binding a port.
 func TestBindingEndToEnd(t *testing.T) {
@@ -45,7 +45,7 @@ func TestBindingEndToEnd(t *testing.T) {
 	// *Response[O] type does not compile.
 	srv := server.NewHTTP(service)
 	srv.Handle(echoCmd.Command, echoCmd.Handler(
-		func(req *bind.Request[*types.EchoArguments], res *bind.Response[*types.EchoArguments]) error {
+		func(req *binding.Request[*types.EchoArguments], res *binding.Response[*types.EchoArguments]) error {
 			args := req.Task().Arguments() // arguments, already decoded and typed
 			return res.SetSuccess(args)    // result, encoded into the receipt
 		},
@@ -89,7 +89,7 @@ func TestBindingEndToEnd(t *testing.T) {
 	// ReadResult decodes the receipt into the command's result type O. There is
 	// no manual Unpack/UnmarshalCBOR and no type argument to restate — the type
 	// is fixed by echoCmd. On a failure receipt it returns the decoded error.
-	out, err := echoCmd.ReadResult(resp.Receipt())
+	out, err := echoCmd.Unpack(resp.Receipt())
 	if err != nil {
 		t.Fatal(err)
 	}

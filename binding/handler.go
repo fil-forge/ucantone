@@ -1,4 +1,4 @@
-package bind
+package binding
 
 import (
 	"context"

@@ -11,7 +11,7 @@ import (
 	"github.com/fil-forge/ucantone/ucan/delegation"
 	"github.com/fil-forge/ucantone/ucan/invocation"
 
-	"github.com/fil-forge/ucantone/bind"
+	"github.com/fil-forge/ucantone/binding"
 )
 
 func TestCommandDefinition(t *testing.T) {
@@ -63,7 +63,7 @@ func TestCommandDefinition(t *testing.T) {
 func TestTypedCommandDefinition(t *testing.T) {
 	// Defining a command with a arguments type is useful because you get an
 	// Invoke method with a typed arguments parameter.
-	messageSend, err := bind.Parse[*types.MessageSendArguments, *datamodel.Map]("/message/send")
+	messageSend, err := binding.Parse[*types.MessageSendArguments, *datamodel.Map]("/message/send")
 	if err != nil {
 		panic(err)
 	}

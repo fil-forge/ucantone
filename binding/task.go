@@ -1,10 +1,9 @@
-package bind
+package binding
 
 import (
 	cbg "github.com/whyrusleeping/cbor-gen"
 
 	"github.com/fil-forge/ucantone/did"
-	"github.com/fil-forge/ucantone/internal/cbordec"
 	"github.com/fil-forge/ucantone/ucan"
 	"github.com/fil-forge/ucantone/ucan/invocation"
 )
@@ -23,7 +22,7 @@ func NewTask[Args cbg.CBORUnmarshaler](
 	argsBytes []byte,
 	nonce []byte,
 ) (*Task[Args], error) {
-	args, err := cbordec.Decode[Args](argsBytes)
+	args, err := decode[Args](argsBytes)
 	if err != nil {
 		return nil, err
 	}

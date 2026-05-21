@@ -20,7 +20,7 @@ import (
 	"github.com/fil-forge/ucantone/ucan/delegation"
 	"github.com/fil-forge/ucantone/ucan/invocation"
 
-	"github.com/fil-forge/ucantone/bind"
+	"github.com/fil-forge/ucantone/binding"
 )
 
 func TestServer(t *testing.T) {
@@ -114,7 +114,7 @@ func TestServer(t *testing.T) {
 }
 
 func TestTypedServer(t *testing.T) {
-	echo, err := bind.Parse[*types.EchoArguments, *types.EchoArguments]("/example/echo")
+	echo, err := binding.Parse[*types.EchoArguments, *types.EchoArguments]("/example/echo")
 	if err != nil {
 		panic(err)
 	}
@@ -128,7 +128,7 @@ func TestTypedServer(t *testing.T) {
 
 	// Register an echo handler that returns the invocation arguments as the
 	// result
-	ucanSrv.Handle(echo.Command, bind.NewHandler(func(req *bind.Request[*types.EchoArguments], res *bind.Response[*types.EchoArguments]) error {
+	ucanSrv.Handle(echo.Command, binding.NewHandler(func(req *binding.Request[*types.EchoArguments], res *binding.Response[*types.EchoArguments]) error {
 		task := req.Task()
 		args := task.Arguments()
 		fmt.Printf("Echo: %s\n", args.Message)

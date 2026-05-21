@@ -11,7 +11,7 @@ import (
 	"github.com/fil-forge/ucantone/ucan/invocation"
 	"github.com/fil-forge/ucantone/ucan/promise"
 
-	"github.com/fil-forge/ucantone/bind"
+	"github.com/fil-forge/ucantone/binding"
 )
 
 func TestPromises(t *testing.T) {
@@ -85,13 +85,13 @@ func TestPromises(t *testing.T) {
 
 func TestTypedPromises(t *testing.T) {
 	// Define a command for sending emails
-	msgSend, err := bind.Parse[*types.PromisedMsgSendArguments, *datamodel.Map]("/msg/send")
+	msgSend, err := binding.Parse[*types.PromisedMsgSendArguments, *datamodel.Map]("/msg/send")
 	if err != nil {
 		panic(err)
 	}
 
 	// Define a command listing emails on a mailing list
-	emailList, err := bind.Parse[*types.EmailsListArguments, *datamodel.Map]("/emails/list")
+	emailList, err := binding.Parse[*types.EmailsListArguments, *datamodel.Map]("/emails/list")
 	if err != nil {
 		panic(err)
 	}

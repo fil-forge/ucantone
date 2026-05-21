@@ -4,7 +4,6 @@ import (
 	"time"
 
 	"github.com/ipfs/go-cid"
-	cbg "github.com/whyrusleeping/cbor-gen"
 
 	"github.com/fil-forge/ucantone/did"
 	"github.com/fil-forge/ucantone/ipld"
@@ -23,15 +22,6 @@ import (
 //
 // https://github.com/ucan-wg/spec/blob/main/README.md#command
 type Command = command.Command
-
-// CBORValue is any value that round-trips through CBOR: marshalled into a UCAN
-// (e.g. an invocation's arguments or a receipt's result) and unmarshalled back
-// out again. It is the single contract a typed command's argument and result
-// types must satisfy.
-type CBORValue interface {
-	cbg.CBORMarshaler
-	cbg.CBORUnmarshaler
-}
 
 // UnixTimestamp is a timestamp in seconds since the Unix epoch.
 // Defined as a distinct type so the compiler catches accidental mixing with
