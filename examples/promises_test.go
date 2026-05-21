@@ -7,6 +7,7 @@ import (
 	"github.com/fil-forge/ucantone/examples/types"
 	"github.com/fil-forge/ucantone/ipld/datamodel"
 	"github.com/fil-forge/ucantone/principal/ed25519"
+	"github.com/fil-forge/ucantone/ucan/command"
 	"github.com/fil-forge/ucantone/ucan/delegation"
 	"github.com/fil-forge/ucantone/ucan/invocation"
 	"github.com/fil-forge/ucantone/ucan/promise"
@@ -33,13 +34,13 @@ func TestPromises(t *testing.T) {
 	}
 
 	// A delegation from the mailer to alice allowing her to send emails
-	msgSendDlg, err := delegation.Delegate(mailer, alice.DID(), mailer.DID(), "/msg/send")
+	msgSendDlg, err := delegation.Delegate(mailer, alice.DID(), mailer.DID(), command.MustParse("/msg/send"))
 	if err != nil {
 		panic(err)
 	}
 
 	// A delegation from the mailing list to alice allowing her to read the emails
-	listEmailsDlg, err := delegation.Delegate(mailingList, alice.DID(), mailingList.DID(), "/emails/list")
+	listEmailsDlg, err := delegation.Delegate(mailingList, alice.DID(), mailingList.DID(), command.MustParse("/emails/list"))
 	if err != nil {
 		panic(err)
 	}
@@ -49,7 +50,7 @@ func TestPromises(t *testing.T) {
 	readListInv, err := invocation.Invoke(
 		alice,
 		mailingList.DID(),
-		"/emails/list",
+		command.MustParse("/emails/list"),
 		datamodel.Map{"limit": 100},
 		invocation.WithAudience(mailer.DID()),
 		invocation.WithProofs(listEmailsDlg.Link()),
@@ -64,7 +65,7 @@ func TestPromises(t *testing.T) {
 	msgSendInv, err := invocation.Invoke(
 		alice,
 		mailer.DID(),
-		"/msg/send",
+		command.MustParse("/msg/send"),
 		datamodel.Map{
 			"from":    "alice@example.com",
 			"to":      datamodel.Map{"await/ok": readListInv.Task().Link()},

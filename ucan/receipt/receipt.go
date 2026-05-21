@@ -19,7 +19,7 @@ import (
 	rdm "github.com/fil-forge/ucantone/ucan/receipt/datamodel"
 )
 
-const Command = command.Command("/ucan/assert/receipt")
+var Command = command.MustParse("/ucan/assert/receipt")
 
 // Receipt is a signed attestation that a task was executed and produced a
 // particular result.

@@ -11,7 +11,6 @@ import (
 	did "github.com/fil-forge/ucantone/did"
 	datamodel "github.com/fil-forge/ucantone/ipld/datamodel"
 	ucan "github.com/fil-forge/ucantone/ucan"
-	command "github.com/fil-forge/ucantone/ucan/command"
 	cid "github.com/ipfs/go-cid"
 	cbg "github.com/whyrusleeping/cbor-gen"
 	xerrors "golang.org/x/xerrors"
@@ -34,7 +33,7 @@ func (t *TaskModel) MarshalCBOR(w io.Writer) error {
 		return err
 	}
 
-	// t.Cmd (command.Command) (string)
+	// t.Cmd (command.Command) (struct)
 	if len("cmd") > 8192 {
 		return xerrors.Errorf("Value in field \"cmd\" was too long")
 	}
@@ -46,14 +45,7 @@ func (t *TaskModel) MarshalCBOR(w io.Writer) error {
 		return err
 	}
 
-	if len(t.Cmd) > 8192 {
-		return xerrors.Errorf("Value in field t.Cmd was too long")
-	}
-
-	if err := cw.WriteMajorTypeHeader(cbg.MajTextString, uint64(len(t.Cmd))); err != nil {
-		return err
-	}
-	if _, err := cw.WriteString(string(t.Cmd)); err != nil {
+	if err := t.Cmd.MarshalCBOR(cw); err != nil {
 		return err
 	}
 
@@ -157,16 +149,15 @@ func (t *TaskModel) UnmarshalCBOR(r io.Reader) (err error) {
 		}
 
 		switch string(nameBuf[:nameLen]) {
-		// t.Cmd (command.Command) (string)
+		// t.Cmd (command.Command) (struct)
 		case "cmd":
 
 			{
-				sval, err := cbg.ReadStringWithMax(cr, 8192)
-				if err != nil {
-					return err
+
+				if err := t.Cmd.UnmarshalCBOR(cr); err != nil {
+					return xerrors.Errorf("unmarshaling t.Cmd: %w", err)
 				}
 
-				t.Cmd = command.Command(sval)
 			}
 			// t.Sub (did.DID) (struct)
 		case "sub":
@@ -269,7 +260,7 @@ func (t *TokenPayloadModel1_0_0_rc1) MarshalCBOR(w io.Writer) error {
 		}
 	}
 
-	// t.Cmd (command.Command) (string)
+	// t.Cmd (command.Command) (struct)
 	if len("cmd") > 8192 {
 		return xerrors.Errorf("Value in field \"cmd\" was too long")
 	}
@@ -281,14 +272,7 @@ func (t *TokenPayloadModel1_0_0_rc1) MarshalCBOR(w io.Writer) error {
 		return err
 	}
 
-	if len(t.Cmd) > 8192 {
-		return xerrors.Errorf("Value in field t.Cmd was too long")
-	}
-
-	if err := cw.WriteMajorTypeHeader(cbg.MajTextString, uint64(len(t.Cmd))); err != nil {
-		return err
-	}
-	if _, err := cw.WriteString(string(t.Cmd)); err != nil {
+	if err := t.Cmd.MarshalCBOR(cw); err != nil {
 		return err
 	}
 
@@ -560,16 +544,15 @@ func (t *TokenPayloadModel1_0_0_rc1) UnmarshalCBOR(r io.Reader) (err error) {
 				}
 
 			}
-			// t.Cmd (command.Command) (string)
+			// t.Cmd (command.Command) (struct)
 		case "cmd":
 
 			{
-				sval, err := cbg.ReadStringWithMax(cr, 8192)
-				if err != nil {
-					return err
+
+				if err := t.Cmd.UnmarshalCBOR(cr); err != nil {
+					return xerrors.Errorf("unmarshaling t.Cmd: %w", err)
 				}
 
-				t.Cmd = command.Command(sval)
 			}
 			// t.Exp (ucan.UnixTimestamp) (int64)
 		case "exp":

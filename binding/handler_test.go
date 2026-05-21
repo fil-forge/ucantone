@@ -9,6 +9,7 @@ import (
 	"github.com/fil-forge/ucantone/ipld/datamodel"
 	"github.com/fil-forge/ucantone/testutil"
 	tdm "github.com/fil-forge/ucantone/testutil/datamodel"
+	"github.com/fil-forge/ucantone/ucan/command"
 	"github.com/fil-forge/ucantone/ucan/invocation"
 	"github.com/stretchr/testify/require"
 )
@@ -24,7 +25,7 @@ func TestHandler(t *testing.T) {
 	inv, err := invocation.Invoke(
 		alice,
 		alice.DID(),
-		"/test/handler",
+		command.MustParse("/test/handler"),
 		datamodel.Map{"bytes": []byte{0x01, 0x02, 0x03}},
 	)
 	require.NoError(t, err)

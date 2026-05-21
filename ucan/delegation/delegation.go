@@ -13,7 +13,6 @@ import (
 	"github.com/fil-forge/ucantone/ipld/codec/dagcbor"
 	"github.com/fil-forge/ucantone/ipld/datamodel"
 	"github.com/fil-forge/ucantone/ucan"
-	cmd "github.com/fil-forge/ucantone/ucan/command"
 	"github.com/fil-forge/ucantone/ucan/crypto/signature"
 	ddm "github.com/fil-forge/ucantone/ucan/delegation/datamodel"
 	edm "github.com/fil-forge/ucantone/ucan/envelope/datamodel"
@@ -253,9 +252,8 @@ func Delegate(
 		return nil, fmt.Errorf("encoding varsig header: %w", err)
 	}
 
-	cmd, err := cmd.Parse(string(command))
-	if err != nil {
-		return nil, fmt.Errorf("parsing command: %w", err)
+	if !command.Defined() {
+		return nil, fmt.Errorf("command is undefined")
 	}
 
 	var meta *datamodel.Raw
@@ -292,7 +290,7 @@ func Delegate(
 		Iss:   issuer.DID(),
 		Aud:   audience,
 		Sub:   subject,
-		Cmd:   cmd,
+		Cmd:   command,
 		Pol:   cfg.pol,
 		Nonce: nnc,
 		Meta:  meta,
