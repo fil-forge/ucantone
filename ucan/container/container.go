@@ -296,7 +296,11 @@ func encodeTokens(invs []ucan.Invocation, dlgs []ucan.Delegation, rcpts []ucan.R
 		}
 		tokens = append(tokens, b)
 	}
+
+	// Sort tokens bytewise to ensure determism.
+	// https://github.com/ucan-wg/container#21-inner-structure
 	slices.SortFunc(tokens, bytes.Compare)
+
 	return tokens, nil
 }
 
