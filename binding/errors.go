@@ -1,4 +1,4 @@
-package bindexec
+package binding
 
 import (
 	"fmt"

@@ -10,7 +10,8 @@ import (
 	"github.com/fil-forge/ucantone/ucan/delegation"
 	"github.com/fil-forge/ucantone/ucan/invocation"
 	"github.com/fil-forge/ucantone/ucan/promise"
-	"github.com/fil-forge/ucantone/validator/bindcom"
+
+	"github.com/fil-forge/ucantone/binding"
 )
 
 func TestPromises(t *testing.T) {
@@ -84,13 +85,13 @@ func TestPromises(t *testing.T) {
 
 func TestTypedPromises(t *testing.T) {
 	// Define a command for sending emails
-	msgSend, err := bindcom.Parse[*types.PromisedMsgSendArguments]("/msg/send")
+	msgSend, err := binding.Parse[*types.PromisedMsgSendArguments, *datamodel.Map]("/msg/send")
 	if err != nil {
 		panic(err)
 	}
 
 	// Define a command listing emails on a mailing list
-	emailList, err := bindcom.Parse[*types.EmailsListArguments]("/emails/list")
+	emailList, err := binding.Parse[*types.EmailsListArguments, *datamodel.Map]("/emails/list")
 	if err != nil {
 		panic(err)
 	}

@@ -1,4 +1,4 @@
-package bindexec
+package binding
 
 import (
 	"context"
@@ -9,14 +9,6 @@ import (
 	"github.com/ipfs/go-cid"
 	cbg "github.com/whyrusleeping/cbor-gen"
 )
-
-type Arguments interface {
-	cbg.CBORUnmarshaler
-}
-
-type Success interface {
-	cbg.CBORMarshaler
-}
 
 type requestConfig struct {
 	invocations []ucan.Invocation
@@ -55,21 +47,21 @@ func WithInvocations(invocations ...ucan.Invocation) RequestOption {
 	}
 }
 
-type Request[A Arguments] struct {
+type Request[Args cbg.CBORUnmarshaler] struct {
 	execution.Request
-	task *Task[A]
+	task *Task[Args]
 }
 
-func NewRequest[A Arguments](ctx context.Context, inv ucan.Invocation, options ...RequestOption) (*Request[A], error) {
+func NewRequest[Args cbg.CBORUnmarshaler](ctx context.Context, inv ucan.Invocation, options ...RequestOption) (*Request[Args], error) {
 	cfg := requestConfig{}
 	for _, opt := range options {
 		opt(&cfg)
 	}
-	task, err := NewTask[A](inv.Subject(), inv.Command(), inv.ArgumentsBytes(), inv.Nonce())
+	task, err := NewTask[Args](inv.Subject(), inv.Command(), inv.ArgumentsBytes(), inv.Nonce())
 	if err != nil {
 		return nil, err
 	}
-	return &Request[A]{
+	return &Request[Args]{
 		Request: execution.NewRequest(
 			ctx,
 			inv,
@@ -85,7 +77,7 @@ func NewRequest[A Arguments](ctx context.Context, inv ucan.Invocation, options .
 // for the invocation.
 //
 // https://github.com/ucan-wg/invocation/blob/main/README.md#task
-func (r *Request[A]) Task() *Task[A] {
+func (r *Request[Args]) Task() *Task[Args] {
 	return r.task
 }
 
@@ -93,10 +85,10 @@ type SignerSetter interface {
 	SetSigner(ucan.Signer) error
 }
 
-type ResponseOption[O Success] func(r *Response[O]) error
+type ResponseOption[OK cbg.CBORMarshaler] func(r *Response[OK]) error
 
-func WithSigner[O Success](signer ucan.Signer) ResponseOption[O] {
-	return func(resp *Response[O]) error {
+func WithSigner[OK cbg.CBORMarshaler](signer ucan.Signer) ResponseOption[OK] {
+	return func(resp *Response[OK]) error {
 		setter, ok := resp.res.(SignerSetter)
 		if !ok {
 			return fmt.Errorf("cannot set signer: underlying response is not a signer setter")
@@ -105,46 +97,46 @@ func WithSigner[O Success](signer ucan.Signer) ResponseOption[O] {
 	}
 }
 
-func WithReceipt[O Success](receipt ucan.Receipt) ResponseOption[O] {
-	return func(resp *Response[O]) error {
+func WithReceipt[OK cbg.CBORMarshaler](receipt ucan.Receipt) ResponseOption[OK] {
+	return func(resp *Response[OK]) error {
 		resp.SetReceipt(receipt)
 		return nil
 	}
 }
 
 // WithSuccess issues and sets a receipt for a successful execution of a task.
-func WithSuccess[O Success](o O) ResponseOption[O] {
-	return func(resp *Response[O]) error {
+func WithSuccess[OK cbg.CBORMarshaler](o OK) ResponseOption[OK] {
+	return func(resp *Response[OK]) error {
 		return resp.SetSuccess(o)
 	}
 }
 
 // WithFailure issues and sets a receipt for a failed execution of a task.
-func WithFailure[O Success](signer ucan.Signer, task cid.Cid, x error) ResponseOption[O] {
-	return func(resp *Response[O]) error {
+func WithFailure[OK cbg.CBORMarshaler](signer ucan.Signer, task cid.Cid, x error) ResponseOption[OK] {
+	return func(resp *Response[OK]) error {
 		return resp.SetFailure(x)
 	}
 }
 
-func WithMetadata[O Success](meta ucan.Container) ResponseOption[O] {
-	return func(resp *Response[O]) error {
+func WithMetadata[OK cbg.CBORMarshaler](meta ucan.Container) ResponseOption[OK] {
+	return func(resp *Response[OK]) error {
 		resp.SetMetadata(meta)
 		return nil
 	}
 }
 
-type Response[O Success] struct {
+type Response[OK cbg.CBORMarshaler] struct {
 	res execution.Response
 }
 
 // NewResponse creates a new response object, representing the result of
 // executing a task.
-func NewResponse[O Success](task cid.Cid, options ...ResponseOption[O]) (*Response[O], error) {
+func NewResponse[OK cbg.CBORMarshaler](task cid.Cid, options ...ResponseOption[OK]) (*Response[OK], error) {
 	xres, err := execution.NewResponse(task)
 	if err != nil {
 		return nil, err
 	}
-	response := Response[O]{res: xres}
+	response := Response[OK]{res: xres}
 	for _, opt := range options {
 		err := opt(&response)
 		if err != nil {
@@ -154,42 +146,41 @@ func NewResponse[O Success](task cid.Cid, options ...ResponseOption[O]) (*Respon
 	return &response, nil
 }
 
-func (r *Response[O]) Metadata() ucan.Container {
+func (r *Response[OK]) Metadata() ucan.Container {
 	return r.res.Metadata()
 }
 
-func (r *Response[O]) Receipt() ucan.Receipt {
+func (r *Response[OK]) Receipt() ucan.Receipt {
 	return r.res.Receipt()
 }
 
-func (r *Response[O]) SetFailure(x error) error {
+func (r *Response[OK]) SetFailure(x error) error {
 	return r.res.SetFailure(x)
 }
 
-func (r *Response[O]) SetMetadata(meta ucan.Container) error {
+func (r *Response[OK]) SetMetadata(meta ucan.Container) error {
 	return r.res.SetMetadata(meta)
 }
 
-func (r *Response[O]) SetReceipt(receipt ucan.Receipt) error {
+func (r *Response[OK]) SetReceipt(receipt ucan.Receipt) error {
 	return r.res.SetReceipt(receipt)
 }
 
-func (r *Response[O]) SetSuccess(o O) error {
+func (r *Response[OK]) SetSuccess(o OK) error {
 	return r.res.SetSuccess(o)
 }
 
-type HandlerFunc[A Arguments, O Success] = func(*Request[A], *Response[O]) error
+type HandlerFunc[Args cbg.CBORUnmarshaler, OK cbg.CBORMarshaler] = func(*Request[Args], *Response[OK]) error
 
 // NewHandler creates a new [execution.HandlerFunc] from the provided typed
 // handler.
-func NewHandler[A Arguments, O Success](handler HandlerFunc[A, O]) execution.HandlerFunc {
+func NewHandler[Args cbg.CBORUnmarshaler, OK cbg.CBORMarshaler](handler HandlerFunc[Args, OK]) execution.HandlerFunc {
 	return func(req execution.Request, res execution.Response) error {
 		inv := req.Invocation()
-		task, err := NewTask[A](inv.Subject(), inv.Command(), inv.ArgumentsBytes(), inv.Nonce())
+		task, err := NewTask[Args](inv.Subject(), inv.Command(), inv.ArgumentsBytes(), inv.Nonce())
 		if err != nil {
 			return res.SetFailure(NewMalformedArgumentsError(err))
 		}
-		return handler(&Request[A]{Request: req, task: task}, &Response[O]{res: res})
+		return handler(&Request[Args]{Request: req, task: task}, &Response[OK]{res: res})
 	}
 }
-
