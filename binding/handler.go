@@ -16,6 +16,8 @@ type requestConfig struct {
 	receipts    []ucan.Receipt
 }
 
+// RequestOption configures the proofs and supporting UCANs carried alongside
+// the invocation in a [Request] built by [NewRequest].
 type RequestOption = func(cfg *requestConfig)
 
 // WithProofs adds delegations to the execution request. They should be linked
@@ -47,11 +49,17 @@ func WithInvocations(invocations ...ucan.Invocation) RequestOption {
 	}
 }
 
+// Request is an [execution.Request] whose invocation arguments have been
+// decoded into the typed Args. A handler reads them through Task; see
+// [HandlerFunc].
 type Request[Args cbg.CBORUnmarshaler] struct {
 	execution.Request
 	task *Task[Args]
 }
 
+// NewRequest decodes inv's arguments into Args and wraps it as a typed
+// [Request], attaching any proofs, delegations, or receipts supplied via
+// options. It fails if the arguments do not conform to Args.
 func NewRequest[Args cbg.CBORUnmarshaler](ctx context.Context, inv ucan.Invocation, options ...RequestOption) (*Request[Args], error) {
 	cfg := requestConfig{}
 	for _, opt := range options {
@@ -81,12 +89,18 @@ func (r *Request[Args]) Task() *Task[Args] {
 	return r.task
 }
 
+// SignerSetter is implemented by responses that can issue their own receipt and
+// therefore need a signer. [WithSigner] uses it to set that signer.
 type SignerSetter interface {
 	SetSigner(ucan.Signer) error
 }
 
+// ResponseOption configures a [Response] as it is built by [NewResponse],
+// typically setting its outcome (success or failure), signer, or metadata.
 type ResponseOption[OK cbg.CBORMarshaler] func(r *Response[OK]) error
 
+// WithSigner sets the signer used to issue the response's receipt. It fails if
+// the underlying response cannot accept one (does not implement [SignerSetter]).
 func WithSigner[OK cbg.CBORMarshaler](signer ucan.Signer) ResponseOption[OK] {
 	return func(resp *Response[OK]) error {
 		setter, ok := resp.res.(SignerSetter)
@@ -97,6 +111,8 @@ func WithSigner[OK cbg.CBORMarshaler](signer ucan.Signer) ResponseOption[OK] {
 	}
 }
 
+// WithReceipt sets a pre-built receipt as the response's outcome instead of
+// issuing one from a success or failure value.
 func WithReceipt[OK cbg.CBORMarshaler](receipt ucan.Receipt) ResponseOption[OK] {
 	return func(resp *Response[OK]) error {
 		resp.SetReceipt(receipt)
@@ -118,6 +134,8 @@ func WithFailure[OK cbg.CBORMarshaler](signer ucan.Signer, task cid.Cid, x error
 	}
 }
 
+// WithMetadata attaches a metadata container to the response, carried
+// alongside the receipt (e.g. transport-specific headers).
 func WithMetadata[OK cbg.CBORMarshaler](meta ucan.Container) ResponseOption[OK] {
 	return func(resp *Response[OK]) error {
 		resp.SetMetadata(meta)
@@ -125,12 +143,15 @@ func WithMetadata[OK cbg.CBORMarshaler](meta ucan.Container) ResponseOption[OK] 
 	}
 }
 
+// Response is the result of executing a task. A handler reports the outcome by
+// calling SetSuccess with a typed OK value or SetFailure with an error;
+// binding encodes it into the receipt.
 type Response[OK cbg.CBORMarshaler] struct {
 	res execution.Response
 }
 
-// NewResponse creates a new response object, representing the result of
-// executing a task.
+// NewResponse creates a response for the given task, applying any options
+// (such as [WithSuccess], [WithFailure], or [WithSigner]) that set its outcome.
 func NewResponse[OK cbg.CBORMarshaler](task cid.Cid, options ...ResponseOption[OK]) (*Response[OK], error) {
 	xres, err := execution.NewResponse(task)
 	if err != nil {
@@ -146,34 +167,47 @@ func NewResponse[OK cbg.CBORMarshaler](task cid.Cid, options ...ResponseOption[O
 	return &response, nil
 }
 
+// Metadata returns the metadata container attached to the response, if any.
 func (r *Response[OK]) Metadata() ucan.Container {
 	return r.res.Metadata()
 }
 
+// Receipt returns the receipt recording the task's outcome, set by SetSuccess,
+// SetFailure, or SetReceipt.
 func (r *Response[OK]) Receipt() ucan.Receipt {
 	return r.res.Receipt()
 }
 
+// SetFailure issues and sets a receipt reporting that the task failed with x.
 func (r *Response[OK]) SetFailure(x error) error {
 	return r.res.SetFailure(x)
 }
 
+// SetMetadata attaches a metadata container to the response.
 func (r *Response[OK]) SetMetadata(meta ucan.Container) error {
 	return r.res.SetMetadata(meta)
 }
 
+// SetReceipt sets a pre-built receipt as the task's outcome.
 func (r *Response[OK]) SetReceipt(receipt ucan.Receipt) error {
 	return r.res.SetReceipt(receipt)
 }
 
+// SetSuccess issues and sets a receipt reporting that the task succeeded with
+// the typed result o.
 func (r *Response[OK]) SetSuccess(o OK) error {
 	return r.res.SetSuccess(o)
 }
 
+// HandlerFunc handles an invocation of a command: it reads typed arguments from
+// the [Request] and reports the outcome on the [Response]. Register it with a
+// server via [Binding.Handler], [NewHandler], or server.NewRoute.
 type HandlerFunc[Args cbg.CBORUnmarshaler, OK cbg.CBORMarshaler] = func(*Request[Args], *Response[OK]) error
 
-// NewHandler creates a new [execution.HandlerFunc] from the provided typed
-// handler.
+// NewHandler adapts a typed [HandlerFunc] into the untyped
+// [execution.HandlerFunc] a server registers. It decodes the invocation's
+// arguments into Args before calling handler, reporting a
+// [MalformedArgumentsErrorName] failure if they do not conform.
 func NewHandler[Args cbg.CBORUnmarshaler, OK cbg.CBORMarshaler](handler HandlerFunc[Args, OK]) execution.HandlerFunc {
 	return func(req execution.Request, res execution.Response) error {
 		inv := req.Invocation()
