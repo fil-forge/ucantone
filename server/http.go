@@ -46,11 +46,8 @@ func NewHTTP(id principal.Signer, options ...HTTPOption) *HTTPServer {
 func (s *HTTPServer) emitRequestDecode(ctx context.Context, ct ucan.Container) error {
 	var errs error
 	for _, listener := range s.listeners {
-		if reqDecodeListener, ok := listener.(RequestDecodeListener); ok {
-			err := reqDecodeListener.OnRequestDecode(ctx, ct)
-			if err != nil {
-				errs = errors.Join(errs, err)
-			}
+		if err := listener.OnRequestDecode(ctx, ct); err != nil {
+			errs = errors.Join(errs, err)
 		}
 	}
 	return errs
@@ -59,11 +56,8 @@ func (s *HTTPServer) emitRequestDecode(ctx context.Context, ct ucan.Container) e
 func (s *HTTPServer) emitResponseEncode(ctx context.Context, ct ucan.Container) error {
 	var errs error
 	for _, listener := range s.listeners {
-		if resEncodeListener, ok := listener.(ResponseEncodeListener); ok {
-			err := resEncodeListener.OnResponseEncode(ctx, ct)
-			if err != nil {
-				errs = errors.Join(errs, err)
-			}
+		if err := listener.OnResponseEncode(ctx, ct); err != nil {
+			errs = errors.Join(errs, err)
 		}
 	}
 	return errs
