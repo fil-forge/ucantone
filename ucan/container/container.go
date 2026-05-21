@@ -181,11 +181,11 @@ func New(options ...Option) *Container {
 func Encode(codec byte, container ucan.Container) ([]byte, error) {
 	c, ok := container.(*Container)
 	if !ok {
-		c = New(
-			WithInvocations(container.Invocations()...),
-			WithDelegations(container.Delegations()...),
-			WithReceipts(container.Receipts()...),
-		)
+		c = &Container{
+			invs:  container.Invocations(),
+			dlgs:  container.Delegations(),
+			rcpts: container.Receipts(),
+		}
 	}
 
 	var buf bytes.Buffer
