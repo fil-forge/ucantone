@@ -7,6 +7,7 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"maps"
 	"slices"
 
 	"github.com/fil-forge/ucantone/ucan"
@@ -50,13 +51,13 @@ func FormatCodec(codec byte) string {
 //
 // https://github.com/ucan-wg/container
 type Container struct {
-	invs  []ucan.Invocation
-	rcpts []ucan.Receipt
-	dlgs  []ucan.Delegation
+	invs  map[cid.Cid]ucan.Invocation
+	rcpts map[cid.Cid]ucan.Receipt
+	dlgs  map[cid.Cid]ucan.Delegation
 }
 
 func (c *Container) Delegations() []ucan.Delegation {
-	return c.dlgs
+	return slices.Collect(maps.Values(c.dlgs))
 }
 
 func (c *Container) Delegation(root cid.Cid) (ucan.Delegation, bool) {
@@ -69,11 +70,11 @@ func (c *Container) Delegation(root cid.Cid) (ucan.Delegation, bool) {
 }
 
 func (c *Container) Invocations() []ucan.Invocation {
-	return c.invs
+	return slices.Collect(maps.Values(c.invs))
 }
 
 func (c *Container) Receipts() []ucan.Receipt {
-	return c.rcpts
+	return slices.Collect(maps.Values(c.rcpts))
 }
 
 func (c *Container) Receipt(task cid.Cid) (ucan.Receipt, bool) {
@@ -86,30 +87,10 @@ func (c *Container) Receipt(task cid.Cid) (ucan.Receipt, bool) {
 }
 
 func (c *Container) MarshalCBOR(w io.Writer) error {
-	var tokens [][]byte
-	for _, inv := range c.invs {
-		b, err := invocation.Encode(inv)
-		if err != nil {
-			return fmt.Errorf("encoding invocation: %w", err)
-		}
-		tokens = append(tokens, b)
+	tokens, err := encodeTokens(c.invs, c.dlgs, c.rcpts)
+	if err != nil {
+		return err
 	}
-	for _, dlg := range c.dlgs {
-		b, err := delegation.Encode(dlg)
-		if err != nil {
-			return fmt.Errorf("encoding delegation: %w", err)
-		}
-		tokens = append(tokens, b)
-	}
-	for _, rcpt := range c.rcpts {
-		b, err := receipt.Encode(rcpt)
-		if err != nil {
-			return fmt.Errorf("encoding receipt: %w", err)
-		}
-		tokens = append(tokens, b)
-	}
-	slices.SortFunc(tokens, bytes.Compare)
-
 	model := datamodel.ContainerModel{Ctn1: tokens}
 	return model.MarshalCBOR(w)
 }
@@ -117,27 +98,12 @@ func (c *Container) MarshalCBOR(w io.Writer) error {
 func (c *Container) UnmarshalCBOR(r io.Reader) error {
 	model := datamodel.ContainerModel{}
 	if err := model.UnmarshalCBOR(r); err != nil {
-		return fmt.Errorf("unmarshalling container model CBOR: %w", err)
+		return fmt.Errorf("unmarshaling container model CBOR: %w", err)
 	}
-
-	var dlgs []ucan.Delegation
-	var invs []ucan.Invocation
-	var rcpts []ucan.Receipt
-	for _, b := range model.Ctn1 {
-		if dlg, err := delegation.Decode(b); err == nil {
-			dlgs = append(dlgs, dlg)
-			continue
-		}
-		if rcpt, err := receipt.Decode(b); err == nil {
-			rcpts = append(rcpts, rcpt)
-			continue
-		}
-		if inv, err := invocation.Decode(b); err == nil {
-			invs = append(invs, inv)
-			continue
-		}
+	invs, dlgs, rcpts, err := decodeTokens(model.Ctn1)
+	if err != nil {
+		return fmt.Errorf("decoding container tokens: %w", err)
 	}
-
 	*c = Container{
 		invs:  invs,
 		dlgs:  dlgs,
@@ -147,56 +113,63 @@ func (c *Container) UnmarshalCBOR(r io.Reader) error {
 }
 
 func (c *Container) MarshalDagJSON(w io.Writer) error {
-	var tokens [][]byte
-	for _, inv := range c.invs {
-		b, err := invocation.Encode(inv)
-		if err != nil {
-			return fmt.Errorf("encoding invocation: %w", err)
-		}
-		tokens = append(tokens, b)
+	tokens, err := encodeTokens(c.invs, c.dlgs, c.rcpts)
+	if err != nil {
+		return err
 	}
-	for _, dlg := range c.dlgs {
-		b, err := delegation.Encode(dlg)
-		if err != nil {
-			return fmt.Errorf("encoding delegation: %w", err)
-		}
-		tokens = append(tokens, b)
-	}
-	for _, rcpt := range c.rcpts {
-		b, err := receipt.Encode(rcpt)
-		if err != nil {
-			return fmt.Errorf("encoding receipt: %w", err)
-		}
-		tokens = append(tokens, b)
-	}
-	slices.SortFunc(tokens, bytes.Compare)
-
 	model := datamodel.ContainerModel{Ctn1: tokens}
 	return model.MarshalDagJSON(w)
+}
+
+func (c *Container) UnmarshalDagJSON(r io.Reader) error {
+	model := datamodel.ContainerModel{}
+	if err := model.UnmarshalDagJSON(r); err != nil {
+		return fmt.Errorf("unmarshaling container model DAG-JSON: %w", err)
+	}
+	invs, dlgs, rcpts, err := decodeTokens(model.Ctn1)
+	if err != nil {
+		return fmt.Errorf("decoding container tokens: %w", err)
+	}
+	*c = Container{
+		invs:  invs,
+		dlgs:  dlgs,
+		rcpts: rcpts,
+	}
+	return nil
 }
 
 type Option func(c *Container)
 
 func WithInvocations(invocations ...ucan.Invocation) Option {
 	return func(c *Container) {
-		c.invs = append(c.invs, invocations...)
+		for _, inv := range invocations {
+			c.invs[inv.Link()] = inv
+		}
 	}
 }
 
 func WithDelegations(delegations ...ucan.Delegation) Option {
 	return func(c *Container) {
-		c.dlgs = append(c.dlgs, delegations...)
+		for _, dlg := range delegations {
+			c.dlgs[dlg.Link()] = dlg
+		}
 	}
 }
 
 func WithReceipts(receipts ...ucan.Receipt) Option {
 	return func(c *Container) {
-		c.rcpts = append(c.rcpts, receipts...)
+		for _, rcpt := range receipts {
+			c.rcpts[rcpt.Link()] = rcpt
+		}
 	}
 }
 
 func New(options ...Option) *Container {
-	ct := Container{}
+	ct := Container{
+		invs:  map[cid.Cid]ucan.Invocation{},
+		dlgs:  map[cid.Cid]ucan.Delegation{},
+		rcpts: map[cid.Cid]ucan.Receipt{},
+	}
 	for _, opt := range options {
 		opt(&ct)
 	}
@@ -206,11 +179,11 @@ func New(options ...Option) *Container {
 func Encode(codec byte, container ucan.Container) ([]byte, error) {
 	c, ok := container.(*Container)
 	if !ok {
-		c = &Container{
-			invs:  container.Invocations(),
-			dlgs:  container.Delegations(),
-			rcpts: container.Receipts(),
-		}
+		c = New(
+			WithInvocations(container.Invocations()...),
+			WithDelegations(container.Delegations()...),
+			WithReceipts(container.Receipts()...),
+		)
 	}
 
 	var buf bytes.Buffer
@@ -296,4 +269,52 @@ func Decode(input []byte) (*Container, error) {
 		return nil, err
 	}
 	return &ct, nil
+}
+
+func encodeTokens(invs map[cid.Cid]ucan.Invocation, dlgs map[cid.Cid]ucan.Delegation, rcpts map[cid.Cid]ucan.Receipt) ([][]byte, error) {
+	var tokens [][]byte
+	for _, inv := range invs {
+		b, err := invocation.Encode(inv)
+		if err != nil {
+			return nil, fmt.Errorf("encoding invocation: %w", err)
+		}
+		tokens = append(tokens, b)
+	}
+	for _, dlg := range dlgs {
+		b, err := delegation.Encode(dlg)
+		if err != nil {
+			return nil, fmt.Errorf("encoding delegation: %w", err)
+		}
+		tokens = append(tokens, b)
+	}
+	for _, rcpt := range rcpts {
+		b, err := receipt.Encode(rcpt)
+		if err != nil {
+			return nil, fmt.Errorf("encoding receipt: %w", err)
+		}
+		tokens = append(tokens, b)
+	}
+	slices.SortFunc(tokens, bytes.Compare)
+	return tokens, nil
+}
+
+func decodeTokens(tokens [][]byte) (map[cid.Cid]ucan.Invocation, map[cid.Cid]ucan.Delegation, map[cid.Cid]ucan.Receipt, error) {
+	invs := map[cid.Cid]ucan.Invocation{}
+	dlgs := map[cid.Cid]ucan.Delegation{}
+	rcpts := map[cid.Cid]ucan.Receipt{}
+	for _, b := range tokens {
+		if dlg, err := delegation.Decode(b); err == nil {
+			dlgs[dlg.Link()] = dlg
+			continue
+		}
+		if rcpt, err := receipt.Decode(b); err == nil {
+			rcpts[rcpt.Link()] = rcpt
+			continue
+		}
+		if inv, err := invocation.Decode(b); err == nil {
+			invs[inv.Link()] = inv
+			continue
+		}
+	}
+	return invs, dlgs, rcpts, nil
 }
