@@ -44,6 +44,7 @@ import (
 	"github.com/fil-forge/ucantone/did"
 	edm "github.com/fil-forge/ucantone/errors/datamodel"
 	"github.com/fil-forge/ucantone/execution"
+	"github.com/fil-forge/ucantone/server"
 	"github.com/fil-forge/ucantone/ucan"
 	"github.com/fil-forge/ucantone/ucan/command"
 	"github.com/fil-forge/ucantone/ucan/delegation"
@@ -88,6 +89,14 @@ func (c Binding[Args, OK]) Invoke(issuer ucan.Signer, subject did.DID, arguments
 // not involve the argument or result types.
 func (c Binding[Args, OK]) Delegate(issuer ucan.Signer, audience did.DID, subject did.DID, options ...delegation.Option) (ucan.Delegation, error) {
 	return delegation.Delegate(issuer, audience, subject, c.Command, options...)
+}
+
+// Route adapts a typed handler into an [execution.HandlerFunc] and wraps it in
+// a [server.Route] along with the command for registration with a server. The
+// handler's argument and result types are checked against the command's Args
+// and OK at compile time.
+func (c Binding[Args, OK]) Route(fn HandlerFunc[Args, OK]) server.Route {
+	return NewRoute(c, fn)
 }
 
 // Handler adapts a typed handler into an [execution.HandlerFunc] for

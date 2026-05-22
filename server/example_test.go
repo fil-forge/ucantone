@@ -29,7 +29,7 @@ func ExampleNewRoute() {
 	// Each subsystem contributes routes; here, the echo command and a handler
 	// that returns the argument bytes as a string.
 	routes := []server.Route{
-		server.NewRoute(echo, func(req *binding.Request[*tdm.TestObject], res *binding.Response[*tdm.TestObject2]) error {
+		echo.Route(func(req *binding.Request[*tdm.TestObject], res *binding.Response[*tdm.TestObject2]) error {
 			args := req.Task().Arguments()
 			return res.SetSuccess(&tdm.TestObject2{Str: string(args.Bytes)})
 		}),
