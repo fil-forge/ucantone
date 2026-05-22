@@ -3,6 +3,7 @@ package examples
 import (
 	"testing"
 
+	"github.com/fil-forge/ucantone/examples/types/fields"
 	"github.com/fil-forge/ucantone/ipld"
 	"github.com/fil-forge/ucantone/ucan/delegation/policy"
 )
@@ -43,6 +44,33 @@ func TestParsePolicy(t *testing.T) {
 	err = policy.Match(pol, msg)
 	// expect this policy to match the data
 	if err != nil {
+		panic("policy did not match")
+	}
+}
+
+// TestTypedPolicy authors the same shape of policy against generated field
+// descriptors (see examples/types/fields). The selector paths and value types
+// come from the MessageSendArguments struct, so a wrong-typed value or a
+// mistyped path would be a compile error rather than a runtime mismatch.
+func TestTypedPolicy(t *testing.T) {
+	msg := ipld.Map{
+		"to":      []string{"bob@example.com", "carol@example.com"},
+		"subject": "Hello!",
+		"message": "Hi there",
+	}
+
+	pol, err := policy.Build(
+		// every recipient must be an example.com address
+		policy.Each(fields.MessageSendArguments.To, func(addr policy.Selector[string]) []policy.StatementBuilderFunc {
+			return []policy.StatementBuilderFunc{policy.Glob(addr, "*@example.com")}
+		}),
+		policy.Eq(fields.MessageSendArguments.Subject, "Hello!"),
+	)
+	if err != nil {
+		panic(err)
+	}
+
+	if err := policy.Match(pol, msg); err != nil {
 		panic("policy did not match")
 	}
 }

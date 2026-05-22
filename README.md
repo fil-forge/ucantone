@@ -108,6 +108,27 @@ invocation, err := messageSend.Invoke(
 )
 ```
 
+#### Typed policies
+
+Policies can be authored against generated field descriptors instead of raw jq
+selector strings. A descriptor is generated from a command's argument struct
+(see the `fieldgen` package), so the comparison value is type-checked against
+the field and the selector path is derived from a real field — a wrong type or
+a mistyped path is a compile error. The builders return the same statements as
+the string-selector builders, so they drop straight into `policy.Build`.
+
+See examples in [policies_test.go](./examples/policies_test.go)
+
+```go
+pol, err := policy.Build(
+  // every recipient must be an example.com address
+  policy.Each(fields.MessageSendArguments.To, func(addr policy.Selector[string]) []policy.StatementBuilderFunc {
+    return []policy.StatementBuilderFunc{policy.Glob(addr, "*@example.com")}
+  }),
+  policy.Eq(fields.MessageSendArguments.Subject, "Hello!"),
+)
+```
+
 #### Container
 
 See examples in [container_test.go](./examples/container_test.go)
