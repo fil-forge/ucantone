@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"fmt"
 	"math/big"
+	"slices"
 	"testing"
 
 	"github.com/fil-forge/ucantone/ipld"
@@ -40,7 +41,16 @@ func TestAny(t *testing.T) {
 		// },
 	}
 
-	for _, v := range values {
+	// These values will only round trip as CBOR since JSON encoding does not
+	// allow us to distinguish fixed size integers and arbitrary size bignums.
+	cborValues := append(
+		slices.Clone(values),
+		big.NewInt(0),
+		big.NewInt(138),
+		big.NewInt(-138),
+	)
+
+	for _, v := range cborValues {
 		t.Run(fmt.Sprintf("dag-cbor %T", v), func(t *testing.T) {
 			initial := datamodel.NewAny(v)
 
@@ -53,7 +63,9 @@ func TestAny(t *testing.T) {
 			require.NoError(t, err)
 			require.Equal(t, v, decodedCBOR.Value)
 		})
+	}
 
+	for _, v := range values {
 		t.Run(fmt.Sprintf("dag-json %T", v), func(t *testing.T) {
 			initial := datamodel.NewAny(v)
 
