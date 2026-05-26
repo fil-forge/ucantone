@@ -5,13 +5,13 @@ import (
 )
 
 type Signature struct {
-	header varsig.VarsigHeader[varsig.SignatureAlgorithm, varsig.PayloadEncoding]
+	header varsig.VarsigHeader
 	bytes  []byte
 }
 
-func NewSignature[S varsig.SignatureAlgorithm, P varsig.PayloadEncoding](header varsig.VarsigHeader[S, P], bytes []byte) *Signature {
+func NewSignature(header varsig.VarsigHeader, bytes []byte) *Signature {
 	return &Signature{
-		varsig.NewHeader[varsig.SignatureAlgorithm, varsig.PayloadEncoding](header.SignatureAlgorithm(), header.PayloadEncoding()),
+		header,
 		bytes,
 	}
 }
@@ -22,7 +22,7 @@ func (s *Signature) Bytes() []byte {
 }
 
 // Header implements ucan.Signature.
-func (s *Signature) Header() varsig.VarsigHeader[varsig.SignatureAlgorithm, varsig.PayloadEncoding] {
+func (s *Signature) Header() varsig.VarsigHeader {
 	return s.header
 }
 

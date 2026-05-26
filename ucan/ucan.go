@@ -48,7 +48,7 @@ type Signer interface {
 // Signature encapsulates the bytes that comprise the signature as well as the
 // details of the signing algorithm and payload encoding.
 type Signature interface {
-	Header() varsig.VarsigHeader[varsig.SignatureAlgorithm, varsig.PayloadEncoding]
+	Header() varsig.VarsigHeader
 	Bytes() []byte
 }
 
