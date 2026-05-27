@@ -2,11 +2,8 @@ module github.com/fil-forge/ucantone
 
 go 1.25.0
 
-// replace "github.com/alanshaw/dag-json-gen" => ../dag-json-gen
-
 require (
 	github.com/alanshaw/dag-json-gen v0.0.4
-	github.com/filecoin-project/go-state-types v0.18.0
 	github.com/gobwas/glob v0.2.3
 	github.com/ipfs/go-cid v0.6.0
 	github.com/multiformats/go-multibase v0.2.0
@@ -32,6 +29,7 @@ require (
 	gitlab.com/yawning/tuplehash v0.0.0-20230713102510-df83abbf9a02 // indirect
 	golang.org/x/crypto v0.49.0 // indirect
 	golang.org/x/sys v0.42.0 // indirect
+	gopkg.in/check.v1 v1.0.0-20201130134442-10cb98267c6c // indirect
 	gopkg.in/yaml.v3 v3.0.1 // indirect
 	lukechampine.com/blake3 v1.4.1 // indirect
 	pitr.ca/jsontokenizer v0.3.0 // indirect
