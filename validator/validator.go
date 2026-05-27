@@ -7,7 +7,6 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"time"
 
 	"github.com/fil-forge/ucantone/did"
 	"github.com/fil-forge/ucantone/ipld/datamodel"
@@ -30,18 +29,10 @@ func ValidateInvocation(
 	inv ucan.Invocation,
 	options ...Option,
 ) error {
-	cfg := validationConfig{
-		resolveProof:               ProofUnavailable,
-		resolveDIDVerifier:         ResolveDIDKeyVerifier,
-		validationTime:             ucan.UnixTimestamp(time.Now().Unix()),
-		verifyNonStandardSignature: FailNonStandardSignatureVerification,
-	}
-	for _, opt := range options {
-		opt(&cfg)
-	}
+	cfg := makeCfg(options...)
 
 	// To be valid, an invocation must be a valid token...
-	err := ValidateToken(ctx, inv, cfg)
+	err := ValidateToken(ctx, inv, withConfig(cfg))
 	if err != nil {
 		return err
 	}
@@ -75,7 +66,13 @@ func ValidateInvocation(
 // time bounds. An [ucan.Invocation] is a token, but has additional
 // requirements. An invocation may be a valid token but still an invalid
 // invocation, if its proof chain is insufficient.
-func ValidateToken(ctx context.Context, tok ucan.Token, cfg validationConfig) error {
+func ValidateToken(
+	ctx context.Context,
+	tok ucan.Token,
+	options ...Option,
+) error {
+	cfg := makeCfg(options...)
+
 	// To be valid, a token must have a valid signature from its issuer...
 	err := verifyTokenSignature(ctx, tok, cfg)
 	if err != nil {
@@ -138,7 +135,7 @@ func capabilityFromProofChain(ctx context.Context, inv ucan.Invocation, cfg vali
 	currentAuthority := inv.Subject()
 	currentCapability := NewCapability(inv.Subject())
 	for i, prf := range prfs {
-		if err := ValidateToken(ctx, prf, cfg); err != nil {
+		if err := ValidateToken(ctx, prf, withConfig(cfg)); err != nil {
 			return Capability{}, err
 		}
 
