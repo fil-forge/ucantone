@@ -19,6 +19,10 @@ func (vr VerificationRelationship) Len() int {
 	return len(vr.relationshipMethods)
 }
 
+func (vr VerificationRelationship) IsZero() bool {
+	return len(vr.relationshipMethods) == 0
+}
+
 func (vr VerificationRelationship) MarshalJSON() ([]byte, error) {
 	return json.Marshal(vr.relationshipMethods)
 }

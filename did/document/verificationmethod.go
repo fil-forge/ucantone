@@ -29,18 +29,14 @@ func init() {
 	})
 }
 
-type VerificationMethod struct {
-	verificationMethodBase
-	VerificationMaterial VerificationMaterial
-}
-
 // https://www.w3.org/TR/cid-1.0/#verification-methods
-type verificationMethodBase struct {
-	ID         URL            `json:"id"`
-	Type       string         `json:"type"`
-	Controller did.DID        `json:"controller"`
-	Expires    *DateTimeStamp `json:"expires,omitempty"`
-	Revoked    *DateTimeStamp `json:"revoked,omitempty"`
+type VerificationMethod struct {
+	ID                   URL            `json:"id"`
+	Type                 string         `json:"type"`
+	Controller           did.DID        `json:"controller"`
+	Expires              *DateTimeStamp `json:"expires,omitempty"`
+	Revoked              *DateTimeStamp `json:"revoked,omitempty"`
+	VerificationMaterial VerificationMaterial `json:"-"`
 }
 
 func (v VerificationMethod) Equal(other VerificationMethod) bool {
@@ -59,7 +55,7 @@ func (v VerificationMethod) Equal(other VerificationMethod) bool {
 	return reflect.DeepEqual(v.VerificationMaterial, other.VerificationMaterial)
 }
 
-var vmBaseKeys = jsonTagKeys(verificationMethodBase{})
+var vmBaseKeys = jsonTagKeys(VerificationMethod{})
 
 func jsonTagKeys(v any) []string {
 	t := reflect.TypeOf(v)
@@ -73,11 +69,12 @@ func jsonTagKeys(v any) []string {
 }
 
 func (v *VerificationMethod) UnmarshalJSON(b []byte) error {
-	var base verificationMethodBase
+	type vm VerificationMethod
+	var base vm
 	if err := json.Unmarshal(b, &base); err != nil {
 		return err
 	}
-	v.verificationMethodBase = base
+	*v = VerificationMethod(base)
 
 	// Unmarshal all fields into a raw map, strip base keys, pass extras to material.
 	var raw map[string]json.RawMessage
@@ -122,14 +119,8 @@ func (v VerificationMethod) MarshalJSON() ([]byte, error) {
 		}
 	}
 
-	base := verificationMethodBase{
-		ID:         v.ID,
-		Type:       v.Type,
-		Controller: v.Controller,
-		Expires:    v.Expires,
-		Revoked:    v.Revoked,
-	}
-	baseJSON, err := json.Marshal(base)
+	type vm VerificationMethod
+	baseJSON, err := json.Marshal(vm(v))
 	if err != nil {
 		return nil, err
 	}
@@ -138,6 +129,28 @@ func (v VerificationMethod) MarshalJSON() ([]byte, error) {
 	}
 
 	return json.Marshal(out)
+}
+
+func NewMultikeyVerificationMethod(id URL, controller did.DID, publicKeyMultibase string) VerificationMethod {
+	return VerificationMethod{
+		ID:         id,
+		Type:       MultikeyVerificationMethodType,
+		Controller: controller,
+		VerificationMaterial: &MultikeyVerificationMaterial{
+			PublicKeyMultibase: publicKeyMultibase,
+		},
+	}
+}
+
+func NewJsonWebKeyVerificationMethod(id URL, controller did.DID, publicKeyJwk GenericMap) VerificationMethod {
+	return VerificationMethod{
+		ID:         id,
+		Type:       JsonWebKeyVerificationMethodType,
+		Controller: controller,
+		VerificationMaterial: &JsonWebKeyVerificationMaterial{
+			PublicKeyJwk: &publicKeyJwk,
+		},
+	}
 }
 
 // https://www.w3.org/TR/cid-1.0/#Multikey

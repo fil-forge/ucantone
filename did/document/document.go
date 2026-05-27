@@ -13,16 +13,35 @@ type GenericMap = map[string]any
 // https://www.w3.org/TR/did-1.1/#core-properties
 type Document struct {
 	Context              Context                  `json:"@context"`
-	ID                   string                   `json:"id"`
+	ID                   did.DID                  `json:"id"`
 	Controller           OneOrMany[did.DID]       `json:"controller,omitempty"`
 	AlsoKnownAs          []did.DID                `json:"alsoKnownAs,omitempty"`
 	Service              []Service                `json:"service,omitempty"`
 	VerificationMethods  VerificationMethods      `json:"verificationMethod,omitempty"`
-	Authentication       VerificationRelationship `json:"authentication,omitempty"`
-	AssertionMethod      VerificationRelationship `json:"assertionMethod,omitempty"`
-	KeyAgreement         VerificationRelationship `json:"keyAgreement,omitempty"`
-	CapabilityInvocation VerificationRelationship `json:"capabilityInvocation,omitempty"`
-	CapabilityDelegation VerificationRelationship `json:"capabilityDelegation,omitempty"`
+	Authentication       VerificationRelationship `json:"authentication,omitzero"`
+	AssertionMethod      VerificationRelationship `json:"assertionMethod,omitzero"`
+	KeyAgreement         VerificationRelationship `json:"keyAgreement,omitzero"`
+	CapabilityInvocation VerificationRelationship `json:"capabilityInvocation,omitzero"`
+	CapabilityDelegation VerificationRelationship `json:"capabilityDelegation,omitzero"`
+}
+
+func New(id did.DID) Document {
+	return Document{
+		ID: id,
+	}
+}
+
+// Fragment returns a URL for the given fragment within this document, e.g. for
+// a verification method.
+func (d Document) Fragment(fragment string) URL {
+	url, err := ParseURL(d.ID.String())
+	if err != nil {
+		// This should not be possible: a DID is always a valid URL. (Actually, it's
+		// a valid *URI*, but that should work too.)
+		panic("failed to create URL for DID: " + err.Error())
+	}
+	url.URL.Fragment = fragment
+	return url
 }
 
 func (d *Document) UnmarshalJSON(b []byte) error {
@@ -45,7 +64,11 @@ func (d *Document) UnmarshalJSON(b []byte) error {
 	}
 
 	d.Context = raw.Context
-	d.ID = raw.ID
+	var err error
+	d.ID, err = did.Parse(raw.ID)
+	if err != nil {
+		return err
+	}
 	d.Controller = raw.Controller
 	d.AlsoKnownAs = raw.AlsoKnownAs
 	d.Service = raw.Service

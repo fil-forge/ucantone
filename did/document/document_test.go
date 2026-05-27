@@ -4,9 +4,50 @@ import (
 	"encoding/json"
 	"testing"
 
+	"github.com/fil-forge/ucantone/did"
 	"github.com/fil-forge/ucantone/did/document"
 	"github.com/stretchr/testify/require"
 )
+
+func TestDocument_MarshalJSON(t *testing.T) {
+	t.Run("verificationMethod marshals as array", func(t *testing.T) {
+		controller, err := did.Parse("did:example:123")
+		require.NoError(t, err)
+		doc := document.New(controller)
+		vm := document.NewMultikeyVerificationMethod(
+			doc.Fragment("key-1"),
+			controller,
+			"zABC",
+		)
+		require.NoError(t, doc.VerificationMethods.Add(vm))
+
+		b, err := json.Marshal(doc)
+		require.NoError(t, err)
+
+		require.JSONEq(t, `{
+			"@context": "https://www.w3.org/ns/did/v1.1",
+			"id": "did:example:123",
+			"verificationMethod": [
+				{
+					"controller": "did:example:123",
+					"id": "did:example:123#key-1",
+					"publicKeyMultibase": "zABC",
+					"type": "Multikey"
+				}
+			]
+		}`, string(b))
+	})
+
+	t.Run("empty verificationMethod is omitted", func(t *testing.T) {
+		exampleDID, err := did.Parse("did:example:123")
+		require.NoError(t, err)
+		doc := document.Document{ID: exampleDID}
+		b, err := json.Marshal(doc)
+		require.NoError(t, err)
+
+		require.NotContains(t, string(b), "verificationMethod")
+	})
+}
 
 func TestDocument_UnmarshalJSON(t *testing.T) {
 	t.Run("URL references only", func(t *testing.T) {
@@ -124,4 +165,12 @@ func TestDocument_UnmarshalJSON(t *testing.T) {
 		err := json.Unmarshal([]byte(data), &doc)
 		require.ErrorContains(t, err, `conflicting definitions for verification method "did:example:123#key-1"`)
 	})
+}
+
+func TestDocument_Fragment(t *testing.T) {
+	exampleDID, err := did.Parse("did:example:123")
+	require.NoError(t, err)
+	doc := document.Document{ID: exampleDID}
+	fragment := doc.Fragment("key-1")
+	require.Equal(t, "did:example:123#key-1", fragment.String())
 }
