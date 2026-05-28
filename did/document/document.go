@@ -12,22 +12,29 @@ type GenericMap = map[string]any
 
 // https://www.w3.org/TR/did-1.1/#core-properties
 type Document struct {
-	Context              Context                  `json:"@context"`
-	ID                   did.DID                  `json:"id"`
-	Controller           OneOrMany[did.DID]       `json:"controller,omitempty"`
-	AlsoKnownAs          []did.DID                `json:"alsoKnownAs,omitempty"`
-	Service              []Service                `json:"service,omitempty"`
-	VerificationMethods  VerificationMethods      `json:"verificationMethod,omitempty"`
-	Authentication       VerificationRelationship `json:"authentication,omitzero"`
-	AssertionMethod      VerificationRelationship `json:"assertionMethod,omitzero"`
-	KeyAgreement         VerificationRelationship `json:"keyAgreement,omitzero"`
-	CapabilityInvocation VerificationRelationship `json:"capabilityInvocation,omitzero"`
-	CapabilityDelegation VerificationRelationship `json:"capabilityDelegation,omitzero"`
+	Context              Context                   `json:"@context"`
+	ID                   did.DID                   `json:"id"`
+	Controller           OneOrMany[did.DID]        `json:"controller,omitempty"`
+	AlsoKnownAs          []did.DID                 `json:"alsoKnownAs,omitempty"`
+	Service              []Service                 `json:"service,omitempty"`
+	VerificationMethods  *VerificationMethods      `json:"verificationMethod,omitempty"`
+	Authentication       *VerificationRelationship `json:"authentication,omitzero"`
+	AssertionMethod      *VerificationRelationship `json:"assertionMethod,omitzero"`
+	KeyAgreement         *VerificationRelationship `json:"keyAgreement,omitzero"`
+	CapabilityInvocation *VerificationRelationship `json:"capabilityInvocation,omitzero"`
+	CapabilityDelegation *VerificationRelationship `json:"capabilityDelegation,omitzero"`
 }
 
 func New(id did.DID) Document {
+	vms := VerificationMethods{}
 	return Document{
-		ID: id,
+		ID:                   id,
+		VerificationMethods:  &vms,
+		Authentication:       &VerificationRelationship{allMethods: &vms},
+		AssertionMethod:      &VerificationRelationship{allMethods: &vms},
+		KeyAgreement:         &VerificationRelationship{allMethods: &vms},
+		CapabilityInvocation: &VerificationRelationship{allMethods: &vms},
+		CapabilityDelegation: &VerificationRelationship{allMethods: &vms},
 	}
 }
 
@@ -72,11 +79,11 @@ func (d *Document) UnmarshalJSON(b []byte) error {
 	d.Controller = raw.Controller
 	d.AlsoKnownAs = raw.AlsoKnownAs
 	d.Service = raw.Service
-	d.VerificationMethods = raw.VerificationMethods
+	d.VerificationMethods = &raw.VerificationMethods
 
 	for _, rel := range []struct {
 		raw  json.RawMessage
-		dest *VerificationRelationship
+		dest **VerificationRelationship
 		name string
 	}{
 		{raw.Authentication, &d.Authentication, "authentication"},
@@ -88,8 +95,8 @@ func (d *Document) UnmarshalJSON(b []byte) error {
 		if len(rel.raw) == 0 {
 			continue
 		}
-		rel.dest.allMethods = &d.VerificationMethods
-		if err := json.Unmarshal(rel.raw, rel.dest); err != nil {
+		(*rel.dest).allMethods = d.VerificationMethods
+		if err := json.Unmarshal(rel.raw, *rel.dest); err != nil {
 			return err
 		}
 	}
