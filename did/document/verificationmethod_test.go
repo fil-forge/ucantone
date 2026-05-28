@@ -4,9 +4,42 @@ import (
 	"encoding/json"
 	"testing"
 
+	"github.com/fil-forge/ucantone/did"
 	"github.com/fil-forge/ucantone/did/document"
 	"github.com/stretchr/testify/require"
 )
+
+func TestVerificationMethod_MarshalJSON(t *testing.T) {
+	keyID, err := document.ParseURL("did:example:123#key-1")
+	require.NoError(t, err)
+	controller, err := did.Parse("did:example:123")
+	require.NoError(t, err)
+
+	t.Run("Multikey", func(t *testing.T) {
+		vm := document.NewMultikeyVerificationMethod(keyID, controller, "zABC")
+		b, err := json.Marshal(vm)
+		require.NoError(t, err)
+		require.JSONEq(t, `{
+			"id": "did:example:123#key-1",
+			"type": "Multikey",
+			"controller": "did:example:123",
+			"publicKeyMultibase": "zABC"
+		}`, string(b))
+	})
+
+	t.Run("JsonWebKey", func(t *testing.T) {
+		jwk := document.GenericMap{"kty": "OKP", "crv": "Ed25519", "x": "somebase64"}
+		vm := document.NewJsonWebKeyVerificationMethod(keyID, controller, jwk)
+		b, err := json.Marshal(vm)
+		require.NoError(t, err)
+		require.JSONEq(t, `{
+			"id": "did:example:123#key-1",
+			"type": "JsonWebKey",
+			"controller": "did:example:123",
+			"publicKeyJwk": {"kty": "OKP", "crv": "Ed25519", "x": "somebase64"}
+		}`, string(b))
+	})
+}
 
 func TestVerificationMethod_UnmarshalJSON(t *testing.T) {
 	t.Run("known type (Multikey)", func(t *testing.T) {
