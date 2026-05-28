@@ -49,7 +49,7 @@ func (d DID) String() string {
 }
 
 // Method returns the DID method name (e.g. "key", "web") parsed from the
-// scheme. Returns "" for an undefined DID.
+// scheme. Returns "" for an undefined 
 func (d DID) Method() string {
 	rest, ok := strings.CutPrefix(d.str, Prefix)
 	if !ok {
@@ -64,7 +64,7 @@ func (d DID) Method() string {
 // Identifier returns the method-specific identifier — everything after
 // "did:<method>:". Per the DID spec, this segment may itself contain colons
 // (e.g. "did:mailto:web.mail:alice" yields "web.mail:alice"). Returns "" for
-// an undefined DID.
+// an undefined 
 func (d DID) Identifier() string {
 	rest, ok := strings.CutPrefix(d.str, Prefix)
 	if !ok {

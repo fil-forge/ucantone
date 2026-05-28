@@ -1,11 +1,11 @@
-package document_test
+package did_test
 
 import (
 	"encoding/json"
 	"testing"
 
 	"github.com/fil-forge/ucantone/did"
-	"github.com/fil-forge/ucantone/did/document"
+	did1 "github.com/fil-forge/ucantone/did"
 	"github.com/stretchr/testify/require"
 )
 
@@ -13,8 +13,8 @@ func TestDocument_MarshalJSON(t *testing.T) {
 	t.Run("verificationMethod marshals as array", func(t *testing.T) {
 		controller, err := did.Parse("did:example:123")
 		require.NoError(t, err)
-		doc := document.New(controller)
-		vm := document.NewMultikeyVerificationMethod(
+		doc := did1.NewDocument(controller)
+		vm := did1.NewMultikeyVerificationMethod(
 			doc.Fragment("key-1"),
 			controller,
 			"zABC",
@@ -41,7 +41,7 @@ func TestDocument_MarshalJSON(t *testing.T) {
 	t.Run("empty verificationMethod is omitted", func(t *testing.T) {
 		exampleDID, err := did.Parse("did:example:123")
 		require.NoError(t, err)
-		doc := document.Document{ID: exampleDID}
+		doc := did1.Document{ID: exampleDID}
 		b, err := json.Marshal(doc)
 		require.NoError(t, err)
 
@@ -62,7 +62,7 @@ func TestDocument_UnmarshalJSON(t *testing.T) {
 			}],
 			"authentication": ["did:example:123#key-1"]
 		}`
-		var doc document.Document
+		var doc did1.Document
 		err := json.Unmarshal([]byte(data), &doc)
 		require.NoError(t, err)
 		require.Len(t, doc.VerificationMethods, 1)
@@ -81,7 +81,7 @@ func TestDocument_UnmarshalJSON(t *testing.T) {
 				"publicKeyMultibase": "zABC"
 			}]
 		}`
-		var doc document.Document
+		var doc did1.Document
 		err := json.Unmarshal([]byte(data), &doc)
 		require.NoError(t, err)
 		require.Len(t, doc.VerificationMethods.All(), 1)
@@ -110,7 +110,7 @@ func TestDocument_UnmarshalJSON(t *testing.T) {
 				}
 			]
 		}`
-		var doc document.Document
+		var doc did1.Document
 		err := json.Unmarshal([]byte(data), &doc)
 		require.NoError(t, err)
 		require.Len(t, doc.VerificationMethods.All(), 2)
@@ -136,7 +136,7 @@ func TestDocument_UnmarshalJSON(t *testing.T) {
 				"publicKeyMultibase": "zABC"
 			}]
 		}`
-		var doc document.Document
+		var doc did1.Document
 		err := json.Unmarshal([]byte(data), &doc)
 		require.NoError(t, err)
 		require.Len(t, doc.VerificationMethods.All(), 1, "identical duplicate should appear once")
@@ -161,7 +161,7 @@ func TestDocument_UnmarshalJSON(t *testing.T) {
 				"publicKeyMultibase": "zDIFFERENT"
 			}]
 		}`
-		var doc document.Document
+		var doc did1.Document
 		err := json.Unmarshal([]byte(data), &doc)
 		require.ErrorContains(t, err, `conflicting definitions for verification method "did:example:123#key-1"`)
 	})
@@ -170,7 +170,7 @@ func TestDocument_UnmarshalJSON(t *testing.T) {
 func TestDocument_Fragment(t *testing.T) {
 	exampleDID, err := did.Parse("did:example:123")
 	require.NoError(t, err)
-	doc := document.Document{ID: exampleDID}
+	doc := did1.Document{ID: exampleDID}
 	fragment := doc.Fragment("key-1")
 	require.Equal(t, "did:example:123#key-1", fragment.String())
 }

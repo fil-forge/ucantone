@@ -1,9 +1,7 @@
-package document
+package did
 
 import (
 	"encoding/json"
-
-	"github.com/fil-forge/ucantone/did"
 )
 
 // GenericMap is a value that is either specified to be a map with no particular
@@ -13,9 +11,9 @@ type GenericMap = map[string]any
 // https://www.w3.org/TR/did-1.1/#core-properties
 type Document struct {
 	Context              Context                   `json:"@context"`
-	ID                   did.DID                   `json:"id"`
-	Controller           OneOrMany[did.DID]        `json:"controller,omitempty"`
-	AlsoKnownAs          []did.DID                 `json:"alsoKnownAs,omitempty"`
+	ID                   DID                       `json:"id"`
+	Controller           OneOrMany[DID]            `json:"controller,omitempty"`
+	AlsoKnownAs          []DID                     `json:"alsoKnownAs,omitempty"`
 	Service              []Service                 `json:"service,omitempty"`
 	VerificationMethods  *VerificationMethods      `json:"verificationMethod,omitempty"`
 	Authentication       *VerificationRelationship `json:"authentication,omitzero"`
@@ -25,7 +23,7 @@ type Document struct {
 	CapabilityDelegation *VerificationRelationship `json:"capabilityDelegation,omitzero"`
 }
 
-func New(id did.DID) Document {
+func NewDocument(id DID) Document {
 	vms := VerificationMethods{}
 	return Document{
 		ID:                   id,
@@ -55,8 +53,8 @@ func (d *Document) UnmarshalJSON(b []byte) error {
 	type documentJSON struct {
 		Context              Context             `json:"@context"`
 		ID                   string              `json:"id"`
-		Controller           OneOrMany[did.DID]  `json:"controller,omitempty"`
-		AlsoKnownAs          []did.DID           `json:"alsoKnownAs,omitempty"`
+		Controller           OneOrMany[DID]      `json:"controller,omitempty"`
+		AlsoKnownAs          []DID               `json:"alsoKnownAs,omitempty"`
 		Service              []Service           `json:"service,omitempty"`
 		VerificationMethods  VerificationMethods `json:"verificationMethod,omitempty"`
 		Authentication       json.RawMessage     `json:"authentication,omitempty"`
@@ -72,7 +70,7 @@ func (d *Document) UnmarshalJSON(b []byte) error {
 
 	d.Context = raw.Context
 	var err error
-	d.ID, err = did.Parse(raw.ID)
+	d.ID, err = Parse(raw.ID)
 	if err != nil {
 		return err
 	}

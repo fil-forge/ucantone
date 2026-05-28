@@ -1,22 +1,22 @@
-package document_test
+package did_test
 
 import (
 	"encoding/json"
 	"testing"
 
 	"github.com/fil-forge/ucantone/did"
-	"github.com/fil-forge/ucantone/did/document"
+	did1 "github.com/fil-forge/ucantone/did"
 	"github.com/stretchr/testify/require"
 )
 
 func TestVerificationMethod_MarshalJSON(t *testing.T) {
-	keyID, err := document.ParseURL("did:example:123#key-1")
+	keyID, err := did1.ParseURL("did:example:123#key-1")
 	require.NoError(t, err)
 	controller, err := did.Parse("did:example:123")
 	require.NoError(t, err)
 
 	t.Run("Multikey", func(t *testing.T) {
-		vm := document.NewMultikeyVerificationMethod(keyID, controller, "zABC")
+		vm := did1.NewMultikeyVerificationMethod(keyID, controller, "zABC")
 		b, err := json.Marshal(vm)
 		require.NoError(t, err)
 		require.JSONEq(t, `{
@@ -28,8 +28,8 @@ func TestVerificationMethod_MarshalJSON(t *testing.T) {
 	})
 
 	t.Run("JsonWebKey", func(t *testing.T) {
-		jwk := document.GenericMap{"kty": "OKP", "crv": "Ed25519", "x": "somebase64"}
-		vm := document.NewJsonWebKeyVerificationMethod(keyID, controller, jwk)
+		jwk := did1.GenericMap{"kty": "OKP", "crv": "Ed25519", "x": "somebase64"}
+		vm := did1.NewJsonWebKeyVerificationMethod(keyID, controller, jwk)
 		b, err := json.Marshal(vm)
 		require.NoError(t, err)
 		require.JSONEq(t, `{
@@ -49,13 +49,13 @@ func TestVerificationMethod_UnmarshalJSON(t *testing.T) {
 			"controller": "did:example:123",
 			"publicKeyMultibase": "zH3C2AVvLMv6gmMNam3uVAjZpfkcJCwDwnZn6z3wXmqPV"
 		}`
-		var vm document.VerificationMethod
+		var vm did1.VerificationMethod
 		err := json.Unmarshal([]byte(data), &vm)
 		require.NoError(t, err)
 		require.Equal(t, "did:example:123#key-1", vm.ID.String())
 		require.Equal(t, "Multikey", vm.Type)
 		require.Equal(t, "did:example:123", vm.Controller.String())
-		material, ok := vm.VerificationMaterial.(*document.MultikeyVerificationMaterial)
+		material, ok := vm.VerificationMaterial.(*did1.MultikeyVerificationMaterial)
 		require.True(t, ok, "expected *MultikeyVerificationMaterial, got %T", vm.VerificationMaterial)
 		require.Equal(t, "zH3C2AVvLMv6gmMNam3uVAjZpfkcJCwDwnZn6z3wXmqPV", material.PublicKeyMultibase)
 		require.Nil(t, material.SecretKeyMultibase)
@@ -68,10 +68,10 @@ func TestVerificationMethod_UnmarshalJSON(t *testing.T) {
 			"controller": "did:example:123",
 			"publicKeyJwk": {"kty": "OKP", "crv": "Ed25519", "x": "somebase64"}
 		}`
-		var vm document.VerificationMethod
+		var vm did1.VerificationMethod
 		err := json.Unmarshal([]byte(data), &vm)
 		require.NoError(t, err)
-		material, ok := vm.VerificationMaterial.(*document.JsonWebKeyVerificationMaterial)
+		material, ok := vm.VerificationMaterial.(*did1.JsonWebKeyVerificationMaterial)
 		require.True(t, ok, "expected *JsonWebKeyVerificationMaterial, got %T", vm.VerificationMaterial)
 		require.NotNil(t, material.PublicKeyJwk)
 		require.Equal(t, "OKP", (*material.PublicKeyJwk)["kty"])
@@ -84,7 +84,7 @@ func TestVerificationMethod_UnmarshalJSON(t *testing.T) {
 			"controller": "did:example:123",
 			"customField": "customValue"
 		}`
-		var vm document.VerificationMethod
+		var vm did1.VerificationMethod
 		err := json.Unmarshal([]byte(data), &vm)
 		require.NoError(t, err)
 		require.Equal(t, "SomeUnknownType", vm.Type)
@@ -100,12 +100,12 @@ func TestVerificationMethod_UnmarshalJSON(t *testing.T) {
 		type TestMaterial struct {
 			Foo string `json:"foo"`
 		}
-		document.RegisterVerificationMethodType("TestType", func() document.VerificationMaterial {
+		did1.RegisterVerificationMethodType("TestType", func() did1.VerificationMaterial {
 			return &TestMaterial{}
 		})
 		t.Cleanup(func() {
 			// Re-register with nil to clean up; zero value is harmless for other tests
-			document.RegisterVerificationMethodType("TestType", nil)
+			did1.RegisterVerificationMethodType("TestType", nil)
 		})
 
 		data := `{
@@ -114,7 +114,7 @@ func TestVerificationMethod_UnmarshalJSON(t *testing.T) {
 			"controller": "did:example:123",
 			"foo": "bar"
 		}`
-		var vm document.VerificationMethod
+		var vm did1.VerificationMethod
 		err := json.Unmarshal([]byte(data), &vm)
 		require.NoError(t, err)
 		material, ok := vm.VerificationMaterial.(*TestMaterial)

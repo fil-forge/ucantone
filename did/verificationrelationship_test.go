@@ -1,18 +1,18 @@
-package document_test
+package did_test
 
 import (
 	"testing"
 
 	"github.com/fil-forge/ucantone/did"
-	"github.com/fil-forge/ucantone/did/document"
+	did1 "github.com/fil-forge/ucantone/did"
 	"github.com/stretchr/testify/require"
 )
 
 func TestVerificationRelationship_Add(t *testing.T) {
 	did, err := did.Parse("did:example:123456789abcdefghi")
 	require.NoError(t, err)
-	doc := document.New(did)
-	vm := document.NewMultikeyVerificationMethod(
+	doc := did1.NewDocument(did)
+	vm := did1.NewMultikeyVerificationMethod(
 		doc.Fragment("key-1"),
 		did,
 		"zABC",

@@ -1,11 +1,9 @@
-package document
+package did
 
 import (
 	"encoding/json"
 	"reflect"
 	"strings"
-
-	"github.com/fil-forge/ucantone/did"
 )
 
 // VerificationMaterial holds the type-specific material for a
@@ -33,7 +31,7 @@ func init() {
 type VerificationMethod struct {
 	ID                   URL            `json:"id"`
 	Type                 string         `json:"type"`
-	Controller           did.DID        `json:"controller"`
+	Controller           DID        `json:"controller"`
 	Expires              *DateTimeStamp `json:"expires,omitempty"`
 	Revoked              *DateTimeStamp `json:"revoked,omitempty"`
 	VerificationMaterial VerificationMaterial `json:"-"`
@@ -131,7 +129,7 @@ func (v VerificationMethod) MarshalJSON() ([]byte, error) {
 	return json.Marshal(out)
 }
 
-func NewMultikeyVerificationMethod(id URL, controller did.DID, publicKeyMultibase string) VerificationMethod {
+func NewMultikeyVerificationMethod(id URL, controller DID, publicKeyMultibase string) VerificationMethod {
 	return VerificationMethod{
 		ID:         id,
 		Type:       MultikeyVerificationMethodType,
@@ -142,7 +140,7 @@ func NewMultikeyVerificationMethod(id URL, controller did.DID, publicKeyMultibas
 	}
 }
 
-func NewJsonWebKeyVerificationMethod(id URL, controller did.DID, publicKeyJwk GenericMap) VerificationMethod {
+func NewJsonWebKeyVerificationMethod(id URL, controller DID, publicKeyJwk GenericMap) VerificationMethod {
 	return VerificationMethod{
 		ID:         id,
 		Type:       JsonWebKeyVerificationMethodType,
