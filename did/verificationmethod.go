@@ -29,11 +29,11 @@ func init() {
 
 // https://www.w3.org/TR/cid-1.0/#verification-methods
 type VerificationMethod struct {
-	ID                   URL            `json:"id"`
-	Type                 string         `json:"type"`
-	Controller           DID        `json:"controller"`
-	Expires              *DateTimeStamp `json:"expires,omitempty"`
-	Revoked              *DateTimeStamp `json:"revoked,omitempty"`
+	ID                   URL                  `json:"id"`
+	Type                 string               `json:"type"`
+	Controller           DID                  `json:"controller"`
+	Expires              *DateTimeStamp       `json:"expires,omitempty"`
+	Revoked              *DateTimeStamp       `json:"revoked,omitempty"`
 	VerificationMaterial VerificationMaterial `json:"-"`
 }
 
@@ -135,7 +135,7 @@ func NewMultikeyVerificationMethod(id URL, controller DID, publicKeyMultibase st
 		Type:       MultikeyVerificationMethodType,
 		Controller: controller,
 		VerificationMaterial: &MultikeyVerificationMaterial{
-			PublicKeyMultibase: publicKeyMultibase,
+			PublicKeyMultibase: &publicKeyMultibase,
 		},
 	}
 }
@@ -155,7 +155,7 @@ func NewJsonWebKeyVerificationMethod(id URL, controller DID, publicKeyJwk Generi
 const MultikeyVerificationMethodType = "Multikey"
 
 type MultikeyVerificationMaterial struct {
-	PublicKeyMultibase string  `json:"publicKeyMultibase"`
+	PublicKeyMultibase *string `json:"publicKeyMultibase"`
 	SecretKeyMultibase *string `json:"secretKeyMultibase,omitempty"`
 }
 
