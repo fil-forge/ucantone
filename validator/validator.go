@@ -16,6 +16,8 @@ import (
 	"github.com/fil-forge/ucantone/ucan"
 	"github.com/fil-forge/ucantone/ucan/token"
 	verrs "github.com/fil-forge/ucantone/validator/errors"
+	"github.com/fil-forge/ucantone/varsig/algorithm/ecdsa"
+	"github.com/fil-forge/ucantone/varsig/algorithm/eddsa"
 	"github.com/fil-forge/ucantone/varsig/algorithm/nonstandard"
 	"github.com/ipfs/go-cid"
 )
@@ -107,10 +109,46 @@ func verifyTokenSignature(ctx context.Context, tok ucan.Token, cfg validationCon
 		return cfg.verifyNonStandardSignature(ctx, tok, cfg.metadata)
 	}
 
-	verifier, err := cfg.resolveDIDVerifier(ctx, tok.Issuer())
+	doc, err := cfg.didResolver.Resolve(ctx, tok.Issuer())
 	if err != nil {
 		return err
 	}
+
+	// Look at the correct verification relationship in the DID Document.
+	var verRel *did.VerificationRelationship
+	switch tok.(type) {
+	case ucan.Invocation:
+		verRel = doc.CapabilityInvocation
+	case ucan.Delegation:
+		verRel = doc.CapabilityDelegation
+	default:
+		return fmt.Errorf("unsupported token type: %T", tok)
+	}
+
+	// Determine the required type of verification method from the signature
+	// algorithm code.
+	var vmType string
+	switch tok.Signature().Header().SignatureAlgorithm().Code() {
+	case eddsa.Code, ecdsa.Code:
+		vmType = "Multikey"
+	default:
+		return fmt.Errorf("unsupported Varsig signature algorithm code: 0x%02x", tok.Signature().Header().SignatureAlgorithm().Code())
+	}
+
+	// Find all verification methods in that relationship with the correct type,
+	// and make a verifier for each one.
+	var vs []ucan.Verifier
+	for _, vm := range verRel.All() {
+		if vm.Type() == vmType {
+			v, err := cfg.deriveVerifier(vm)
+			if err != nil {
+				return err
+			}
+			vs = append(vs, v)
+		}
+	}
+
+	verifier := NewMultiVerifier(tok.Issuer(), vs)
 
 	ok, err := token.VerifySignature(tok, verifier)
 	if err != nil {
@@ -120,6 +158,41 @@ func verifyTokenSignature(ctx context.Context, tok ucan.Token, cfg validationCon
 		return verrs.NewInvalidSignatureError(tok, verifier)
 	}
 	return nil
+}
+
+// MultiVerifier is a [ucan.Verifier] that tries multiple underlying verifiers
+// until one works.
+//
+// In most of the DID ecosystem, we'd know the public key that was signed with,
+// and we'd pick that one. But in the UCAN/Varsig ecosystem, the specific key
+// isn't specified. Therefore, we try all of the keys until we find one that
+// works. (Typically there's only one key anyhow.)
+type MultiVerifier struct {
+	did       did.DID
+	verifiers []ucan.Verifier
+}
+
+var _ ucan.Verifier = (*MultiVerifier)(nil)
+
+func NewMultiVerifier(did did.DID, verifiers []ucan.Verifier) *MultiVerifier {
+	return &MultiVerifier{
+		did:       did,
+		verifiers: verifiers,
+	}
+}
+
+func (mv *MultiVerifier) DID() did.DID {
+	return mv.did
+}
+
+func (mv *MultiVerifier) Verify(message []byte, sig []byte) bool {
+	for _, v := range mv.verifiers {
+		ok := v.Verify(message, sig)
+		if ok {
+			return true
+		}
+	}
+	return false
 }
 
 func capabilityFromProofChain(ctx context.Context, inv ucan.Invocation, cfg validationConfig) (Capability, error) {
@@ -182,10 +255,9 @@ func capabilityFromProofChain(ctx context.Context, inv ucan.Invocation, cfg vali
 // ProofResolverFunc finds a delegation corresponding to an external proof link.
 type ProofResolverFunc func(ctx context.Context, link cid.Cid) (ucan.Delegation, error)
 
-// DIDVerifierResolverFunc is used to resolve the verification methods of a
-// DID. It returns a [ucan.Verifier] that can verify signatures from the given
-// DID.
-type DIDVerifierResolverFunc func(ctx context.Context, did did.DID) (ucan.Verifier, error)
+// VerifierFactoryFunc is used to create a [ucan.Verifier] from a DID
+// verification method.
+type VerifierFactoryFunc func(vm did.VerificationMethod) (ucan.Verifier, error)
 
 // NonStandardSignatureVerifierFunc is used to verify signatures from
 // non-standard signature algorithms. It can be passed into a UCAN validator in
@@ -195,6 +267,21 @@ type NonStandardSignatureVerifierFunc func(ctx context.Context, token ucan.Token
 // ProofUnavailable is a [ProofResolverFunc] that always fails.
 func ProofUnavailable(ctx context.Context, p cid.Cid) (ucan.Delegation, error) {
 	return nil, verrs.NewUnavailableProofError(p, errors.New("no proof resolver configured"))
+}
+
+// DeriveMultikeyVerifier derives a [ucan.Verifier] from a Multikey DID
+// verification method.
+func DeriveMultikeyVerifier(vm did.VerificationMethod) (ucan.Verifier, error) {
+	mkVerMat, ok := vm.VerificationMaterial.(*did.MultikeyVerificationMaterial)
+	if !ok {
+		return nil, fmt.Errorf("expected *MultikeyVerificationMaterial, got %T", vm.VerificationMaterial)
+	}
+
+	if mkVerMat.PublicKeyMultibase == nil {
+		return nil, fmt.Errorf("MultikeyVerificationMaterial missing PublicKeyMultibase")
+	}
+
+	return verifier.FromMultikey(*mkVerMat.PublicKeyMultibase)
 }
 
 // FailNonStandardSignatureVerification is a [NonStandardSignatureVerifierFunc]
@@ -210,31 +297,6 @@ func ProofsFromContainer(c ucan.Container) ProofResolverFunc {
 			return nil, verrs.NewUnavailableProofError(l, errors.New("proof not found in container"))
 		}
 		return prf, nil
-	}
-}
-
-// ResolveDIDKeyVerifier is a [DIDVerifierResolverFunc] that only supports `did:key`
-// DIDs and returns an error for any other DID method.
-//
-// To support multiple DID methods, use [NewDIDVerifierResolverByMethod] and
-// include [ResolveDIDKeyVerifier] in the resolvers map for the "key" method.
-func ResolveDIDKeyVerifier(ctx context.Context, d did.DID) (ucan.Verifier, error) {
-	return verifier.FromDIDKey(d)
-}
-
-type VerifierResolverMap map[string]DIDVerifierResolverFunc
-
-// NewDIDVerifierResolverByMethod returns a [DIDVerifierResolverFunc] that
-// dispatches to different resolver functions based on the method of the DID. If
-// a DID is given in with a method that is not present in the resolvers map, the
-// resolver will return an error.
-func NewDIDVerifierResolverByMethod(resolvers VerifierResolverMap) DIDVerifierResolverFunc {
-	return func(ctx context.Context, d did.DID) (ucan.Verifier, error) {
-		resolver, ok := resolvers[d.Method()]
-		if !ok {
-			return nil, fmt.Errorf("unsupported DID method: %s", d.Method())
-		}
-		return resolver(ctx, d)
 	}
 }
 

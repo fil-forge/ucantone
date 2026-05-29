@@ -87,7 +87,11 @@ func FromDIDKey(did did.DID) (principal.Verifier, error) {
 		return nil, fmt.Errorf("unsupported DID method: %s", did.Method())
 	}
 
-	code, bytes, err := multibase.Decode(did.Identifier())
+	return FromMultikey(did.Identifier())
+}
+
+func FromMultikey(mk string) (principal.Verifier, error) {
+	code, bytes, err := multibase.Decode(mk)
 	if err != nil {
 		return nil, err
 	}

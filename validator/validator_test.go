@@ -10,10 +10,9 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"github.com/fil-forge/ucantone/did"
+	"github.com/fil-forge/ucantone/did/key"
 	"github.com/fil-forge/ucantone/ipld/datamodel"
 	"github.com/fil-forge/ucantone/principal/absentee"
-	"github.com/fil-forge/ucantone/principal/ed25519"
-	"github.com/fil-forge/ucantone/principal/secp256k1"
 	"github.com/fil-forge/ucantone/testutil"
 	"github.com/fil-forge/ucantone/ucan"
 	"github.com/fil-forge/ucantone/ucan/command"
@@ -450,7 +449,7 @@ func TestValidate(t *testing.T) {
 
 	t.Run("with non-standard signature in chain", func(t *testing.T) {
 		subject := testutil.RandomSigner(t)
-		alice := absentee.From(testutil.Must(did.Parse("did:mailto:web.mail:alice"))(t))
+		alice := absentee.From(testutil.Must(did.Parse("did:example:alice"))(t))
 		bob := testutil.RandomSigner(t)
 
 		del1, err := delegation.Delegate(subject, alice.DID(), subject.DID(), crankWidget)
@@ -478,12 +477,12 @@ func TestValidate(t *testing.T) {
 				t.Context(),
 				inv,
 				validator.WithProofResolver(resolveProof),
-				validator.WithDIDVerifierResolvers(validator.VerifierResolverMap{
-					"key": validator.ResolveDIDKeyVerifier,
-					"mailto": func(ctx context.Context, d did.DID) (ucan.Verifier, error) {
+				validator.WithDIDResolver(did.ResolverMap{
+					"key": key.Resolve,
+					"example": did.ResolverFunc(func(ctx context.Context, d did.DID) (did.Document, error) {
 						require.Fail(t, "shouldn't try to resolve a verifier for a non-standard signature")
-						return nil, nil
-					},
+						return did.Document{}, nil
+					}),
 				}),
 			)
 			require.ErrorContains(t, err, "no non-standard signature verifier configured")
@@ -521,68 +520,6 @@ func TestValidate(t *testing.T) {
 	})
 }
 
-func TestResolveDIDKeyVerifier(t *testing.T) {
-	t.Run("ed25519 did:key returns a verifier matching the DID", func(t *testing.T) {
-		signer, err := ed25519.Generate()
-		require.NoError(t, err)
-		d := signer.Verifier().DID()
-
-		v, err := validator.ResolveDIDKeyVerifier(t.Context(), d)
-		require.NoError(t, err)
-		require.NotNil(t, v)
-		require.Equal(t, d, v.DID())
-	})
-
-	t.Run("ed25519 verifier verifies a signature from the corresponding signer", func(t *testing.T) {
-		signer, err := ed25519.Generate()
-		require.NoError(t, err)
-		d := signer.Verifier().DID()
-
-		v, err := validator.ResolveDIDKeyVerifier(t.Context(), d)
-		require.NoError(t, err)
-		require.NotNil(t, v)
-
-		msg := []byte("hello, world")
-		sig := signer.Sign(msg)
-
-		require.True(t, v.Verify(msg, sig), "verifier should accept a valid signature")
-
-		tampered := []byte("hello, worle")
-		require.False(t, v.Verify(tampered, sig), "verifier should reject a signature over a different message")
-	})
-
-	t.Run("secp256k1 did:key returns a verifier matching the DID", func(t *testing.T) {
-		signer, err := secp256k1.Generate()
-		require.NoError(t, err)
-		d := signer.Verifier().DID()
-
-		v, err := validator.ResolveDIDKeyVerifier(t.Context(), d)
-		require.NoError(t, err)
-		require.NotNil(t, v)
-		require.Equal(t, d, v.DID())
-
-		msg := []byte("hello, world")
-		sig := signer.Sign(msg)
-		require.True(t, v.Verify(msg, sig))
-	})
-
-	t.Run("rejects non-did:key DIDs", func(t *testing.T) {
-		for _, didStr := range []string{
-			"did:web:example.com",
-			"did:dns:example.com",
-		} {
-			t.Run(didStr, func(t *testing.T) {
-				d, err := did.Parse(didStr)
-				require.NoError(t, err)
-
-				v, err := validator.ResolveDIDKeyVerifier(t.Context(), d)
-				require.Error(t, err)
-				require.Nil(t, v)
-			})
-		}
-	})
-}
-
 type StubVerifier struct {
 	did          did.DID
 	resolverUsed string
@@ -594,56 +531,6 @@ func (s StubVerifier) DID() did.DID {
 
 func (s StubVerifier) Verify(msg []byte, sig []byte) bool {
 	return false
-}
-
-func TestNewDIDVerifierResolverByMethod(t *testing.T) {
-	resolveExample1DID := func(ctx context.Context, d did.DID) (ucan.Verifier, error) {
-		if d.Method() != "example1" {
-			return nil, errors.New("unsupported DID method")
-		}
-		return StubVerifier{did: d, resolverUsed: "example1"}, nil
-	}
-
-	resolveExample2DID := func(ctx context.Context, d did.DID) (ucan.Verifier, error) {
-		if d.Method() != "example2" {
-			return nil, errors.New("unsupported DID method")
-		}
-		return StubVerifier{did: d, resolverUsed: "example2"}, nil
-	}
-
-	resolver := validator.NewDIDVerifierResolverByMethod(validator.VerifierResolverMap{
-		"example1": resolveExample1DID,
-		"example2": resolveExample2DID,
-	})
-
-	t.Run("dispatches to the correct resolver based on DID method", func(t *testing.T) {
-		d1, err := did.Parse("did:example1:alice")
-		require.NoError(t, err)
-
-		v1, err := resolver(t.Context(), d1)
-		require.NoError(t, err)
-		require.NotNil(t, v1)
-		require.Equal(t, d1, v1.DID())
-		require.Equal(t, "example1", v1.(StubVerifier).resolverUsed)
-
-		d2, err := did.Parse("did:example2:bob")
-		require.NoError(t, err)
-
-		v2, err := resolver(t.Context(), d2)
-		require.NoError(t, err)
-		require.NotNil(t, v2)
-		require.Equal(t, d2, v2.DID())
-		require.Equal(t, "example2", v2.(StubVerifier).resolverUsed)
-	})
-
-	t.Run("returns an error for unsupported DID methods", func(t *testing.T) {
-		d, err := did.Parse("did:unsupported:example")
-		require.NoError(t, err)
-
-		v, err := resolver(t.Context(), d)
-		require.Error(t, err)
-		require.Nil(t, v)
-	})
 }
 
 type NamedError interface {
