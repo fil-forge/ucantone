@@ -79,6 +79,12 @@ func (d *Document) UnmarshalJSON(b []byte) error {
 	d.Service = raw.Service
 	d.VerificationMethods = &raw.VerificationMethods
 
+	d.Authentication = &VerificationRelationship{allMethods: d.VerificationMethods}
+	d.AssertionMethod = &VerificationRelationship{allMethods: d.VerificationMethods}
+	d.KeyAgreement = &VerificationRelationship{allMethods: d.VerificationMethods}
+	d.CapabilityInvocation = &VerificationRelationship{allMethods: d.VerificationMethods}
+	d.CapabilityDelegation = &VerificationRelationship{allMethods: d.VerificationMethods}
+
 	for _, rel := range []struct {
 		raw  json.RawMessage
 		dest **VerificationRelationship
