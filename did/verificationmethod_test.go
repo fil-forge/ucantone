@@ -104,12 +104,8 @@ func TestVerificationMethod_UnmarshalJSON(t *testing.T) {
 	})
 
 	t.Run("registered external type", func(t *testing.T) {
-		did.RegisterVerificationMethodType("TestType", func() did.VerificationMaterial {
+		did.RegisterVerificationMethodType(func() did.VerificationMaterial {
 			return &TestMaterial{}
-		})
-		t.Cleanup(func() {
-			// Re-register with nil to clean up; zero value is harmless for other tests
-			did.RegisterVerificationMethodType("TestType", nil)
 		})
 
 		data := `{

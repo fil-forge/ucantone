@@ -15,16 +15,18 @@ type VerificationMaterial interface {
 var vmRegistry = map[string]func() VerificationMaterial{}
 
 // RegisterVerificationMethodType registers a factory function for a given
-// verification method type name.
-func RegisterVerificationMethodType(typeName string, factory func() VerificationMaterial) {
+// verification method type name. The factory should return an empty instance of
+// the struct to use for that type.
+func RegisterVerificationMethodType(factory func() VerificationMaterial) {
+	typeName := factory().Type()
 	vmRegistry[typeName] = factory
 }
 
 func init() {
-	RegisterVerificationMethodType(MultikeyVerificationMethodType, func() VerificationMaterial {
+	RegisterVerificationMethodType(func() VerificationMaterial {
 		return &MultikeyVerificationMaterial{}
 	})
-	RegisterVerificationMethodType(JsonWebKeyVerificationMethodType, func() VerificationMaterial {
+	RegisterVerificationMethodType(func() VerificationMaterial {
 		return &JsonWebKeyVerificationMaterial{}
 	})
 }
