@@ -1,8 +1,6 @@
 package validator
 
 import (
-	"time"
-
 	"github.com/fil-forge/ucantone/ucan"
 )
 
@@ -18,7 +16,7 @@ func makeCfg(options ...Option) validationConfig {
 	cfg := validationConfig{
 		resolveProof:               ProofUnavailable,
 		resolveDIDVerifier:         ResolveDIDKeyVerifier,
-		validationTime:             ucan.UnixTimestamp(time.Now().Unix()),
+		validationTime:             ucan.Now(),
 		verifyNonStandardSignature: FailNonStandardSignatureVerification,
 	}
 	for _, opt := range options {
@@ -73,12 +71,5 @@ func WithNonStandardSignatureVerifier(verifyNonStandardSignature NonStandardSign
 func WithMetadata(meta ucan.Container) Option {
 	return func(vc *validationConfig) {
 		vc.metadata = meta
-	}
-}
-
-// withConfig reuses an entire built [validationConfig].
-func withConfig(cfg validationConfig) Option {
-	return func(vc *validationConfig) {
-		*vc = cfg
 	}
 }

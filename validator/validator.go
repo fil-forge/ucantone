@@ -32,7 +32,7 @@ func ValidateInvocation(
 	cfg := makeCfg(options...)
 
 	// To be valid, an invocation must be a valid token...
-	err := ValidateToken(ctx, inv, withConfig(cfg))
+	err := validateToken(ctx, inv, cfg)
 	if err != nil {
 		return err
 	}
@@ -71,8 +71,14 @@ func ValidateToken(
 	tok ucan.Token,
 	options ...Option,
 ) error {
-	cfg := makeCfg(options...)
+	return validateToken(ctx, tok, makeCfg(options...))
+}
 
+func validateToken(
+	ctx context.Context,
+	tok ucan.Token,
+	cfg validationConfig,
+) error {
 	// To be valid, a token must have a valid signature from its issuer...
 	err := verifyTokenSignature(ctx, tok, cfg)
 	if err != nil {
@@ -135,7 +141,7 @@ func capabilityFromProofChain(ctx context.Context, inv ucan.Invocation, cfg vali
 	currentAuthority := inv.Subject()
 	currentCapability := NewCapability(inv.Subject())
 	for i, prf := range prfs {
-		if err := ValidateToken(ctx, prf, withConfig(cfg)); err != nil {
+		if err := validateToken(ctx, prf, cfg); err != nil {
 			return Capability{}, err
 		}
 
