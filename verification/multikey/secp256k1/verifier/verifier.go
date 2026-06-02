@@ -7,7 +7,6 @@ import (
 	"fmt"
 
 	"github.com/fil-forge/ucantone/did"
-	varsig_secp256k1 "github.com/fil-forge/ucantone/varsig/algorithm/secp256k1"
 	"github.com/fil-forge/ucantone/verification/multikey"
 	"github.com/fil-forge/ucantone/verification/multikey/internal/multiformat"
 	"github.com/multiformats/go-multibase"
@@ -19,9 +18,10 @@ func init() {
 	multikey.Register(Code, Decode)
 }
 
+// Code is the multicodec code for `secp256k1-pub`.
 const Code = 0xe7
 
-var SignatureAlgorithm = varsig_secp256k1.New()
+// var SignatureAlgorithm = varsig_secp256k1.New()
 
 var publicTagSize = varint.UvarintSize(Code)
 

@@ -6,7 +6,6 @@ import (
 	"fmt"
 
 	"github.com/fil-forge/ucantone/did"
-	varsig_ed25519 "github.com/fil-forge/ucantone/varsig/algorithm/ed25519"
 	"github.com/fil-forge/ucantone/verification/multikey"
 	"github.com/fil-forge/ucantone/verification/multikey/internal/multiformat"
 	"github.com/multiformats/go-multibase"
@@ -17,9 +16,10 @@ func init() {
 	multikey.Register(Code, Decode)
 }
 
+// Code is the multicodec code for `ed25519-pub`.
 const Code = 0xed
 
-var SignatureAlgorithm = varsig_ed25519.New()
+// var SignatureAlgorithm = varsig_ed25519.New()
 
 var publicTagSize = varint.UvarintSize(Code)
 

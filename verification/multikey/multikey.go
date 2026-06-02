@@ -61,7 +61,6 @@ func Parse(mk string) (Verifier, error) {
 // with them.
 type Signer interface {
 	ucan.Signer
-	Code() uint64
 
 	// Bytes returns the private key bytes with multiformats prefix varint.
 	Bytes() []byte

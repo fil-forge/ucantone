@@ -8,15 +8,15 @@ import (
 	"github.com/fil-forge/ucantone/did"
 	"github.com/fil-forge/ucantone/ucan"
 	"github.com/fil-forge/ucantone/varsig"
+	"github.com/fil-forge/ucantone/varsig/algorithm/eddsa"
 	"github.com/fil-forge/ucantone/verification/multikey"
 	"github.com/fil-forge/ucantone/verification/multikey/ed25519/verifier"
 	"github.com/multiformats/go-multibase"
 	"github.com/multiformats/go-varint"
 )
 
+// Code is the multicodec code for `ed25519-priv`.
 const Code = 0x1300
-
-var SignatureAlgorithm = verifier.SignatureAlgorithm
 
 var tagSize = varint.UvarintSize(Code)
 
@@ -100,8 +100,8 @@ func (s Signer) Code() uint64 {
 	return Code
 }
 
-func (s Signer) SignatureAlgorithm() varsig.SignatureAlgorithm {
-	return SignatureAlgorithm
+func (s Signer) SignatureAlgorithm() varsig.Algorithm {
+	return eddsa.Ed25519
 }
 
 func (s Signer) Verifier() ucan.Verifier {

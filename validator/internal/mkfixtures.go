@@ -21,7 +21,7 @@ import (
 	verrs "github.com/fil-forge/ucantone/validator/errors"
 	fdm "github.com/fil-forge/ucantone/validator/internal/fixtures/datamodel"
 	"github.com/fil-forge/ucantone/varsig"
-	"github.com/fil-forge/ucantone/varsig/common"
+	"github.com/fil-forge/ucantone/varsig/algorithm/eddsa"
 	"github.com/fil-forge/ucantone/verification/multikey"
 	"github.com/fil-forge/ucantone/verification/multikey/ed25519"
 	"github.com/ipfs/go-cid"
@@ -636,7 +636,7 @@ func makeInvalidExpiredInvocationFixture() fdm.InvalidModel {
 }
 
 func makeInvalidProofSignatureFixture() fdm.InvalidModel {
-	h := must(varsig.Encode(common.Ed25519DagCbor))
+	h := must(varsig.New(eddsa.Ed25519, varsig.DagCbor).Encode())
 
 	tokenPayload := &ddm.TokenPayloadModel1_0_0_rc1{
 		Iss:   bob.DID(),
@@ -690,7 +690,7 @@ func makeInvalidProofSignatureFixture() fdm.InvalidModel {
 }
 
 func makeInvalidInvocationSignatureFixture() fdm.InvalidModel {
-	h := must(varsig.Encode(common.Ed25519DagCbor))
+	h := must(varsig.New(eddsa.Ed25519, varsig.DagCbor).Encode())
 
 	tokenPayload := &idm.TokenPayloadModel1_0_0_rc1{
 		Iss:   alice.DID(),

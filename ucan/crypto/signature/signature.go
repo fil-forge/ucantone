@@ -5,11 +5,11 @@ import (
 )
 
 type Signature struct {
-	header varsig.VarsigHeader
+	header varsig.Varsig
 	bytes  []byte
 }
 
-func NewSignature(header varsig.VarsigHeader, bytes []byte) *Signature {
+func NewSignature(header varsig.Varsig, bytes []byte) *Signature {
 	return &Signature{
 		header,
 		bytes,
@@ -22,7 +22,7 @@ func (s *Signature) Bytes() []byte {
 }
 
 // Header implements ucan.Signature.
-func (s *Signature) Header() varsig.VarsigHeader {
+func (s *Signature) Header() varsig.Varsig {
 	return s.header
 }
 

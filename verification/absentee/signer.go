@@ -9,32 +9,32 @@ import (
 
 var SignatureAlgorithm = nonstandard.New()
 
-// Signer is a special type of signer that produces an absent signature,
+// Issuer is a special type of issuer that produces an absent signature,
 // which signals that verifier needs to verify authorization interactively.
-type Signer struct {
+type Issuer struct {
 	id did.DID
 }
 
-var _ ucan.Signer = Signer{}
+var _ ucan.Issuer = Issuer{}
 
-func (a Signer) DID() did.DID {
+func (a Issuer) DID() did.DID {
 	return a.id
 }
 
-func (a Signer) Sign(msg []byte) []byte {
+func (a Issuer) Sign(msg []byte) []byte {
 	return []byte{}
 }
 
-func (a Signer) SignatureAlgorithm() varsig.SignatureAlgorithm {
+func (a Issuer) SignatureAlgorithm() varsig.Algorithm {
 	return SignatureAlgorithm
 }
 
-func (a Signer) Verifier() ucan.Verifier {
-	panic("absentee signer does not have a verifier")
+func (a Issuer) Verifier() ucan.Verifier {
+	panic("absentee issuer does not have a verifier")
 }
 
-// From creates a special type of signer that produces an absent signature,
+// From creates a special type of issuer that produces an absent signature,
 // which signals that verifier needs to verify authorization interactively.
-func From(id did.DID) Signer {
-	return Signer{id}
+func From(id did.DID) Issuer {
+	return Issuer{id}
 }

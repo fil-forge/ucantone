@@ -7,6 +7,7 @@ require (
 	github.com/gobwas/glob v0.2.3
 	github.com/ipfs/go-cid v0.6.0
 	github.com/multiformats/go-multibase v0.2.0
+	github.com/multiformats/go-multicodec v0.10.0
 	github.com/multiformats/go-multihash v0.2.3
 	github.com/multiformats/go-varint v0.1.0
 	github.com/stretchr/testify v1.11.1

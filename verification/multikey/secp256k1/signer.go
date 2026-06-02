@@ -8,6 +8,7 @@ import (
 	"github.com/fil-forge/ucantone/did"
 	"github.com/fil-forge/ucantone/ucan"
 	"github.com/fil-forge/ucantone/varsig"
+	"github.com/fil-forge/ucantone/varsig/algorithm/ecdsa"
 	"github.com/fil-forge/ucantone/verification/multikey"
 	"github.com/fil-forge/ucantone/verification/multikey/secp256k1/verifier"
 	"github.com/multiformats/go-multibase"
@@ -15,9 +16,8 @@ import (
 	"gitlab.com/yawning/secp256k1-voi/secec"
 )
 
+// Code is the multicodec code for `secp256k1-priv`.
 const Code = 0x1301
-
-var SignatureAlgorithm = verifier.SignatureAlgorithm
 
 var tagSize = varint.UvarintSize(Code)
 
@@ -45,7 +45,7 @@ func GenerateIssuer() (multikey.Issuer, error) {
 }
 
 // Parse parses a multibase encoded string containing a secp256k1 signer
-// multiformat varint (0x1301) +  byte secp256k1 raw scalar value.
+// multiformat varint (0x1301) + byte secp256k1 raw scalar value.
 func Parse(str string) (Signer, error) {
 	_, bytes, err := multibase.Decode(str)
 	if err != nil {
@@ -101,12 +101,8 @@ type Signer []byte
 
 var _ multikey.Signer = (Signer)(nil)
 
-func (s Signer) Code() uint64 {
-	return Code
-}
-
-func (s Signer) SignatureAlgorithm() varsig.SignatureAlgorithm {
-	return SignatureAlgorithm
+func (s Signer) SignatureAlgorithm() varsig.Algorithm {
+	return ecdsa.Secp256k1
 }
 
 func (s Signer) Verifier() ucan.Verifier {

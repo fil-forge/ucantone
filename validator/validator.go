@@ -107,7 +107,7 @@ func ValidateToken(
 
 // verifyTokenSignature verifies the token was signed by the passed verifier.
 func verifyTokenSignature(ctx context.Context, tok ucan.Token, cfg validationConfig) error {
-	if tok.Signature().Header().SignatureAlgorithm().Code() == nonstandard.Code {
+	if tok.Signature().Header().SignatureAlgorithm() == nonstandard.NonStandard {
 		return cfg.verifyNonStandardSignature(ctx, tok, cfg.metadata)
 	}
 
@@ -130,11 +130,11 @@ func verifyTokenSignature(ctx context.Context, tok ucan.Token, cfg validationCon
 	// Determine the required type of verification method from the signature
 	// algorithm code.
 	var vmType string
-	switch tok.Signature().Header().SignatureAlgorithm().Code() {
-	case eddsa.Code, ecdsa.Code:
+	switch tok.Signature().Header().SignatureAlgorithm() {
+	case eddsa.Ed25519, ecdsa.Secp256k1:
 		vmType = "Multikey"
 	default:
-		return fmt.Errorf("unsupported Varsig signature algorithm code: 0x%02x", tok.Signature().Header().SignatureAlgorithm().Code())
+		return fmt.Errorf("unsupported Varsig signature algorithm: %T", tok.Signature().Header().SignatureAlgorithm())
 	}
 
 	// Find all verification methods of the required type, try each valid one,
