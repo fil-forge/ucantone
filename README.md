@@ -24,19 +24,19 @@ fmt.Println("DID:", principal)
 ```
 
 ```go
-// generate a new ed25519 signer
-signerPrincipal, err := ed25519.Generate()
-fmt.Println("DID:", signerPrincipal.DID())
+// generate a new ed25519 issuer
+issuer, err := ed25519.GenerateIssuer()
+fmt.Println("DID:", issuer.DID())
 
 // this principal can sign
-sig := signerPrincipal.Sign([]byte{1, 2, 3})
+sig := issuer.Sign([]byte{1, 2, 3})
 fmt.Printf("Signature: 0x%x\n", sig)
 
 // and has a private key (use format utility to multibase base64pad encode)
-fmt.Println("Private Key:", signer.Format(signerPrincipal))
+fmt.Println("Private Key:", signer.Format(issuer))
 
 // which can be stored and decoded later...
-signerPrincipal2, err := ed25519.Decode(signerPrincipal.Bytes())
+issuer2, err := ed25519.Decode(issuer.Bytes())
 ```
 
 #### Delegation
@@ -134,7 +134,7 @@ See examples in [server_test.go](./examples/server_test.go)
 
 ```go
 echo, err := command.Parse("/example/echo")
-serviceID, err := ed25519.Generate()
+serviceID, err := ed25519.GenerateIssuer()
 
 ucanSrv := server.NewHTTP(serviceID)
 

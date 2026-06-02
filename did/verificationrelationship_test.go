@@ -11,11 +11,12 @@ func TestVerificationRelationship_Add(t *testing.T) {
 	d, err := did.Parse("did:example:123456789abcdefghi")
 	require.NoError(t, err)
 	doc := did.NewDocument(d)
-	vm := did.NewMultikeyVerificationMethod(
-		doc.Fragment("key-1"),
-		d,
-		"zABC",
-	)
+	vm := did.VerificationMethod{
+		ID:         doc.Fragment("key-1"),
+		Controller: d,
+		Type:       did.MultikeyVerificationMethodType,
+		Material:   did.GenericMap{did.MultikeyPublicKeyMultibase: "zABC"},
+	}
 	err = doc.VerificationMethods.Add(vm)
 	require.NoError(t, err)
 

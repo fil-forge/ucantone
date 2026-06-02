@@ -13,11 +13,12 @@ func TestDocument_MarshalJSON(t *testing.T) {
 		controller, err := did.Parse("did:example:123")
 		require.NoError(t, err)
 		doc := did.NewDocument(controller)
-		vm := did.NewMultikeyVerificationMethod(
-			doc.Fragment("key-1"),
-			controller,
-			"zABC",
-		)
+		vm := did.VerificationMethod{
+			ID:         doc.Fragment("key-1"),
+			Controller: controller,
+			Type:       did.MultikeyVerificationMethodType,
+			Material:   did.GenericMap{did.MultikeyPublicKeyMultibase: "zABC"},
+		}
 		require.NoError(t, doc.VerificationMethods.Add(vm))
 
 		b, err := json.Marshal(doc)

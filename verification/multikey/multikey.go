@@ -6,9 +6,26 @@ import (
 	"github.com/fil-forge/ucantone/did"
 	"github.com/fil-forge/ucantone/did/key"
 	"github.com/fil-forge/ucantone/ucan"
+	"github.com/fil-forge/ucantone/verification"
 	"github.com/multiformats/go-multibase"
 	"github.com/multiformats/go-varint"
 )
+
+func init() {
+	verification.RegisterVerifierFactory(
+		did.MultikeyVerificationMethodType,
+		DeriveVerifier,
+	)
+}
+
+// DeriveVerifier produces a [ucan.Verifier] from a Multikey [did.VerificationMethod].
+func DeriveVerifier(vm did.VerificationMethod) (ucan.Verifier, error) {
+	pkm, ok := vm.Material[did.MultikeyPublicKeyMultibase].(string)
+	if !ok {
+		return nil, fmt.Errorf("Multikey verification method missing %s", did.MultikeyPublicKeyMultibase)
+	}
+	return Parse(pkm)
+}
 
 // Decoder decodes multiformat-tagged public key bytes into a Verifier.
 type Decoder func([]byte) (Verifier, error)

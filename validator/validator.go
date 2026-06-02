@@ -16,7 +16,8 @@ import (
 	"github.com/fil-forge/ucantone/varsig/algorithm/ecdsa"
 	"github.com/fil-forge/ucantone/varsig/algorithm/eddsa"
 	"github.com/fil-forge/ucantone/varsig/algorithm/nonstandard"
-	"github.com/fil-forge/ucantone/verification/multikey"
+	"github.com/fil-forge/ucantone/verification"
+	_ "github.com/fil-forge/ucantone/verification/multikey"
 	_ "github.com/fil-forge/ucantone/verification/multikey/ed25519/verifier"
 	_ "github.com/fil-forge/ucantone/verification/multikey/secp256k1/verifier"
 	"github.com/ipfs/go-cid"
@@ -139,8 +140,8 @@ func verifyTokenSignature(ctx context.Context, tok ucan.Token, cfg validationCon
 	// and make a verifier for each one.
 	var vs []ucan.Verifier
 	for _, vm := range verRel.All() {
-		if vm.Type() == vmType {
-			v, err := cfg.deriveVerifier(vm)
+		if vm.Type == vmType {
+			v, err := verification.DeriveVerifier(vm)
 			if err != nil {
 				return err
 			}
@@ -217,10 +218,6 @@ func capabilityFromProofChain(ctx context.Context, inv ucan.Invocation, cfg vali
 // ProofResolverFunc finds a delegation corresponding to an external proof link.
 type ProofResolverFunc func(ctx context.Context, link cid.Cid) (ucan.Delegation, error)
 
-// VerifierFactoryFunc is used to create a [ucan.Verifier] from a DID
-// verification method.
-type VerifierFactoryFunc func(vm did.VerificationMethod) (ucan.Verifier, error)
-
 // NonStandardSignatureVerifierFunc is used to verify signatures from
 // non-standard signature algorithms. It can be passed into a UCAN validator in
 // order to support delegations signed with non-standard signature algorithms.
@@ -229,21 +226,6 @@ type NonStandardSignatureVerifierFunc func(ctx context.Context, token ucan.Token
 // ProofUnavailable is a [ProofResolverFunc] that always fails.
 func ProofUnavailable(ctx context.Context, p cid.Cid) (ucan.Delegation, error) {
 	return nil, verrs.NewUnavailableProofError(p, errors.New("no proof resolver configured"))
-}
-
-// DeriveMultikeyVerifier derives a [ucan.Verifier] from a Multikey DID
-// verification method.
-func DeriveMultikeyVerifier(vm did.VerificationMethod) (ucan.Verifier, error) {
-	mkVerMat, ok := vm.VerificationMaterial.(*did.MultikeyVerificationMaterial)
-	if !ok {
-		return nil, fmt.Errorf("expected *MultikeyVerificationMaterial, got %T", vm.VerificationMaterial)
-	}
-
-	if mkVerMat.PublicKeyMultibase == nil {
-		return nil, fmt.Errorf("MultikeyVerificationMaterial missing PublicKeyMultibase")
-	}
-
-	return multikey.Parse(*mkVerMat.PublicKeyMultibase)
 }
 
 // FailNonStandardSignatureVerification is a [NonStandardSignatureVerifierFunc]

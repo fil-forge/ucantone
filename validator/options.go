@@ -11,7 +11,6 @@ import (
 type validationConfig struct {
 	resolveProof               ProofResolverFunc
 	didResolver                did.Resolver
-	deriveVerifier             VerifierFactoryFunc
 	validationTime             ucan.UnixTimestamp
 	verifyNonStandardSignature NonStandardSignatureVerifierFunc
 	metadata                   ucan.Container
@@ -21,7 +20,6 @@ func makeCfg(options ...Option) validationConfig {
 	cfg := validationConfig{
 		resolveProof:               ProofUnavailable,
 		didResolver:                key.Resolve,
-		deriveVerifier:             DeriveMultikeyVerifier,
 		validationTime:             ucan.UnixTimestamp(time.Now().Unix()),
 		verifyNonStandardSignature: FailNonStandardSignatureVerification,
 	}

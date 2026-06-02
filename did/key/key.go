@@ -12,11 +12,12 @@ var Resolve did.ResolverFunc = resolve
 
 func resolve(_ context.Context, d did.DID) (did.Document, error) {
 	doc := did.NewDocument(d)
-	vm := did.NewMultikeyVerificationMethod(
-		doc.Fragment(d.Identifier()),
-		d,
-		d.Identifier(),
-	)
+	vm := did.VerificationMethod{
+		ID:         doc.Fragment(d.Identifier()),
+		Controller: d,
+		Type:       did.MultikeyVerificationMethodType,
+		Material:   did.GenericMap{did.MultikeyPublicKeyMultibase: d.Identifier()},
+	}
 
 	if err := doc.VerificationMethods.Add(vm); err != nil {
 		return did.Document{}, err
