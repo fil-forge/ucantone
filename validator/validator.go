@@ -14,8 +14,6 @@ import (
 	"github.com/fil-forge/ucantone/ucan"
 	"github.com/fil-forge/ucantone/ucan/token"
 	verrs "github.com/fil-forge/ucantone/validator/errors"
-	"github.com/fil-forge/ucantone/varsig/algorithm/ecdsa"
-	"github.com/fil-forge/ucantone/varsig/algorithm/eddsa"
 	"github.com/fil-forge/ucantone/varsig/algorithm/nonstandard"
 	"github.com/fil-forge/ucantone/verification"
 	_ "github.com/fil-forge/ucantone/verification/multikey"
@@ -127,25 +125,11 @@ func verifyTokenSignature(ctx context.Context, tok ucan.Token, cfg validationCon
 		return fmt.Errorf("unsupported token type: %T", tok)
 	}
 
-	// Determine the required type of verification method from the signature
-	// algorithm code.
-	var vmType string
-	switch tok.Signature().Header().SignatureAlgorithm() {
-	case eddsa.Ed25519, ecdsa.Secp256k1:
-		vmType = "Multikey"
-	default:
-		return fmt.Errorf("unsupported Varsig signature algorithm: %T", tok.Signature().Header().SignatureAlgorithm())
-	}
-
-	// Find all verification methods of the required type, try each valid one,
-	// and collect rejection reasons for the error.
+	// Try each verification method, collecting rejection reasons for the error.
 	validationTime := time.Unix(int64(cfg.validationTime), 0)
 	var rejections []verrs.VMRejection
 
 	for _, vm := range verRel.All() {
-		if vm.Type != vmType {
-			continue
-		}
 		if vm.ExpiredAt(validationTime) {
 			rejections = append(rejections, verrs.VMRejection{VM: vm, Reason: "expired"})
 			continue
@@ -155,6 +139,10 @@ func verifyTokenSignature(ctx context.Context, tok ucan.Token, cfg validationCon
 			continue
 		}
 		v, err := verification.DeriveVerifier(vm)
+		if errors.Is(err, verification.ErrNoVerifierFactory) {
+			rejections = append(rejections, verrs.VMRejection{VM: vm, Reason: "unsupported verification method type"})
+			continue
+		}
 		if err != nil {
 			return err
 		}

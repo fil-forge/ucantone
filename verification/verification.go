@@ -16,12 +16,18 @@ func RegisterVerifierFactory(vmType string, f func(did.VerificationMaterial) (uc
 	registry[vmType] = f
 }
 
+// ErrNoVerifierFactory is returned by DeriveVerifier when no factory is
+// registered for the verification method's type. Callers that want to skip
+// unsupported VM types rather than fail should check for this error.
+var ErrNoVerifierFactory = fmt.Errorf("no verifier factory registered")
+
 // DeriveVerifier produces a [ucan.Verifier] from a [did.VerificationMethod]
-// using the registered factory for its type.
+// using the registered factory for its type. If no factory is registered for
+// the VM type, it returns [ErrNoVerifierFactory].
 func DeriveVerifier(vm did.VerificationMethod) (ucan.Verifier, error) {
 	f, ok := registry[vm.Type]
 	if !ok {
-		return nil, fmt.Errorf("no verifier registered for VM type %q", vm.Type)
+		return nil, fmt.Errorf("%w for VM type %q", ErrNoVerifierFactory, vm.Type)
 	}
 	return f(vm.Material)
 }
