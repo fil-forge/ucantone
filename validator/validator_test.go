@@ -5,6 +5,7 @@ import (
 	"errors"
 	"os"
 	"testing"
+	"time"
 
 	"github.com/ipfs/go-cid"
 	"github.com/stretchr/testify/require"
@@ -447,6 +448,55 @@ func TestValidate(t *testing.T) {
 		require.Error(t, err)
 	})
 
+	t.Run("rejects when the signing key is expired", func(t *testing.T) {
+		subject := testutil.RandomIssuer(t)
+
+		// Build a DID document with an expired Multikey VM.
+		expires := did.DateTimeStamp(time.Unix(int64(past), 0))
+		resolver := expiredKeyResolver(t, subject, &expires, nil)
+
+		inv, err := invocation.Invoke(subject, subject.DID(), crankWidget, datamodel.Map{})
+		require.NoError(t, err)
+
+		err = validator.ValidateInvocation(t.Context(), inv,
+			validator.WithDIDResolver(resolver),
+			validator.WithValidationTime(now),
+		)
+		require.ErrorContains(t, err, "expired")
+	})
+
+	t.Run("rejects when the signing key is revoked", func(t *testing.T) {
+		subject := testutil.RandomIssuer(t)
+
+		revoked := did.DateTimeStamp(time.Unix(int64(past), 0))
+		resolver := expiredKeyResolver(t, subject, nil, &revoked)
+
+		inv, err := invocation.Invoke(subject, subject.DID(), crankWidget, datamodel.Map{})
+		require.NoError(t, err)
+
+		err = validator.ValidateInvocation(t.Context(), inv,
+			validator.WithDIDResolver(resolver),
+			validator.WithValidationTime(now),
+		)
+		require.ErrorContains(t, err, "revoked")
+	})
+
+	t.Run("accepts when the signing key has not yet expired", func(t *testing.T) {
+		subject := testutil.RandomIssuer(t)
+
+		expires := did.DateTimeStamp(time.Unix(int64(future), 0))
+		resolver := expiredKeyResolver(t, subject, &expires, nil)
+
+		inv, err := invocation.Invoke(subject, subject.DID(), crankWidget, datamodel.Map{})
+		require.NoError(t, err)
+
+		err = validator.ValidateInvocation(t.Context(), inv,
+			validator.WithDIDResolver(resolver),
+			validator.WithValidationTime(now),
+		)
+		require.NoError(t, err)
+	})
+
 	t.Run("with non-standard signature in chain", func(t *testing.T) {
 		subject := testutil.RandomIssuer(t)
 		alice := absentee.From(testutil.Must(did.Parse("did:example:alice"))(t))
@@ -517,6 +567,35 @@ func TestValidate(t *testing.T) {
 			)
 			require.NoError(t, err)
 		})
+	})
+}
+
+// expiredKeyResolver returns a DID resolver that serves a document for the
+// issuer's DID with its Multikey VM marked expired or revoked as specified.
+func expiredKeyResolver(t *testing.T, issuer ucan.Issuer, expires, revoked *did.DateTimeStamp) did.Resolver {
+	t.Helper()
+	return did.ResolverFunc(func(_ context.Context, d did.DID) (did.Document, error) {
+		doc := did.NewDocument(d)
+		vm := did.VerificationMethod{
+			ID:         doc.Fragment(d.Identifier()),
+			Controller: d,
+			Expires:    expires,
+			Revoked:    revoked,
+			Type:       did.MultikeyVerificationMethodType,
+			Material:   did.GenericMap{did.MultikeyPublicKeyMultibase: d.Identifier()},
+		}
+		if err := doc.VerificationMethods.Add(vm); err != nil {
+			return did.Document{}, err
+		}
+		for _, rel := range []*did.VerificationRelationship{
+			doc.Authentication, doc.AssertionMethod,
+			doc.CapabilityDelegation, doc.CapabilityInvocation,
+		} {
+			if err := rel.Add(vm); err != nil {
+				return did.Document{}, err
+			}
+		}
+		return doc, nil
 	})
 }
 

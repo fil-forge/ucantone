@@ -75,6 +75,11 @@ func RandomDigest(t *testing.T) multihash.Multihash {
 	return RandomCID(t).Hash()
 }
 
+func RandomSigner(t *testing.T) ucan.Signer {
+	t.Helper()
+	return Must(ed25519.Generate())(t)
+}
+
 func RandomIssuer(t *testing.T) ucan.Issuer {
 	t.Helper()
 	return Must(ed25519.GenerateIssuer())(t)

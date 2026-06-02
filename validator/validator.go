@@ -7,6 +7,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"time"
 
 	"github.com/fil-forge/ucantone/did"
 	"github.com/fil-forge/ucantone/ipld/datamodel"
@@ -136,26 +137,34 @@ func verifyTokenSignature(ctx context.Context, tok ucan.Token, cfg validationCon
 		return fmt.Errorf("unsupported Varsig signature algorithm code: 0x%02x", tok.Signature().Header().SignatureAlgorithm().Code())
 	}
 
-	// Find all verification methods in that relationship with the correct type,
-	// and make a verifier for each one.
-	var vs []ucan.Verifier
-	for _, vm := range verRel.All() {
-		if vm.Type == vmType {
-			v, err := verification.DeriveVerifier(vm)
-			if err != nil {
-				return err
-			}
-			vs = append(vs, v)
-		}
-	}
+	// Find all verification methods of the required type, try each valid one,
+	// and collect rejection reasons for the error.
+	validationTime := time.Unix(int64(cfg.validationTime), 0)
+	var rejections []verrs.VMRejection
 
-	for _, v := range vs {
+	for _, vm := range verRel.All() {
+		if vm.Type != vmType {
+			continue
+		}
+		if vm.ExpiredAt(validationTime) {
+			rejections = append(rejections, verrs.VMRejection{VM: vm, Reason: "expired"})
+			continue
+		}
+		if vm.RevokedAt(validationTime) {
+			rejections = append(rejections, verrs.VMRejection{VM: vm, Reason: "revoked"})
+			continue
+		}
+		v, err := verification.DeriveVerifier(vm)
+		if err != nil {
+			return err
+		}
 		if token.VerifySignature(tok, v) {
 			return nil
 		}
+		rejections = append(rejections, verrs.VMRejection{VM: vm, Reason: "signature mismatch"})
 	}
 
-	return verrs.NewInvalidSignatureError(tok, vs)
+	return verrs.NewInvalidSignatureError(tok, rejections)
 }
 
 func capabilityFromProofChain(ctx context.Context, inv ucan.Invocation, cfg validationConfig) (Capability, error) {

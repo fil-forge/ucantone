@@ -7,12 +7,12 @@ import (
 	"github.com/fil-forge/ucantone/ucan"
 )
 
-var registry = map[string]func(did.VerificationMethod) (ucan.Verifier, error){}
+var registry = map[string]func(did.VerificationMaterial) (ucan.Verifier, error){}
 
 // RegisterVerifierFactory registers a factory function for a given
 // verification method type name. When DeriveVerifier is called with a
-// VerificationMethod of that type, the factory is used to produce a Verifier.
-func RegisterVerifierFactory(vmType string, f func(did.VerificationMethod) (ucan.Verifier, error)) {
+// VerificationMethod of that type, the factory is called with its Material.
+func RegisterVerifierFactory(vmType string, f func(did.VerificationMaterial) (ucan.Verifier, error)) {
 	registry[vmType] = f
 }
 
@@ -23,5 +23,5 @@ func DeriveVerifier(vm did.VerificationMethod) (ucan.Verifier, error) {
 	if !ok {
 		return nil, fmt.Errorf("no verifier registered for VM type %q", vm.Type)
 	}
-	return f(vm)
+	return f(vm.Material)
 }

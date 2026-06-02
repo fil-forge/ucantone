@@ -8,6 +8,11 @@ import (
 // set of keys, or whose spec is not currently implemented here.
 type GenericMap = map[string]any
 
+// VerificationMaterial is the type-specific material fields of a
+// [VerificationMethod], keyed by field name.
+// https://www.w3.org/TR/cid-1.0/#verification-material
+type VerificationMaterial = GenericMap
+
 // https://www.w3.org/TR/did-1.1/#core-properties
 type Document struct {
 	Context              Context                   `json:"@context"`

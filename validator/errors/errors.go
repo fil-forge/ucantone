@@ -56,24 +56,26 @@ func NewTooEarlyError(t ucan.Delegation) edm.ErrorModel {
 
 const InvalidSignatureErrorName = "InvalidSignature"
 
-func NewInvalidSignatureError(token ucan.Token, verifiers []ucan.Verifier) edm.ErrorModel {
+// VMRejection records a verification method that was tried and the reason it
+// did not produce a valid signature.
+type VMRejection struct {
+	VM     did.VerificationMethod
+	Reason string
+}
+
+func NewInvalidSignatureError(token ucan.Token, rejections []VMRejection) edm.ErrorModel {
 	issuer := token.Issuer()
-	var message string
-	if issuer.Method() == "key" {
-		message = fmt.Sprintf(`proof %s does not have a valid signature from %s`, token.Link(), issuer)
-	} else {
-		message = strings.Join([]string{
-			fmt.Sprintf("proof %q does not have a valid signature from %q", token.Link(), issuer),
-			"  ℹ️ Issuer may have signed with a key which has been rotated. Tried these verifiers:",
-		}, "\n")
-		for _, v := range verifiers {
-			// BOOKMARK
-			message += fmt.Sprintf("\n    - %s", v.String())
-		}
+	var message strings.Builder
+	message.WriteString(strings.Join([]string{
+		fmt.Sprintf("proof %q does not have a valid signature from %q", token.Link(), issuer),
+		"  ℹ️ Tried these verification methods:",
+	}, "\n"))
+	for _, r := range rejections {
+		fmt.Fprintf(&message, "\n    - %s: %s", r.VM.ID, r.Reason)
 	}
 	return edm.ErrorModel{
 		ErrorName: InvalidSignatureErrorName,
-		Message:   message,
+		Message:   message.String(),
 	}
 }
 

@@ -3,6 +3,7 @@ package did
 import (
 	"encoding/json"
 	"fmt"
+	"time"
 )
 
 // https://www.w3.org/TR/cid-1.0/#verification-methods
@@ -13,6 +14,27 @@ type VerificationMethod struct {
 	Revoked    *DateTimeStamp `json:"revoked,omitempty"`
 	Type       string
 	Material   GenericMap
+}
+
+// ValidAt reports whether the verification method is valid at time t.
+func (v VerificationMethod) ValidAt(t time.Time) bool {
+	return !v.ExpiredAt(t) && !v.RevokedAt(t)
+}
+
+// ExpiredAt reports whether the verification method is expired at time t.
+func (v VerificationMethod) ExpiredAt(t time.Time) bool {
+	if v.Expires != nil && !t.Before(v.Expires.Time()) {
+		return true
+	}
+	return false
+}
+
+// RevokedAt reports whether the verification method is revoked at time t.
+func (v VerificationMethod) RevokedAt(t time.Time) bool {
+	if v.Revoked != nil && !t.Before(v.Revoked.Time()) {
+		return true
+	}
+	return false
 }
 
 func (v VerificationMethod) String() string {

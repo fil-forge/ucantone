@@ -18,9 +18,9 @@ func init() {
 	)
 }
 
-// DeriveVerifier produces a [ucan.Verifier] from a Multikey [did.VerificationMethod].
-func DeriveVerifier(vm did.VerificationMethod) (ucan.Verifier, error) {
-	pkm, ok := vm.Material[did.MultikeyPublicKeyMultibase].(string)
+// DeriveVerifier produces a [ucan.Verifier] from Multikey [did.VerificationMaterial].
+func DeriveVerifier(mat did.VerificationMaterial) (ucan.Verifier, error) {
+	pkm, ok := mat[did.MultikeyPublicKeyMultibase].(string)
 	if !ok {
 		return nil, fmt.Errorf("Multikey verification method missing %s", did.MultikeyPublicKeyMultibase)
 	}
