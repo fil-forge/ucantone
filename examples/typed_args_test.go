@@ -10,10 +10,10 @@ import (
 	edm "github.com/fil-forge/ucantone/errors/datamodel"
 	"github.com/fil-forge/ucantone/examples/types"
 	"github.com/fil-forge/ucantone/ipld/datamodel"
-	"github.com/fil-forge/ucantone/principal/ed25519"
 	"github.com/fil-forge/ucantone/ucan/command"
 	"github.com/fil-forge/ucantone/ucan/invocation"
 	"github.com/fil-forge/ucantone/ucan/receipt"
+	"github.com/fil-forge/ucantone/verification/multikey/ed25519"
 )
 
 // TestExtractTypedArgsFromInvocation demonstrates the bytes-native pattern
@@ -39,7 +39,7 @@ func TestExtractTypedArgsFromInvocation(t *testing.T) {
 	// Metadata is spec'd as an untyped {String : Any} map — debug/audit
 	// information that isn't semantically meaningful to the delegation
 	// chain. Pass it as a Go map literal via WithMetadata.
-	alice, err := ed25519.Generate()
+	alice, err := ed25519.GenerateIssuer()
 	require.NoError(t, err)
 
 	inv, err := invocation.Invoke(

@@ -228,7 +228,7 @@ func Decode(b []byte) (*Delegation, error) {
 }
 
 func Delegate(
-	issuer ucan.Signer,
+	issuer ucan.Issuer,
 	audience did.DID,
 	subject did.DID,
 	command ucan.Command,

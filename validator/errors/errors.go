@@ -56,17 +56,20 @@ func NewTooEarlyError(t ucan.Delegation) edm.ErrorModel {
 
 const InvalidSignatureErrorName = "InvalidSignature"
 
-func NewInvalidSignatureError(token ucan.Token, verifier ucan.Verifier) edm.ErrorModel {
+func NewInvalidSignatureError(token ucan.Token, verifiers []ucan.Verifier) edm.ErrorModel {
 	issuer := token.Issuer()
-	key := verifier.DID()
 	var message string
 	if issuer.Method() == "key" {
-		message = fmt.Sprintf(`proof %s does not have a valid signature from %s`, token.Link(), key)
+		message = fmt.Sprintf(`proof %s does not have a valid signature from %s`, token.Link(), issuer)
 	} else {
 		message = strings.Join([]string{
-			fmt.Sprintf("proof %q issued by %q does not have a valid signature from %q", token.Link(), issuer, key),
-			"  ℹ️ Issuer probably signed with a different key, which got rotated, invalidating delegations that were issued with prior keys",
+			fmt.Sprintf("proof %q does not have a valid signature from %q", token.Link(), issuer),
+			"  ℹ️ Issuer may have signed with a key which has been rotated. Tried these verifiers:",
 		}, "\n")
+		for _, v := range verifiers {
+			// BOOKMARK
+			message += fmt.Sprintf("\n    - %s", v.String())
+		}
 	}
 	return edm.ErrorModel{
 		ErrorName: InvalidSignatureErrorName,

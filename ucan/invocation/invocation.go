@@ -292,7 +292,7 @@ func Decode(b []byte) (*Invocation, error) {
 // directly when the args have a typed cborgen schema; use InvokeMap when you
 // just want to pass a Go map literal.
 func InvokeMap(
-	issuer ucan.Signer,
+	issuer ucan.Issuer,
 	subject did.DID,
 	command ucan.Command,
 	args map[string]any,
@@ -306,7 +306,7 @@ func InvokeMap(
 // expects, and which encodes as a CBOR map (per the UCAN spec).
 // Pass nil to encode an empty CBOR map.
 func Invoke(
-	issuer ucan.Signer,
+	issuer ucan.Issuer,
 	subject did.DID,
 	command ucan.Command,
 	args cbg.CBORMarshaler,

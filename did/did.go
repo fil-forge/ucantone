@@ -13,6 +13,10 @@ import (
 )
 
 const Prefix = "did:"
+
+// TODO: This should really go in `did/key`, but we use it in `did.Parse` to
+// validate `did:key` DIDs during parsing. We could drop that, but it's a nice
+// check to have.
 const KeyPrefix = Prefix + "key:"
 
 const DIDCore = 0x0d1d
@@ -49,7 +53,7 @@ func (d DID) String() string {
 }
 
 // Method returns the DID method name (e.g. "key", "web") parsed from the
-// scheme. Returns "" for an undefined 
+// scheme. Returns "" for an undefined
 func (d DID) Method() string {
 	rest, ok := strings.CutPrefix(d.str, Prefix)
 	if !ok {
@@ -64,7 +68,7 @@ func (d DID) Method() string {
 // Identifier returns the method-specific identifier — everything after
 // "did:<method>:". Per the DID spec, this segment may itself contain colons
 // (e.g. "did:mailto:web.mail:alice" yields "web.mail:alice"). Returns "" for
-// an undefined 
+// an undefined
 func (d DID) Identifier() string {
 	rest, ok := strings.CutPrefix(d.str, Prefix)
 	if !ok {
@@ -154,6 +158,8 @@ func Parse(str string) (DID, error) {
 	if !strings.HasPrefix(str, Prefix) {
 		return DID{}, fmt.Errorf("must start with 'did:'")
 	}
+
+	// Convenience validation for `did:key` DIDs.
 	if strings.HasPrefix(str, KeyPrefix) {
 		code, _, err := mbase.Decode(str[len(KeyPrefix):])
 		if err != nil {
@@ -163,5 +169,6 @@ func Parse(str string) (DID, error) {
 			return DID{}, fmt.Errorf("not Base58BTC encoded")
 		}
 	}
+
 	return DID{str}, nil
 }

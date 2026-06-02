@@ -8,9 +8,8 @@ import (
 	"github.com/fil-forge/ucantone/did"
 	"github.com/fil-forge/ucantone/ipld"
 	"github.com/fil-forge/ucantone/ipld/datamodel"
-	"github.com/fil-forge/ucantone/principal"
-	"github.com/fil-forge/ucantone/principal/ed25519"
 	"github.com/fil-forge/ucantone/ucan"
+	"github.com/fil-forge/ucantone/verification/multikey/ed25519"
 	"github.com/ipfs/go-cid"
 	"github.com/multiformats/go-multihash"
 	"github.com/stretchr/testify/require"
@@ -76,12 +75,12 @@ func RandomDigest(t *testing.T) multihash.Multihash {
 	return RandomCID(t).Hash()
 }
 
-func RandomSigner(t *testing.T) principal.Signer {
+func RandomIssuer(t *testing.T) ucan.Issuer {
 	t.Helper()
-	return Must(ed25519.Generate())(t)
+	return Must(ed25519.GenerateIssuer())(t)
 }
 
 func RandomDID(t *testing.T) did.DID {
 	t.Helper()
-	return RandomSigner(t).DID()
+	return RandomIssuer(t).DID()
 }

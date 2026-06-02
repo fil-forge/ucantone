@@ -12,12 +12,12 @@ import (
 	"github.com/fil-forge/ucantone/examples/types"
 	"github.com/fil-forge/ucantone/execution"
 	"github.com/fil-forge/ucantone/ipld/datamodel"
-	"github.com/fil-forge/ucantone/principal/ed25519"
 	"github.com/fil-forge/ucantone/server"
 	"github.com/fil-forge/ucantone/testutil"
 	"github.com/fil-forge/ucantone/ucan/command"
 	"github.com/fil-forge/ucantone/ucan/delegation"
 	"github.com/fil-forge/ucantone/ucan/invocation"
+	"github.com/fil-forge/ucantone/verification/multikey/ed25519"
 
 	"github.com/fil-forge/ucantone/binding"
 )
@@ -28,7 +28,7 @@ func TestServer(t *testing.T) {
 		panic(err)
 	}
 
-	serviceID, err := ed25519.Generate()
+	serviceID, err := ed25519.GenerateIssuer()
 	if err != nil {
 		panic(err)
 	}
@@ -65,7 +65,7 @@ func TestServer(t *testing.T) {
 
 	// Server is now running and can accept invocations!
 
-	alice, err := ed25519.Generate()
+	alice, err := ed25519.GenerateIssuer()
 	if err != nil {
 		panic(err)
 	}
@@ -115,7 +115,7 @@ func TestServer(t *testing.T) {
 func TestTypedServer(t *testing.T) {
 	echo := binding.Bind[*types.EchoArguments, *types.EchoArguments](command.MustParse("/example/echo"))
 
-	serviceID, err := ed25519.Generate()
+	serviceID, err := ed25519.GenerateIssuer()
 	if err != nil {
 		panic(err)
 	}
@@ -154,7 +154,7 @@ func TestTypedServer(t *testing.T) {
 
 	// Server is now running and can accept invocations!
 
-	alice, err := ed25519.Generate()
+	alice, err := ed25519.GenerateIssuer()
 	if err != nil {
 		panic(err)
 	}
@@ -207,7 +207,7 @@ func TestServerRoundTripper(t *testing.T) {
 		panic(err)
 	}
 
-	serviceID, err := ed25519.Generate()
+	serviceID, err := ed25519.GenerateIssuer()
 	if err != nil {
 		panic(err)
 	}
@@ -227,7 +227,7 @@ func TestServerRoundTripper(t *testing.T) {
 		panic(err)
 	}
 
-	alice, err := ed25519.Generate()
+	alice, err := ed25519.GenerateIssuer()
 	if err != nil {
 		panic(err)
 	}

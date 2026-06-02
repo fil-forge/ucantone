@@ -10,7 +10,6 @@ import (
 	"github.com/fil-forge/ucantone/did"
 	"github.com/fil-forge/ucantone/ipld/codec/dagcbor"
 	"github.com/fil-forge/ucantone/ipld/datamodel"
-	"github.com/fil-forge/ucantone/principal/ed25519"
 	"github.com/fil-forge/ucantone/ucan"
 	"github.com/fil-forge/ucantone/ucan/command"
 	"github.com/fil-forge/ucantone/ucan/delegation"
@@ -23,6 +22,8 @@ import (
 	fdm "github.com/fil-forge/ucantone/validator/internal/fixtures/datamodel"
 	"github.com/fil-forge/ucantone/varsig"
 	"github.com/fil-forge/ucantone/varsig/common"
+	"github.com/fil-forge/ucantone/verification/multikey"
+	"github.com/fil-forge/ucantone/verification/multikey/ed25519"
 	"github.com/ipfs/go-cid"
 	"github.com/multiformats/go-multihash"
 )
@@ -36,10 +37,10 @@ const (
 )
 
 var (
-	alice = must(ed25519.Decode(must(base64.RawStdEncoding.DecodeString(Alice))))
-	bob   = must(ed25519.Decode(must(base64.RawStdEncoding.DecodeString(Bob))))
-	carol = must(ed25519.Decode(must(base64.RawStdEncoding.DecodeString(Carol))))
-	dave  = must(ed25519.Decode(must(base64.RawStdEncoding.DecodeString(Dave))))
+	alice = multikey.KeyIssuer(must(ed25519.Decode(must(base64.RawStdEncoding.DecodeString(Alice)))))
+	bob   = multikey.KeyIssuer(must(ed25519.Decode(must(base64.RawStdEncoding.DecodeString(Bob)))))
+	carol = multikey.KeyIssuer(must(ed25519.Decode(must(base64.RawStdEncoding.DecodeString(Carol)))))
+	dave  = multikey.KeyIssuer(must(ed25519.Decode(must(base64.RawStdEncoding.DecodeString(Dave)))))
 )
 
 var (

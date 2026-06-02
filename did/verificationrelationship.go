@@ -31,7 +31,6 @@ func (vr *VerificationRelationship) All() []VerificationMethod {
 	return vms
 }
 
-// TK: Suspect; this should be a set
 func (vr *VerificationRelationship) Get(i int) URL {
 	return vr.relationshipMethods[i]
 }

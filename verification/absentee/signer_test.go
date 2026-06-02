@@ -4,7 +4,7 @@ import (
 	"testing"
 
 	"github.com/fil-forge/ucantone/did"
-	"github.com/fil-forge/ucantone/principal/absentee"
+	"github.com/fil-forge/ucantone/verification/absentee"
 	"github.com/stretchr/testify/require"
 )
 

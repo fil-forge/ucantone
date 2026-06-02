@@ -29,6 +29,10 @@ func (a Signer) SignatureAlgorithm() varsig.SignatureAlgorithm {
 	return SignatureAlgorithm
 }
 
+func (a Signer) Verifier() ucan.Verifier {
+	panic("absentee signer does not have a verifier")
+}
+
 // From creates a special type of signer that produces an absent signature,
 // which signals that verifier needs to verify authorization interactively.
 func From(id did.DID) Signer {

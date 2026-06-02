@@ -12,7 +12,7 @@ import (
 )
 
 type ExecResponse struct {
-	signer           ucan.Signer
+	issuer           ucan.Issuer
 	task             cid.Cid
 	receipt          ucan.Receipt
 	metadata         ucan.Container
@@ -21,9 +21,9 @@ type ExecResponse struct {
 
 type ResponseOption func(r *ExecResponse) error
 
-func WithSigner(signer ucan.Signer) ResponseOption {
+func WithSigner(issuer ucan.Issuer) ResponseOption {
 	return func(resp *ExecResponse) error {
-		resp.signer = signer
+		resp.issuer = issuer
 		return nil
 	}
 }
@@ -88,7 +88,7 @@ func (r *ExecResponse) Receipt() ucan.Receipt {
 }
 
 func (r *ExecResponse) SetFailure(x error) error {
-	if r.signer == nil {
+	if r.issuer == nil {
 		return fmt.Errorf("cannot issue receipt: missing signer")
 	}
 	var errVal cbg.CBORMarshaler
@@ -104,7 +104,7 @@ func (r *ExecResponse) SetFailure(x error) error {
 			"message": x.Error(),
 		}
 	}
-	rcpt, err := receipt.IssueErr(r.signer, r.task, errVal)
+	rcpt, err := receipt.IssueErr(r.issuer, r.task, errVal)
 	if err != nil {
 		return err
 	}
@@ -125,16 +125,16 @@ func (r *ExecResponse) SetReceipt(receipt ucan.Receipt) error {
 	return nil
 }
 
-func (r *ExecResponse) SetSigner(signer ucan.Signer) error {
-	r.signer = signer
+func (r *ExecResponse) SetIssuer(issuer ucan.Issuer) error {
+	r.issuer = issuer
 	return nil
 }
 
 func (r *ExecResponse) SetSuccess(ok cbg.CBORMarshaler) error {
-	if r.signer == nil {
-		return fmt.Errorf("cannot issue receipt: missing signer")
+	if r.issuer == nil {
+		return fmt.Errorf("cannot issue receipt: missing issuer")
 	}
-	rcpt, err := receipt.IssueOK(r.signer, r.task, ok)
+	rcpt, err := receipt.IssueOK(r.issuer, r.task, ok)
 	if err != nil {
 		return err
 	}

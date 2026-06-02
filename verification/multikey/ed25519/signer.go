@@ -6,9 +6,10 @@ import (
 	"fmt"
 
 	"github.com/fil-forge/ucantone/did"
-	"github.com/fil-forge/ucantone/principal"
-	"github.com/fil-forge/ucantone/principal/ed25519/verifier"
+	"github.com/fil-forge/ucantone/ucan"
 	"github.com/fil-forge/ucantone/varsig"
+	"github.com/fil-forge/ucantone/verification/multikey"
+	"github.com/fil-forge/ucantone/verification/multikey/ed25519/verifier"
 	"github.com/multiformats/go-multibase"
 	"github.com/multiformats/go-varint"
 )
@@ -36,6 +37,14 @@ func Generate() (Signer, error) {
 	return s, nil
 }
 
+func GenerateIssuer() (multikey.Issuer, error) {
+	signer, err := Generate()
+	if err != nil {
+		return nil, fmt.Errorf("generating signer: %w", err)
+	}
+	return multikey.KeyIssuer(signer), nil
+}
+
 // Parse parses a multibase encoded string containing a ed25519 signer
 // multiformat varint (0x1300) + 32 byte ed25519 private key
 func Parse(str string) (Signer, error) {
@@ -44,11 +53,6 @@ func Parse(str string) (Signer, error) {
 		return nil, fmt.Errorf("decoding multibase string: %w", err)
 	}
 	return Decode(bytes)
-}
-
-func Format(signer principal.Signer) string {
-	s, _ := multibase.Encode(multibase.Base64pad, signer.Bytes())
-	return s
 }
 
 // Decode decodes a buffer of an ed25519 signer multiformat varint (0x1300) + 32
@@ -90,7 +94,7 @@ func FromRaw(b []byte) (Signer, error) {
 
 type Signer []byte
 
-var _ principal.Signer = (Signer)(nil)
+var _ multikey.Signer = (Signer)(nil)
 
 func (s Signer) Code() uint64 {
 	return Code
@@ -100,14 +104,14 @@ func (s Signer) SignatureAlgorithm() varsig.SignatureAlgorithm {
 	return SignatureAlgorithm
 }
 
-func (s Signer) Verifier() principal.Verifier {
+func (s Signer) Verifier() ucan.Verifier {
+	return s.verifier()
+}
+
+func (s Signer) verifier() multikey.Verifier {
 	sk := ed25519.NewKeyFromSeed(s[tagSize:])
 	v, _ := verifier.FromRaw(sk.Public().(ed25519.PublicKey))
 	return v
-}
-
-func (s Signer) DID() did.DID {
-	return s.Verifier().DID()
 }
 
 // Bytes returns the private key bytes with multiformat prefix varint.
@@ -125,4 +129,8 @@ func (s Signer) Raw() []byte {
 func (s Signer) Sign(msg []byte) []byte {
 	sk := ed25519.NewKeyFromSeed(s[tagSize:])
 	return ed25519.Sign(sk, msg)
+}
+
+func (s Signer) KeyDID() did.DID {
+	return s.verifier().KeyDID()
 }

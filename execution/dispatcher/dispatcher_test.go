@@ -15,8 +15,8 @@ import (
 )
 
 func TestDispatcher(t *testing.T) {
-	service := testutil.RandomSigner(t)
-	alice := testutil.RandomSigner(t)
+	service := testutil.RandomIssuer(t)
+	alice := testutil.RandomIssuer(t)
 
 	t.Run("dispatches invocations for execution", func(t *testing.T) {
 		executor := dispatcher.New(service)

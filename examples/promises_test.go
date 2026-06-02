@@ -6,29 +6,29 @@ import (
 
 	"github.com/fil-forge/ucantone/examples/types"
 	"github.com/fil-forge/ucantone/ipld/datamodel"
-	"github.com/fil-forge/ucantone/principal/ed25519"
 	"github.com/fil-forge/ucantone/ucan/command"
 	"github.com/fil-forge/ucantone/ucan/delegation"
 	"github.com/fil-forge/ucantone/ucan/invocation"
 	"github.com/fil-forge/ucantone/ucan/promise"
+	"github.com/fil-forge/ucantone/verification/multikey/ed25519"
 
 	"github.com/fil-forge/ucantone/binding"
 )
 
 func TestPromises(t *testing.T) {
 	// Mailer is an email service that can send emails
-	mailer, err := ed25519.Generate()
+	mailer, err := ed25519.GenerateIssuer()
 	if err != nil {
 		panic(err)
 	}
 
-	alice, err := ed25519.Generate()
+	alice, err := ed25519.GenerateIssuer()
 	if err != nil {
 		panic(err)
 	}
 
 	// A list of email addresses
-	mailingList, err := ed25519.Generate()
+	mailingList, err := ed25519.GenerateIssuer()
 	if err != nil {
 		panic(err)
 	}
@@ -92,18 +92,18 @@ func TestTypedPromises(t *testing.T) {
 	emailList := binding.Bind[*types.EmailsListArguments, *datamodel.Map](command.MustParse("/emails/list"))
 
 	// Mailer is an email service that can send emails
-	mailer, err := ed25519.Generate()
+	mailer, err := ed25519.GenerateIssuer()
 	if err != nil {
 		panic(err)
 	}
 
-	alice, err := ed25519.Generate()
+	alice, err := ed25519.GenerateIssuer()
 	if err != nil {
 		panic(err)
 	}
 
 	// A list of email addresses
-	mailingList, err := ed25519.Generate()
+	mailingList, err := ed25519.GenerateIssuer()
 	if err != nil {
 		panic(err)
 	}

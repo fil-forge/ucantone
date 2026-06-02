@@ -11,10 +11,10 @@ import (
 	"github.com/fil-forge/ucantone/client"
 	"github.com/fil-forge/ucantone/examples/types"
 	"github.com/fil-forge/ucantone/execution"
-	"github.com/fil-forge/ucantone/principal/ed25519"
 	"github.com/fil-forge/ucantone/server"
 	"github.com/fil-forge/ucantone/ucan/command"
 	"github.com/fil-forge/ucantone/ucan/invocation"
+	"github.com/fil-forge/ucantone/verification/multikey/ed25519"
 )
 
 // echoCmd declares the /example/echo command once and binds it to the Go types
@@ -32,11 +32,11 @@ var echoCmd = binding.Bind[*types.EchoArguments, *types.EchoArguments](command.M
 // itself as an in-process HTTP transport, so the invocation runs through the
 // real encode/decode/handle/encode/decode cycle without binding a port.
 func TestBindingEndToEnd(t *testing.T) {
-	service, err := ed25519.Generate()
+	service, err := ed25519.GenerateIssuer()
 	if err != nil {
 		t.Fatal(err)
 	}
-	alice, err := ed25519.Generate()
+	alice, err := ed25519.GenerateIssuer()
 	if err != nil {
 		t.Fatal(err)
 	}

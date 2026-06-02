@@ -9,21 +9,20 @@ import (
 
 	"github.com/fil-forge/ucantone/execution"
 	"github.com/fil-forge/ucantone/execution/dispatcher"
-	"github.com/fil-forge/ucantone/principal"
 	"github.com/fil-forge/ucantone/transport"
 	"github.com/fil-forge/ucantone/ucan"
 	"github.com/fil-forge/ucantone/ucan/container"
 )
 
 type HTTPServer struct {
-	id        principal.Signer
+	id        ucan.Issuer
 	executor  *dispatcher.Dispatcher
 	codec     transport.InboundCodec[*http.Request, *http.Response]
 	listeners []EventListener
 }
 
 // NewHTTP creates a new server capable of handling UCAN invocations over HTTP.
-func NewHTTP(id principal.Signer, options ...HTTPOption) *HTTPServer {
+func NewHTTP(id ucan.Issuer, options ...HTTPOption) *HTTPServer {
 	cfg := httpServerConfig{
 		codec: transport.DefaultHTTPInboundCodec,
 	}

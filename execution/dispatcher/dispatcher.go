@@ -4,7 +4,6 @@ import (
 	"fmt"
 
 	"github.com/fil-forge/ucantone/execution"
-	"github.com/fil-forge/ucantone/principal"
 	"github.com/fil-forge/ucantone/ucan"
 	"github.com/fil-forge/ucantone/validator"
 )
@@ -12,7 +11,7 @@ import (
 // Dispatcher executes UCAN invocations by dispatching them to registered
 // handlers.
 type Dispatcher struct {
-	authority         principal.Signer
+	authority         ucan.Issuer
 	handlers          map[ucan.Command]execution.HandlerFunc
 	validationOpts    []validator.Option
 	receiptTimestamps bool
@@ -23,7 +22,7 @@ type Dispatcher struct {
 //
 // The authority is the identity of the local authority, used to verify
 // signatures of delegations signed by it and sign receipts for executed tasks.
-func New(authority principal.Signer, options ...Option) *Dispatcher {
+func New(authority ucan.Issuer, options ...Option) *Dispatcher {
 	cfg := execConfig{}
 	for _, opt := range options {
 		opt(&cfg)

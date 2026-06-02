@@ -4,15 +4,15 @@ import (
 	"crypto/ed25519"
 	"testing"
 
-	"github.com/fil-forge/ucantone/principal/ed25519/verifier"
+	"github.com/fil-forge/ucantone/verification/multikey/ed25519/verifier"
 	"github.com/stretchr/testify/require"
 )
 
-func TestParse(t *testing.T) {
+func TestParseKeyDID(t *testing.T) {
 	str := "did:key:z6MkgZN5cRgWqesJeaZCEs7eKzyQsfpzmhnSEqTL6FZt56Ym"
-	v, err := verifier.Parse(str)
+	v, err := verifier.ParseKeyDID(str)
 	require.NoError(t, err)
-	require.Equal(t, str, v.DID().String())
+	require.Equal(t, str, v.KeyDID().String())
 }
 
 func TestDecode(t *testing.T) {

@@ -5,7 +5,8 @@ import (
 	"crypto/sha256"
 	"testing"
 
-	secp256k1 "github.com/fil-forge/ucantone/principal/secp256k1"
+	"github.com/fil-forge/ucantone/verification/multikey"
+	"github.com/fil-forge/ucantone/verification/multikey/secp256k1"
 	"github.com/stretchr/testify/require"
 	"gitlab.com/yawning/secp256k1-voi/secec"
 )
@@ -14,20 +15,21 @@ func TestGenerateEncodeDecode(t *testing.T) {
 	s0, err := secp256k1.Generate()
 	require.NoError(t, err)
 
-	t.Log(s0.DID().String())
+	t.Log(multikey.FormatVerifier(s0.Verifier().(multikey.Verifier)))
 
 	s1, err := secp256k1.Decode(s0.Bytes())
 	require.NoError(t, err)
 
-	t.Log(s1.DID().String())
-	require.Equal(t, s0.DID(), s1.DID(), "public key mismatch")
+	t.Log(multikey.FormatVerifier(s1.Verifier().(multikey.Verifier)))
+	require.Equal(t, s0, s1, "private key mismatch")
+	require.Equal(t, s0.Verifier(), s1.Verifier(), "public key mismatch")
 }
 
 func TestGenerateFormatParse(t *testing.T) {
 	s0, err := secp256k1.Generate()
 	require.NoError(t, err)
 
-	t.Log(s0.DID().String())
+	t.Log(multikey.FormatVerifier(s0.Verifier().(multikey.Verifier)))
 
 	str := secp256k1.Format(s0)
 	t.Log(str)
@@ -35,8 +37,8 @@ func TestGenerateFormatParse(t *testing.T) {
 	s1, err := secp256k1.Parse(str)
 	require.NoError(t, err)
 
-	t.Log(s1.DID().String())
-	require.Equal(t, s0.DID(), s1.DID(), "public key mismatch")
+	t.Log(multikey.FormatVerifier(s1.Verifier().(multikey.Verifier)))
+	require.Equal(t, s0.Verifier(), s1.Verifier(), "public key mismatch")
 }
 
 func TestVerify(t *testing.T) {

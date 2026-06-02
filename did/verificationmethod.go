@@ -2,6 +2,7 @@ package did
 
 import (
 	"encoding/json"
+	"fmt"
 	"reflect"
 	"strings"
 )
@@ -10,6 +11,10 @@ import (
 // VerificationMethod.
 type VerificationMaterial interface {
 	Type() string
+
+	// String returns a human readable string representation of the material, for
+	// use in logging and error messages.
+	String() string
 }
 
 var vmRegistry = map[string]func() VerificationMaterial{}
@@ -42,6 +47,11 @@ type VerificationMethod struct {
 
 func (v VerificationMethod) Type() string {
 	return v.VerificationMaterial.Type()
+}
+
+func (v VerificationMethod) String() string {
+	return fmt.Sprintf("VerificationMethod{id=%s, type=%s, controller=%s, expires=%v, revoked=%v, material={%s}}",
+		v.ID, v.Type(), v.Controller, v.Expires, v.Revoked, v.VerificationMaterial.String())
 }
 
 func (v VerificationMethod) Equal(other VerificationMethod) bool {
@@ -178,8 +188,14 @@ type MultikeyVerificationMaterial struct {
 	SecretKeyMultibase *string `json:"secretKeyMultibase,omitempty"`
 }
 
+var _ VerificationMaterial = (*MultikeyVerificationMaterial)(nil)
+
 func (m *MultikeyVerificationMaterial) Type() string {
 	return MultikeyVerificationMethodType
+}
+
+func (m *MultikeyVerificationMaterial) String() string {
+	return fmt.Sprintf("%s: publicKeyMultibase=%v, secretKeyMultibase=%v", MultikeyVerificationMethodType, m.PublicKeyMultibase, m.SecretKeyMultibase)
 }
 
 // https://www.w3.org/TR/cid-1.0/#JsonWebKey
@@ -190,8 +206,20 @@ type JsonWebKeyVerificationMaterial struct {
 	SecretKeyJwk *GenericMap `json:"secretKeyJwk,omitempty"`
 }
 
+var _ VerificationMaterial = (*JsonWebKeyVerificationMaterial)(nil)
+
 func (m *JsonWebKeyVerificationMaterial) Type() string {
 	return JsonWebKeyVerificationMethodType
+}
+
+func (m *JsonWebKeyVerificationMaterial) String() string {
+	if m.PublicKeyJwk != nil {
+		return fmt.Sprintf("%s: %v", JsonWebKeyVerificationMethodType, *m.PublicKeyJwk)
+	}
+	if m.SecretKeyJwk != nil {
+		return fmt.Sprintf("%s: <redacted JsonWebKey material>", JsonWebKeyVerificationMethodType)
+	}
+	return fmt.Sprintf("%s: <empty JsonWebKey material>", JsonWebKeyVerificationMethodType)
 }
 
 // JWK is not yet implemented.
@@ -202,15 +230,21 @@ type GenericVerificationMaterial struct {
 	Fields   GenericMap
 }
 
-func (m *GenericVerificationMaterial) Type() string {
-	return m.TypeName
-}
+var _ VerificationMaterial = (*GenericVerificationMaterial)(nil)
 
 func NewGenericVerificationMaterial(typeName string, fields GenericMap) *GenericVerificationMaterial {
 	return &GenericVerificationMaterial{
 		TypeName: typeName,
 		Fields:   fields,
 	}
+}
+
+func (m *GenericVerificationMaterial) Type() string {
+	return m.TypeName
+}
+
+func (m *GenericVerificationMaterial) String() string {
+	return fmt.Sprintf("%s: %v", m.TypeName, m.Fields)
 }
 
 func (m *GenericVerificationMaterial) UnmarshalJSON(b []byte) error {

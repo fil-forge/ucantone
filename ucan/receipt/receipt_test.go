@@ -16,7 +16,7 @@ import (
 )
 
 func TestIssueOK(t *testing.T) {
-	executor := testutil.RandomSigner(t)
+	executor := testutil.RandomIssuer(t)
 	ran := testutil.RandomCID(t)
 
 	ok := cbg.CborInt(42)
@@ -42,7 +42,7 @@ func TestIssueOK(t *testing.T) {
 }
 
 func TestIssueErr(t *testing.T) {
-	executor := testutil.RandomSigner(t)
+	executor := testutil.RandomIssuer(t)
 	ran := testutil.RandomCID(t)
 
 	errVal := cbg.CborInt(7)
@@ -61,7 +61,7 @@ func TestIssueErr(t *testing.T) {
 }
 
 func TestOptions(t *testing.T) {
-	executor := testutil.RandomSigner(t)
+	executor := testutil.RandomIssuer(t)
 	ran := testutil.RandomCID(t)
 
 	t.Run("WithIssuedAt", func(t *testing.T) {
@@ -89,37 +89,12 @@ func TestOptions(t *testing.T) {
 	})
 }
 
-func TestVerifySignature(t *testing.T) {
-	executor := testutil.RandomSigner(t)
-	other := testutil.RandomSigner(t)
-	ran := testutil.RandomCID(t)
-
-	ok := cbg.CborInt(42)
-	rcpt, err := receipt.IssueOK(executor, ran, &ok)
-	require.NoError(t, err)
-
-	decoded, err := receipt.Decode(testutil.Must(receipt.Encode(rcpt))(t))
-	require.NoError(t, err)
-
-	t.Run("correct verifier", func(t *testing.T) {
-		ok, err := receipt.VerifySignature(decoded, executor.Verifier())
-		require.NoError(t, err)
-		require.True(t, ok)
-	})
-
-	t.Run("wrong verifier", func(t *testing.T) {
-		ok, err := receipt.VerifySignature(decoded, other.Verifier())
-		require.NoError(t, err)
-		require.False(t, ok)
-	})
-}
-
 // TestNotInvocation asserts a Receipt does NOT satisfy ucan.Invocation. The
 // wire format is still an invocation, but the Go type is deliberately its own
 // thing so callers can't accidentally pass a receipt where an invocation is
 // expected.
 func TestNotInvocation(t *testing.T) {
-	executor := testutil.RandomSigner(t)
+	executor := testutil.RandomIssuer(t)
 	ran := testutil.RandomCID(t)
 	ok := cbg.CborInt(1)
 	rcpt, err := receipt.IssueOK(executor, ran, &ok)
@@ -137,7 +112,7 @@ func TestNotInvocation(t *testing.T) {
 // recoverable from the invocation's args. If the receipt encoding ever drifts
 // from the invocation encoding, this test fails.
 func TestWireFormatIsInvocation(t *testing.T) {
-	executor := testutil.RandomSigner(t)
+	executor := testutil.RandomIssuer(t)
 	ran := testutil.RandomCID(t)
 	ok := cbg.CborInt(42)
 
@@ -170,8 +145,7 @@ func TestWireFormatIsInvocation(t *testing.T) {
 	require.Equal(t, rcpt.SignedBytes(), inv.SignedBytes())
 
 	// The bytes verify as a signed invocation — not merely parse as one.
-	verified, err := token.VerifySignature(inv, executor.Verifier())
-	require.NoError(t, err)
+	verified := token.VerifySignature(inv, executor.Verifier())
 	require.True(t, verified, "receipt bytes must verify through the invocation path")
 
 	// Ran/Out are carried in the invocation's args, value intact.

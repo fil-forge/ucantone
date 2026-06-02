@@ -15,8 +15,8 @@ import (
 )
 
 func TestHTTPClient(t *testing.T) {
-	service := testutil.RandomSigner(t)
-	alice := testutil.RandomSigner(t)
+	service := testutil.RandomIssuer(t)
+	alice := testutil.RandomIssuer(t)
 
 	t.Run("invocation execution round trip", func(t *testing.T) {
 		server := server.NewHTTP(service)

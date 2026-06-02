@@ -6,6 +6,8 @@ import (
 	"github.com/fil-forge/ucantone/did"
 )
 
+const Prefix = did.KeyPrefix
+
 var Resolve did.ResolverFunc = resolve
 
 func resolve(_ context.Context, d did.DID) (did.Document, error) {

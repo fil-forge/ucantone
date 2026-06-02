@@ -16,6 +16,10 @@ func (m *TestMaterial) Type() string {
 	return "TestType"
 }
 
+func (m *TestMaterial) String() string {
+	return "TestType: " + m.Foo
+}
+
 func TestVerificationMethod_MarshalJSON(t *testing.T) {
 	keyID, err := did.ParseURL("did:example:123#key-1")
 	require.NoError(t, err)

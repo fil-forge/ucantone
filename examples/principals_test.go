@@ -6,8 +6,8 @@ import (
 	"testing"
 
 	"github.com/fil-forge/ucantone/did"
-	"github.com/fil-forge/ucantone/principal/ed25519"
-	"github.com/fil-forge/ucantone/principal/signer"
+	"github.com/fil-forge/ucantone/verification/multikey"
+	"github.com/fil-forge/ucantone/verification/multikey/ed25519"
 )
 
 func TestParseDIDKey(t *testing.T) {
@@ -27,7 +27,7 @@ func TestParseDIDWeb(t *testing.T) {
 }
 
 func TestGenerateDIDKey(t *testing.T) {
-	principal, err := ed25519.Generate()
+	principal, err := ed25519.GenerateIssuer()
 	if err != nil {
 		panic(err)
 	}
@@ -36,73 +36,37 @@ func TestGenerateDIDKey(t *testing.T) {
 	sig := principal.Sign([]byte{1, 2, 3})
 	fmt.Printf("Signature: 0x%x\n", sig)
 	// they have a private key (use format utility to multibase base64pad encode)
-	fmt.Println("Private Key:", signer.Format(principal))
+	fmt.Println("Private Key:", multikey.FormatSigner(principal))
 
 	// which can be stored and decoded later...
 	principal2, err := ed25519.Decode(principal.Bytes())
 	if err != nil {
 		panic(err)
 	}
-	fmt.Println(principal2.DID())
-}
-
-func TestWrapDIDWeb(t *testing.T) {
-	webPrincipal, err := did.Parse("did:web:service.example.com")
-	if err != nil {
-		panic(err)
-	}
-	signerPrincipal, err := ed25519.Generate()
-	if err != nil {
-		panic(err)
-	}
-	fmt.Println("DID:", signerPrincipal.DID())
-
-	principal, err := signer.Wrap(signerPrincipal, webPrincipal)
-	if err != nil {
-		panic(err)
-	}
-	// DID is did:web:
-	fmt.Println("DID (wrapped):", principal.DID())
-	// ..but this principal is a [principal.Signer]
-	sig := principal.Sign([]byte{1, 2, 3})
-	fmt.Printf("Signature: 0x%x\n", sig)
-	// ...and has a private key (use format utility to multibase base64pad encode)
-	fmt.Println("Private Key:", signer.Format(principal))
-	// ...which can be stored and decoded later
-	signerPrincipal2, err := ed25519.Decode(principal.Bytes())
-	if err != nil {
-		panic(err)
-	}
-	fmt.Println("DID:", signerPrincipal2.DID())
-	// ...and re-wrapped
-	principal2, err := signer.Wrap(signerPrincipal2, webPrincipal)
-	if err != nil {
-		panic(err)
-	}
-	fmt.Println("DID (wrapped):", principal2.DID())
+	fmt.Println("DID:", principal2.KeyDID())
 }
 
 func TestConvertEd25519SignerPrincipalToNativeEd25519PrivateKey(t *testing.T) {
-	// generate ed25519 signer principal
-	principal, err := ed25519.Generate()
+	// generate ed25519 signer signer
+	signer, err := ed25519.Generate()
 	if err != nil {
 		panic(err)
 	}
-	fmt.Println("DID:", principal.DID())
+	fmt.Printf("Key: %s / %s\n", multikey.FormatVerifier(signer.Verifier().(multikey.Verifier)), multikey.FormatSigner(signer))
 
 	// convert to native ed25519 private key
-	sk := cryptoEd25519.NewKeyFromSeed(principal.Raw())
+	sk := cryptoEd25519.NewKeyFromSeed(signer.Raw())
 	sig := cryptoEd25519.Sign(sk, []byte{1, 2, 3})
 	fmt.Printf("Signature: 0x%x\n", sig)
 
-	// convert back to ed25519 signer principal
-	principal2, err := ed25519.FromRaw(sk.Seed())
+	// convert back to ed25519 signer
+	signer2, err := ed25519.FromRaw(sk.Seed())
 	if err != nil {
 		panic(err)
 	}
-	fmt.Println("DID:", principal2.DID())
+	fmt.Printf("Key: %s / %s\n", multikey.FormatVerifier(signer2.Verifier().(multikey.Verifier)), multikey.FormatSigner(signer2))
 
 	// signature should match signature above...since it's the same private key
-	sig = principal2.Sign([]byte{1, 2, 3})
+	sig = signer2.Sign([]byte{1, 2, 3})
 	fmt.Printf("Signature: 0x%x\n", sig)
 }

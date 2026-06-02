@@ -12,7 +12,6 @@ import (
 	"github.com/fil-forge/ucantone/did"
 	"github.com/fil-forge/ucantone/did/key"
 	"github.com/fil-forge/ucantone/ipld/datamodel"
-	"github.com/fil-forge/ucantone/principal/absentee"
 	"github.com/fil-forge/ucantone/testutil"
 	"github.com/fil-forge/ucantone/ucan"
 	"github.com/fil-forge/ucantone/ucan/command"
@@ -23,6 +22,7 @@ import (
 	"github.com/fil-forge/ucantone/validator"
 	verrs "github.com/fil-forge/ucantone/validator/errors"
 	fdm "github.com/fil-forge/ucantone/validator/internal/fixtures/datamodel"
+	"github.com/fil-forge/ucantone/verification/absentee"
 )
 
 const (
@@ -31,11 +31,11 @@ const (
 	now    ucan.UnixTimestamp = 1746748800 // 2025-05-09 (fixed validation time for tests)
 )
 
-// badSigner is a Signer that produces invalid signatures, for testing purposes.
-type badSigner struct{ ucan.Signer }
+// badIssuer is a Signer that produces invalid signatures, for testing purposes.
+type badIssuer struct{ ucan.Issuer }
 
-func (b badSigner) Sign(msg []byte) []byte {
-	sig := b.Signer.Sign(msg)
+func (b badIssuer) Sign(msg []byte) []byte {
+	sig := b.Issuer.Sign(msg)
 	sig[0] ^= 0xff // flip a bit
 	return sig
 }
@@ -44,7 +44,7 @@ func TestValidate(t *testing.T) {
 	crankWidget := testutil.Must(command.Parse("/widget/crank"))(t)
 
 	t.Run("validates with root authority", func(t *testing.T) {
-		subject := testutil.RandomSigner(t)
+		subject := testutil.RandomIssuer(t)
 		inv, err := invocation.Invoke(subject, subject.DID(), crankWidget, datamodel.Map{})
 		require.NoError(t, err)
 
@@ -53,7 +53,7 @@ func TestValidate(t *testing.T) {
 	})
 
 	t.Run("rejects with a bad signature", func(t *testing.T) {
-		subject := badSigner{testutil.RandomSigner(t)}
+		subject := badIssuer{testutil.RandomIssuer(t)}
 		inv, err := invocation.Invoke(subject, subject.DID(), crankWidget, datamodel.Map{})
 		require.NoError(t, err)
 
@@ -62,8 +62,8 @@ func TestValidate(t *testing.T) {
 	})
 
 	t.Run("rejects with unauthorized invoker", func(t *testing.T) {
-		subject := testutil.RandomSigner(t)
-		invoker := testutil.RandomSigner(t)
+		subject := testutil.RandomIssuer(t)
+		invoker := testutil.RandomIssuer(t)
 
 		inv, err := invocation.Invoke(subject, invoker.DID(), crankWidget, datamodel.Map{})
 		require.NoError(t, err)
@@ -73,8 +73,8 @@ func TestValidate(t *testing.T) {
 	})
 
 	t.Run("validates with subject → invoker", func(t *testing.T) {
-		subject := testutil.RandomSigner(t)
-		invoker := testutil.RandomSigner(t)
+		subject := testutil.RandomIssuer(t)
+		invoker := testutil.RandomIssuer(t)
 
 		del, err := delegation.Delegate(subject, invoker.DID(), subject.DID(), crankWidget)
 		require.NoError(t, err)
@@ -101,7 +101,7 @@ func TestValidate(t *testing.T) {
 	})
 
 	t.Run("rejects an expired invocation", func(t *testing.T) {
-		subject := testutil.RandomSigner(t)
+		subject := testutil.RandomIssuer(t)
 		inv, err := invocation.Invoke(subject, subject.DID(), crankWidget, datamodel.Map{},
 			invocation.WithExpiration(past),
 		)
@@ -112,7 +112,7 @@ func TestValidate(t *testing.T) {
 	})
 
 	t.Run("accepts an invocation with a future expiry", func(t *testing.T) {
-		subject := testutil.RandomSigner(t)
+		subject := testutil.RandomIssuer(t)
 		inv, err := invocation.Invoke(subject, subject.DID(), crankWidget, datamodel.Map{},
 			invocation.WithExpiration(future),
 		)
@@ -123,8 +123,8 @@ func TestValidate(t *testing.T) {
 	})
 
 	t.Run("rejects a proof that is not yet valid", func(t *testing.T) {
-		subject := testutil.RandomSigner(t)
-		invoker := testutil.RandomSigner(t)
+		subject := testutil.RandomIssuer(t)
+		invoker := testutil.RandomIssuer(t)
 
 		del, err := delegation.Delegate(subject, invoker.DID(), subject.DID(), crankWidget,
 			delegation.WithNotBefore(future),
@@ -154,9 +154,9 @@ func TestValidate(t *testing.T) {
 	})
 
 	t.Run("rejects when final proof audience does not match invoker", func(t *testing.T) {
-		subject := testutil.RandomSigner(t)
-		invoker := testutil.RandomSigner(t)
-		other := testutil.RandomSigner(t)
+		subject := testutil.RandomIssuer(t)
+		invoker := testutil.RandomIssuer(t)
+		other := testutil.RandomIssuer(t)
 
 		// Delegation goes to other, but invoker invokes
 		del, err := delegation.Delegate(subject, other.DID(), subject.DID(), crankWidget)
@@ -184,10 +184,10 @@ func TestValidate(t *testing.T) {
 	})
 
 	t.Run("rejects a broken mid-chain (issuer mismatch)", func(t *testing.T) {
-		subject := testutil.RandomSigner(t)
-		alice := testutil.RandomSigner(t)
-		bob := testutil.RandomSigner(t)
-		eve := testutil.RandomSigner(t)
+		subject := testutil.RandomIssuer(t)
+		alice := testutil.RandomIssuer(t)
+		bob := testutil.RandomIssuer(t)
+		eve := testutil.RandomIssuer(t)
 
 		del1, err := delegation.Delegate(subject, alice.DID(), subject.DID(), crankWidget)
 		require.NoError(t, err)
@@ -217,9 +217,9 @@ func TestValidate(t *testing.T) {
 	})
 
 	t.Run("validates with subject → alice → bob", func(t *testing.T) {
-		subject := testutil.RandomSigner(t)
-		alice := testutil.RandomSigner(t)
-		bob := testutil.RandomSigner(t)
+		subject := testutil.RandomIssuer(t)
+		alice := testutil.RandomIssuer(t)
+		bob := testutil.RandomIssuer(t)
 
 		del1, err := delegation.Delegate(subject, alice.DID(), subject.DID(), crankWidget)
 		require.NoError(t, err)
@@ -248,8 +248,8 @@ func TestValidate(t *testing.T) {
 	})
 
 	t.Run("rejects when a referenced proof cannot be resolved", func(t *testing.T) {
-		subject := testutil.RandomSigner(t)
-		invoker := testutil.RandomSigner(t)
+		subject := testutil.RandomIssuer(t)
+		invoker := testutil.RandomIssuer(t)
 
 		del, err := delegation.Delegate(subject, invoker.DID(), subject.DID(), crankWidget)
 		require.NoError(t, err)
@@ -270,9 +270,9 @@ func TestValidate(t *testing.T) {
 
 	// https://github.com/ucan-wg/delegation#powerline
 	t.Run("validates with powerline delegation in chain", func(t *testing.T) {
-		subject := testutil.RandomSigner(t)
-		alice := testutil.RandomSigner(t)
-		bob := testutil.RandomSigner(t)
+		subject := testutil.RandomIssuer(t)
+		alice := testutil.RandomIssuer(t)
+		bob := testutil.RandomIssuer(t)
 
 		del1, err := delegation.Delegate(subject, alice.DID(), subject.DID(), crankWidget)
 		require.NoError(t, err)
@@ -305,8 +305,8 @@ func TestValidate(t *testing.T) {
 	// Explicitly disallowed by spec:
 	// https://github.com/ucan-wg/delegation#powerline
 	t.Run("rejects a powerline delegation at root of chain", func(t *testing.T) {
-		subject := testutil.RandomSigner(t)
-		invoker := testutil.RandomSigner(t)
+		subject := testutil.RandomIssuer(t)
+		invoker := testutil.RandomIssuer(t)
 
 		// Root delegation has nil subject — invalid per spec.
 		del, err := delegation.Delegate(subject, invoker.DID(), did.Undef, crankWidget)
@@ -334,8 +334,8 @@ func TestValidate(t *testing.T) {
 	})
 
 	t.Run("accepts a proof with a NotBefore in the past", func(t *testing.T) {
-		subject := testutil.RandomSigner(t)
-		invoker := testutil.RandomSigner(t)
+		subject := testutil.RandomIssuer(t)
+		invoker := testutil.RandomIssuer(t)
 
 		del, err := delegation.Delegate(subject, invoker.DID(), subject.DID(), crankWidget,
 			delegation.WithNotBefore(past),
@@ -365,8 +365,8 @@ func TestValidate(t *testing.T) {
 	})
 
 	t.Run("with a policy on a delegation", func(t *testing.T) {
-		subject := testutil.RandomSigner(t)
-		invoker := testutil.RandomSigner(t)
+		subject := testutil.RandomIssuer(t)
+		invoker := testutil.RandomIssuer(t)
 
 		del, err := delegation.Delegate(subject, invoker.DID(), subject.DID(), crankWidget,
 			delegation.WithPolicyBuilder(policy.Equal(".answer", 42)),
@@ -415,10 +415,10 @@ func TestValidate(t *testing.T) {
 	})
 
 	t.Run("rejects with incorrect subject in chain", func(t *testing.T) {
-		subject := testutil.RandomSigner(t)
-		alice := testutil.RandomSigner(t)
-		bob := testutil.RandomSigner(t)
-		unrelatedSubject := testutil.RandomSigner(t)
+		subject := testutil.RandomIssuer(t)
+		alice := testutil.RandomIssuer(t)
+		bob := testutil.RandomIssuer(t)
+		unrelatedSubject := testutil.RandomIssuer(t)
 
 		del1, err := delegation.Delegate(subject, alice.DID(), subject.DID(), crankWidget)
 		require.NoError(t, err)
@@ -448,9 +448,9 @@ func TestValidate(t *testing.T) {
 	})
 
 	t.Run("with non-standard signature in chain", func(t *testing.T) {
-		subject := testutil.RandomSigner(t)
+		subject := testutil.RandomIssuer(t)
 		alice := absentee.From(testutil.Must(did.Parse("did:example:alice"))(t))
-		bob := testutil.RandomSigner(t)
+		bob := testutil.RandomIssuer(t)
 
 		del1, err := delegation.Delegate(subject, alice.DID(), subject.DID(), crankWidget)
 		require.NoError(t, err)

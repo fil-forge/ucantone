@@ -5,7 +5,6 @@ import (
 	"testing"
 
 	"github.com/fil-forge/ucantone/ipld/datamodel"
-	"github.com/fil-forge/ucantone/principal/secp256k1"
 	"github.com/fil-forge/ucantone/testutil"
 	hdm "github.com/fil-forge/ucantone/testutil/datamodel"
 	"github.com/fil-forge/ucantone/ucan"
@@ -13,13 +12,14 @@ import (
 	"github.com/fil-forge/ucantone/ucan/invocation"
 	"github.com/fil-forge/ucantone/ucan/receipt"
 	"github.com/fil-forge/ucantone/ucan/token"
+	"github.com/fil-forge/ucantone/verification/multikey/secp256k1"
 	"github.com/stretchr/testify/require"
 	cbg "github.com/whyrusleeping/cbor-gen"
 )
 
 func TestInvoke(t *testing.T) {
 	t.Run("minimal", func(t *testing.T) {
-		issuer := testutil.RandomSigner(t)
+		issuer := testutil.RandomIssuer(t)
 		subject := testutil.RandomDID(t)
 		command := testutil.Must(command.Parse("/test/invoke"))(t)
 		arguments := datamodel.Map{}
@@ -43,7 +43,7 @@ func TestInvoke(t *testing.T) {
 	})
 
 	t.Run("undefined command", func(t *testing.T) {
-		issuer := testutil.RandomSigner(t)
+		issuer := testutil.RandomIssuer(t)
 		subject := testutil.RandomDID(t)
 		arguments := datamodel.Map{}
 
@@ -54,7 +54,7 @@ func TestInvoke(t *testing.T) {
 	})
 
 	t.Run("no nonce", func(t *testing.T) {
-		issuer := testutil.RandomSigner(t)
+		issuer := testutil.RandomIssuer(t)
 		subject := testutil.RandomDID(t)
 		command := testutil.Must(command.Parse("/test/invoke"))(t)
 		arguments := datamodel.Map{}
@@ -73,7 +73,7 @@ func TestInvoke(t *testing.T) {
 	})
 
 	t.Run("custom nonce", func(t *testing.T) {
-		issuer := testutil.RandomSigner(t)
+		issuer := testutil.RandomIssuer(t)
 		subject := testutil.RandomDID(t)
 		command := testutil.Must(command.Parse("/test/invoke"))(t)
 		arguments := datamodel.Map{}
@@ -92,7 +92,7 @@ func TestInvoke(t *testing.T) {
 	})
 
 	t.Run("no expiration", func(t *testing.T) {
-		issuer := testutil.RandomSigner(t)
+		issuer := testutil.RandomIssuer(t)
 		subject := testutil.RandomDID(t)
 		command := testutil.Must(command.Parse("/test/invoke"))(t)
 		arguments := datamodel.Map{}
@@ -111,7 +111,7 @@ func TestInvoke(t *testing.T) {
 	})
 
 	t.Run("custom expiration", func(t *testing.T) {
-		issuer := testutil.RandomSigner(t)
+		issuer := testutil.RandomIssuer(t)
 		subject := testutil.RandomDID(t)
 		command := testutil.Must(command.Parse("/test/invoke"))(t)
 		arguments := datamodel.Map{}
@@ -130,7 +130,7 @@ func TestInvoke(t *testing.T) {
 	})
 
 	t.Run("custom audience", func(t *testing.T) {
-		issuer := testutil.RandomSigner(t)
+		issuer := testutil.RandomIssuer(t)
 		subject := testutil.RandomDID(t)
 		command := testutil.Must(command.Parse("/test/invoke"))(t)
 		arguments := datamodel.Map{}
@@ -149,7 +149,7 @@ func TestInvoke(t *testing.T) {
 	})
 
 	t.Run("custom auguments", func(t *testing.T) {
-		issuer := testutil.RandomSigner(t)
+		issuer := testutil.RandomIssuer(t)
 		subject := testutil.RandomDID(t)
 		command := testutil.Must(command.Parse("/test/invoke"))(t)
 		arguments := testutil.RandomArgs(t)
@@ -170,7 +170,7 @@ func TestInvoke(t *testing.T) {
 	})
 
 	t.Run("secp256k1", func(t *testing.T) {
-		issuer := testutil.Must(secp256k1.Generate())(t)
+		issuer := testutil.Must(secp256k1.GenerateIssuer())(t)
 		subject := testutil.RandomDID(t)
 		command := testutil.Must(command.Parse("/test/invoke"))(t)
 		arguments := datamodel.Map{}
@@ -184,8 +184,7 @@ func TestInvoke(t *testing.T) {
 		decoded, err := invocation.Decode(encoded)
 		require.NoError(t, err)
 
-		ok, err := token.VerifySignature(decoded, issuer.Verifier())
-		require.NoError(t, err)
+		ok := token.VerifySignature(decoded, issuer.Verifier())
 		require.True(t, ok)
 	})
 }
@@ -196,7 +195,7 @@ func TestInvoke(t *testing.T) {
 // would fail any time the decoded map's key ordering differs from our
 // canonical re-encode (which is the latent risk Raw eliminates).
 func TestArgsBytesRoundTrip(t *testing.T) {
-	issuer := testutil.RandomSigner(t)
+	issuer := testutil.RandomIssuer(t)
 	subject := testutil.RandomDID(t)
 	command := testutil.Must(command.Parse("/test/invoke"))(t)
 	arguments := testutil.RandomArgs(t)
@@ -224,15 +223,14 @@ func TestArgsBytesRoundTrip(t *testing.T) {
 
 	// 3. Signature verification on the decoded invocation must succeed
 	//    (this exercises the Raw-bytes path through VerifySignature).
-	ok, err := token.VerifySignature(decoded, issuer.Verifier())
-	require.NoError(t, err)
+	ok := token.VerifySignature(decoded, issuer.Verifier())
 	require.True(t, ok, "signature must verify after decode/re-encode")
 }
 
 // TestInvokeMap exercises the map-literal convenience path and confirms it
 // produces a decodable invocation byte-equivalent to the typed-args path.
 func TestInvokeMap(t *testing.T) {
-	issuer := testutil.RandomSigner(t)
+	issuer := testutil.RandomIssuer(t)
 	subject := testutil.RandomDID(t)
 	command := testutil.Must(command.Parse("/test/invoke"))(t)
 
@@ -251,7 +249,7 @@ func TestInvokeMap(t *testing.T) {
 // must encode as a CBOR map. A typed value that encodes as a non-map (e.g.
 // a CBOR integer) must be rejected at the constructor.
 func TestInvokeRejectsNonMapArgs(t *testing.T) {
-	issuer := testutil.RandomSigner(t)
+	issuer := testutil.RandomIssuer(t)
 	subject := testutil.RandomDID(t)
 	command := testutil.Must(command.Parse("/test/invoke"))(t)
 
@@ -267,7 +265,7 @@ func TestInvokeRejectsNonMapArgs(t *testing.T) {
 // with any other command MUST NOT decode as a receipt. This pins the
 // boundary so receipt.Decode can't silently accept arbitrary invocations.
 func TestNotAReceipt(t *testing.T) {
-	issuer := testutil.RandomSigner(t)
+	issuer := testutil.RandomIssuer(t)
 	subject := testutil.RandomDID(t)
 	command := testutil.Must(command.Parse("/test/invoke"))(t)
 

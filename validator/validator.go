@@ -10,15 +10,15 @@ import (
 
 	"github.com/fil-forge/ucantone/did"
 	"github.com/fil-forge/ucantone/ipld/datamodel"
-	_ "github.com/fil-forge/ucantone/principal/ed25519/verifier"
-	_ "github.com/fil-forge/ucantone/principal/secp256k1/verifier"
-	"github.com/fil-forge/ucantone/principal/verifier"
 	"github.com/fil-forge/ucantone/ucan"
 	"github.com/fil-forge/ucantone/ucan/token"
 	verrs "github.com/fil-forge/ucantone/validator/errors"
 	"github.com/fil-forge/ucantone/varsig/algorithm/ecdsa"
 	"github.com/fil-forge/ucantone/varsig/algorithm/eddsa"
 	"github.com/fil-forge/ucantone/varsig/algorithm/nonstandard"
+	"github.com/fil-forge/ucantone/verification/multikey"
+	_ "github.com/fil-forge/ucantone/verification/multikey/ed25519/verifier"
+	_ "github.com/fil-forge/ucantone/verification/multikey/secp256k1/verifier"
 	"github.com/ipfs/go-cid"
 )
 
@@ -148,51 +148,13 @@ func verifyTokenSignature(ctx context.Context, tok ucan.Token, cfg validationCon
 		}
 	}
 
-	verifier := NewMultiVerifier(tok.Issuer(), vs)
-
-	ok, err := token.VerifySignature(tok, verifier)
-	if err != nil {
-		return err
-	}
-	if !ok {
-		return verrs.NewInvalidSignatureError(tok, verifier)
-	}
-	return nil
-}
-
-// MultiVerifier is a [ucan.Verifier] that tries multiple underlying verifiers
-// until one works.
-//
-// In most of the DID ecosystem, we'd know the public key that was signed with,
-// and we'd pick that one. But in the UCAN/Varsig ecosystem, the specific key
-// isn't specified. Therefore, we try all of the keys until we find one that
-// works. (Typically there's only one key anyhow.)
-type MultiVerifier struct {
-	did       did.DID
-	verifiers []ucan.Verifier
-}
-
-var _ ucan.Verifier = (*MultiVerifier)(nil)
-
-func NewMultiVerifier(did did.DID, verifiers []ucan.Verifier) *MultiVerifier {
-	return &MultiVerifier{
-		did:       did,
-		verifiers: verifiers,
-	}
-}
-
-func (mv *MultiVerifier) DID() did.DID {
-	return mv.did
-}
-
-func (mv *MultiVerifier) Verify(message []byte, sig []byte) bool {
-	for _, v := range mv.verifiers {
-		ok := v.Verify(message, sig)
-		if ok {
-			return true
+	for _, v := range vs {
+		if token.VerifySignature(tok, v) {
+			return nil
 		}
 	}
-	return false
+
+	return verrs.NewInvalidSignatureError(tok, vs)
 }
 
 func capabilityFromProofChain(ctx context.Context, inv ucan.Invocation, cfg validationConfig) (Capability, error) {
@@ -281,7 +243,7 @@ func DeriveMultikeyVerifier(vm did.VerificationMethod) (ucan.Verifier, error) {
 		return nil, fmt.Errorf("MultikeyVerificationMaterial missing PublicKeyMultibase")
 	}
 
-	return verifier.FromMultikey(*mkVerMat.PublicKeyMultibase)
+	return multikey.Parse(*mkVerMat.PublicKeyMultibase)
 }
 
 // FailNonStandardSignatureVerification is a [NonStandardSignatureVerifierFunc]

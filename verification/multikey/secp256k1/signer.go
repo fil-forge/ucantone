@@ -6,9 +6,10 @@ import (
 	"fmt"
 
 	"github.com/fil-forge/ucantone/did"
-	"github.com/fil-forge/ucantone/principal"
-	"github.com/fil-forge/ucantone/principal/secp256k1/verifier"
+	"github.com/fil-forge/ucantone/ucan"
 	"github.com/fil-forge/ucantone/varsig"
+	"github.com/fil-forge/ucantone/verification/multikey"
+	"github.com/fil-forge/ucantone/verification/multikey/secp256k1/verifier"
 	"github.com/multiformats/go-multibase"
 	"github.com/multiformats/go-varint"
 	"gitlab.com/yawning/secp256k1-voi/secec"
@@ -35,6 +36,14 @@ func Generate() (Signer, error) {
 	return s, nil
 }
 
+func GenerateIssuer() (multikey.Issuer, error) {
+	signer, err := Generate()
+	if err != nil {
+		return nil, fmt.Errorf("generating signer: %w", err)
+	}
+	return multikey.KeyIssuer(signer), nil
+}
+
 // Parse parses a multibase encoded string containing a secp256k1 signer
 // multiformat varint (0x1301) +  byte secp256k1 raw scalar value.
 func Parse(str string) (Signer, error) {
@@ -45,7 +54,7 @@ func Parse(str string) (Signer, error) {
 	return Decode(bytes)
 }
 
-func Format(signer principal.Signer) string {
+func Format(signer multikey.Signer) string {
 	s, _ := multibase.Encode(multibase.Base64pad, signer.Bytes())
 	return s
 }
@@ -90,7 +99,7 @@ func FromRaw(b []byte) (Signer, error) {
 
 type Signer []byte
 
-var _ principal.Signer = (Signer)(nil)
+var _ multikey.Signer = (Signer)(nil)
 
 func (s Signer) Code() uint64 {
 	return Code
@@ -100,14 +109,14 @@ func (s Signer) SignatureAlgorithm() varsig.SignatureAlgorithm {
 	return SignatureAlgorithm
 }
 
-func (s Signer) Verifier() principal.Verifier {
+func (s Signer) Verifier() ucan.Verifier {
+	return s.verifier()
+}
+
+func (s Signer) verifier() multikey.Verifier {
 	sk, _ := secec.NewPrivateKey(s[tagSize:])
 	v, _ := verifier.FromRaw(sk.PublicKey().CompressedBytes())
 	return v
-}
-
-func (s Signer) DID() did.DID {
-	return s.Verifier().DID()
 }
 
 // Bytes returns the private key bytes with multiformat prefix varint.
@@ -136,4 +145,8 @@ func (s Signer) Sign(msg []byte) []byte {
 		},
 	)
 	return sig
+}
+
+func (s Signer) KeyDID() did.DID {
+	return s.verifier().KeyDID()
 }
