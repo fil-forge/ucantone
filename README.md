@@ -45,10 +45,10 @@ See examples in [delegations_test.go](./examples/delegations_test.go)
 
 ```go
 dlg, err = delegation.Delegate(
-  alice,           // issuer
-  bob,             // audience (receiver)
-  mailer,          // subject
-  "/message/send", // command
+  alice,                              // issuer
+  bob,                                // audience (receiver)
+  mailer,                             // subject
+  command.MustParse("/message/send"), // command
   // policy (alice delegates bob capability to use the email service, but only
   // allows bob to send to example.com email addresses)
   delegation.WithPolicyBuilder(
@@ -65,8 +65,8 @@ See examples in [invocations_test.go](./examples/invocations_test.go)
 inv, err := invocation.Invoke(
   alice,
   mailer,
-  "/message/send",
-  ipld.Map{
+  command.MustParse("/message/send"),
+  datamodel.Map{
     "from":    "alice@example.com",
     "to":      "bob@example.com",
     "message": "Hello Bob!",
@@ -75,22 +75,23 @@ inv, err := invocation.Invoke(
 )
 ```
 
-#### Capability definition
+#### Command definition
 
-See examples in [capability_definition_test.go](./examples/capability_definition_test.go)
+See examples in [command_definition_test.go](./examples/command_definition_test.go)
 
 ```go
+// Note: must be CBOR marshalable
 type MessageSendArguments struct {
-	To      []string
-	Message string
+	To      []string `cborgen:"to"`
+	Message string `cborgen:"message"`
 }
 
-messageSend, err := capability.New(
-  "/message/send",
-  capability.WithPolicyBuilder(
-    policy.NotEqual(".to", []string{}),
-  ),
-)
+type MessageSendOK struct {
+  Delivered bool `cborgen:"delivered"`
+}
+
+cmd := command.MustParse("/message/send")
+messageSend := binding.Bind[*MessageSendArguments, *MessageSendOK](cmd)
 
 // delegate the capability
 dlg, err := messageSend.Delegate(mailer, alice, mailer)
@@ -99,13 +100,16 @@ dlg, err := messageSend.Delegate(mailer, alice, mailer)
 invocation, err := messageSend.Invoke(
   alice,
   mailer,
-  ipld.Map{
-		"to":      []string{"bob@example.com"},
-		"subject": "Hello!",
-		"message": "Hello Bob, How do you do?",
-	},
+  &MessageSendArguments{
+    To: []string{"bob@example.com"},
+    Message: "Hello Bob, How do you do?",
+  }
   invocation.WithProofs(dlg.Link()),
 )
+
+// later, after execution:
+ok, err := messageSend.Unpack(receipt)
+fmt.Println(ok.Delivered)
 ```
 
 #### Container
@@ -155,7 +159,7 @@ inv, err := invocation.Invoke(
   alice,
   serviceID,
   echo,
-  ipld.Map{"message": "Hello, UCAN!"},
+  datamodel.Map{"message": "Hello, UCAN!"},
   invocation.WithProofs(dlg.Link()),
 )
 

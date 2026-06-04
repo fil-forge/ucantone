@@ -1,7 +1,6 @@
 package examples
 
 import (
-	"bytes"
 	"context"
 	"fmt"
 	"net"
@@ -187,17 +186,11 @@ func TestTypedServer(t *testing.T) {
 		panic(err)
 	}
 
-	if out := resp.Receipt().Out(); out.IsOK() {
-		ok, _ := out.Unpack()
-		args := types.EchoArguments{}
-		if err := args.UnmarshalCBOR(bytes.NewReader(ok)); err != nil {
-			panic(err)
-		}
-		fmt.Printf("Echo response: %+v\n", args)
-	} else {
-		_, errBytes := out.Unpack()
-		fmt.Printf("Invocation failed: %v\n", testutil.ResultMap(t, errBytes))
+	ok, err := echo.Unpack(resp.Receipt())
+	if err != nil {
+		panic(err)
 	}
+	fmt.Printf("Echo response: %+v\n", ok)
 
 	err = httpSrv.Shutdown(context.Background())
 	if err != nil {
