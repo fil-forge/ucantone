@@ -1,6 +1,8 @@
 package validator
 
-import "github.com/fil-forge/ucantone/ucan"
+import (
+	"github.com/fil-forge/ucantone/ucan"
+)
 
 type validationConfig struct {
 	resolveProof               ProofResolverFunc
@@ -8,6 +10,19 @@ type validationConfig struct {
 	validationTime             ucan.UnixTimestamp
 	verifyNonStandardSignature NonStandardSignatureVerifierFunc
 	metadata                   ucan.Container
+}
+
+func makeCfg(options ...Option) validationConfig {
+	cfg := validationConfig{
+		resolveProof:               ProofUnavailable,
+		resolveDIDVerifier:         ResolveDIDKeyVerifier,
+		validationTime:             ucan.Now(),
+		verifyNonStandardSignature: FailNonStandardSignatureVerification,
+	}
+	for _, opt := range options {
+		opt(&cfg)
+	}
+	return cfg
 }
 
 // Option is an option configuring the validator.
