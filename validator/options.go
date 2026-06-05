@@ -3,11 +3,10 @@ package validator
 import "github.com/fil-forge/ucantone/ucan"
 
 type validationConfig struct {
-	resolveProof               ProofResolverFunc
-	resolveDIDVerifier         DIDVerifierResolverFunc
-	validationTime             ucan.UnixTimestamp
-	verifyNonStandardSignature NonStandardSignatureVerifierFunc
-	metadata                   ucan.Container
+	resolveProof       ProofResolverFunc
+	resolveDIDVerifier DIDVerifierResolverFunc
+	validationTime     ucan.UnixTimestamp
+	metadata           ucan.Container
 }
 
 // Option is an option configuring the validator.
@@ -41,14 +40,6 @@ func WithDIDVerifierResolvers(resolvers VerifierResolverMap) Option {
 func WithValidationTime(now ucan.UnixTimestamp) Option {
 	return func(vc *validationConfig) {
 		vc.validationTime = now
-	}
-}
-
-// WithNonStandardSignatureVerifier sets the function to be used for verifying
-// non-standard signature algorithms.
-func WithNonStandardSignatureVerifier(verifyNonStandardSignature NonStandardSignatureVerifierFunc) Option {
-	return func(vc *validationConfig) {
-		vc.verifyNonStandardSignature = verifyNonStandardSignature
 	}
 }
 

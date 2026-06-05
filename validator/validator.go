@@ -17,7 +17,6 @@ import (
 	"github.com/fil-forge/ucantone/ucan"
 	"github.com/fil-forge/ucantone/ucan/token"
 	verrs "github.com/fil-forge/ucantone/validator/errors"
-	"github.com/fil-forge/ucantone/varsig/algorithm/nonstandard"
 	"github.com/ipfs/go-cid"
 )
 
@@ -31,10 +30,9 @@ func ValidateInvocation(
 	options ...Option,
 ) error {
 	cfg := validationConfig{
-		resolveProof:               ProofUnavailable,
-		resolveDIDVerifier:         ResolveDIDKeyVerifier,
-		validationTime:             ucan.UnixTimestamp(time.Now().Unix()),
-		verifyNonStandardSignature: FailNonStandardSignatureVerification,
+		resolveProof:       ProofUnavailable,
+		resolveDIDVerifier: ResolveDIDKeyVerifier,
+		validationTime:     ucan.UnixTimestamp(time.Now().Unix()),
 	}
 	for _, opt := range options {
 		opt(&cfg)
@@ -106,10 +104,6 @@ func ValidateToken(ctx context.Context, tok ucan.Token, cfg validationConfig) er
 
 // verifyTokenSignature verifies the token was signed by the passed verifier.
 func verifyTokenSignature(ctx context.Context, tok ucan.Token, cfg validationConfig) error {
-	if tok.Signature().Header().SignatureAlgorithm().Code() == nonstandard.Code {
-		return cfg.verifyNonStandardSignature(ctx, tok, cfg.metadata)
-	}
-
 	verifier, err := cfg.resolveDIDVerifier(ctx, tok.Issuer())
 	if err != nil {
 		return err
