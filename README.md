@@ -20,11 +20,11 @@ See examples in [principals_test.go](./examples/principals_test.go)
 
 ```go
 principal, err := did.Parse("did:key:z6MkfBSb2hC6g3UGnqNmWfmGvPdfMorBpT2osm9bk9b4Cyqu")
-fmt.Println("DID:", principal.DID())
+fmt.Println("DID:", principal)
 ```
 
 ```go
-// generate a new ed25519 signer (it is also a principal - has a DID() method)
+// generate a new ed25519 signer
 signerPrincipal, err := ed25519.Generate()
 fmt.Println("DID:", signerPrincipal.DID())
 
