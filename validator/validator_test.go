@@ -528,7 +528,7 @@ func TestValidate(t *testing.T) {
 				inv,
 				validator.WithProofResolver(resolveProof),
 				validator.WithDIDResolver(did.ResolverMap{
-					"key": key.Resolve,
+					"key": key.Resolver,
 					"example": did.ResolverFunc(func(ctx context.Context, d did.DID) (did.Document, error) {
 						require.Fail(t, "shouldn't try to resolve a verifier for a non-standard signature")
 						return did.Document{}, nil
@@ -582,7 +582,7 @@ func expiredKeyResolver(t *testing.T, issuer ucan.Issuer, expires, revoked *did.
 			Expires:    expires,
 			Revoked:    revoked,
 			Type:       did.MultikeyVerificationMethodType,
-			Material:   did.GenericMap{did.MultikeyPublicKeyMultibase: d.Identifier()},
+			Material:   did.GenericMap{did.MultikeyPublicKeyMultibaseProp: d.Identifier()},
 		}
 		if err := doc.VerificationMethods.Add(vm); err != nil {
 			return did.Document{}, err

@@ -9,6 +9,7 @@ import (
 	"github.com/fil-forge/ucantone/ipld"
 	"github.com/fil-forge/ucantone/ipld/datamodel"
 	"github.com/fil-forge/ucantone/ucan"
+	"github.com/fil-forge/ucantone/verification/multikey"
 	"github.com/fil-forge/ucantone/verification/multikey/ed25519"
 	"github.com/ipfs/go-cid"
 	"github.com/multiformats/go-multihash"
@@ -75,17 +76,32 @@ func RandomDigest(t *testing.T) multihash.Multihash {
 	return RandomCID(t).Hash()
 }
 
-func RandomSigner(t *testing.T) ucan.Signer {
+func RandomMultikeySigner(t *testing.T) multikey.Signer {
 	t.Helper()
 	return Must(ed25519.Generate())(t)
 }
 
-func RandomIssuer(t *testing.T) ucan.Issuer {
+func RandomSigner(t *testing.T) ucan.Signer {
+	t.Helper()
+	return RandomMultikeySigner(t)
+}
+
+func RandomMultikeyIssuer(t *testing.T) multikey.Issuer {
 	t.Helper()
 	return Must(ed25519.GenerateIssuer())(t)
 }
 
+func RandomIssuer(t *testing.T) ucan.Issuer {
+	t.Helper()
+	return RandomMultikeyIssuer(t)
+}
+
+func RandomPrincipal(t *testing.T) ucan.Principal {
+	t.Helper()
+	return RandomMultikeyIssuer(t)
+}
+
 func RandomDID(t *testing.T) did.DID {
 	t.Helper()
-	return RandomIssuer(t).DID()
+	return RandomMultikeyIssuer(t).DID()
 }

@@ -6,17 +6,22 @@ import (
 	"github.com/fil-forge/ucantone/did"
 )
 
-const Prefix = did.KeyPrefix
+const Method = "key"
 
-var Resolve did.ResolverFunc = resolve
+var Resolver did.ResolverFunc = resolve
 
+// https://w3c-ccg.github.io/did-key-spec/#read
 func resolve(_ context.Context, d did.DID) (did.Document, error) {
+	if err := did.ValidateMethod(d, Method); err != nil {
+		return did.Document{}, err
+	}
+
 	doc := did.NewDocument(d)
 	vm := did.VerificationMethod{
 		ID:         doc.Fragment(d.Identifier()),
 		Controller: d,
 		Type:       did.MultikeyVerificationMethodType,
-		Material:   did.GenericMap{did.MultikeyPublicKeyMultibase: d.Identifier()},
+		Material:   did.GenericMap{did.MultikeyPublicKeyMultibaseProp: d.Identifier()},
 	}
 
 	if err := doc.VerificationMethods.Add(vm); err != nil {

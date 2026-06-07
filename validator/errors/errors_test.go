@@ -10,16 +10,10 @@ import (
 	"github.com/fil-forge/ucantone/ucan/command"
 	"github.com/fil-forge/ucantone/ucan/invocation"
 	verrs "github.com/fil-forge/ucantone/validator/errors"
+	"github.com/fil-forge/ucantone/verification"
 	"github.com/ipfs/go-cid"
 	"github.com/stretchr/testify/require"
 )
-
-type issuer struct {
-	ucan.Signer
-	did did.DID
-}
-
-func (i issuer) DID() did.DID { return i.did }
 
 type token struct {
 	ucan.Token
@@ -31,10 +25,10 @@ func (t token) Link() cid.Cid { return t.link }
 func TestNewInvalidSignatureError(t *testing.T) {
 	crankWidget := testutil.Must(command.Parse("/widget/crank"))(t)
 
-	issuer := issuer{
-		did:    testutil.Must(did.Parse("did:example:123"))(t),
-		Signer: testutil.RandomSigner(t),
-	}
+	issuer := verification.NewIssuer(
+		testutil.Must(did.Parse("did:example:123"))(t),
+		testutil.RandomSigner(t),
+	)
 	tok := token{
 		link: cid.MustParse("bafkqacyaexampletokenlink"),
 		Token: testutil.Must(invocation.Invoke(issuer,
@@ -50,7 +44,7 @@ func TestNewInvalidSignatureError(t *testing.T) {
 		ID:         keyID,
 		Controller: controller,
 		Type:       did.MultikeyVerificationMethodType,
-		Material:   did.GenericMap{did.MultikeyPublicKeyMultibase: "zABC"},
+		Material:   did.GenericMap{did.MultikeyPublicKeyMultibaseProp: "zABC"},
 	}
 
 	t.Run("no rejections", func(t *testing.T) {
@@ -100,7 +94,7 @@ func TestNewInvalidSignatureError(t *testing.T) {
 			ID:         vm2ID,
 			Controller: controller,
 			Type:       did.MultikeyVerificationMethodType,
-			Material:   did.GenericMap{did.MultikeyPublicKeyMultibase: "zDEF"},
+			Material:   did.GenericMap{did.MultikeyPublicKeyMultibaseProp: "zDEF"},
 		}
 		err := verrs.NewInvalidSignatureError(tok, []verrs.VMRejection{
 			{VM: vm, Reason: "expired"},

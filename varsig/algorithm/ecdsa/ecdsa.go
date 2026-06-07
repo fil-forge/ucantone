@@ -51,30 +51,30 @@ func (alg Algorithm) Encode() ([]byte, error) {
 func Decode(input []byte) (algorithm.Algorithm, int, error) {
 	code, n, err := varint.FromUvarint(input)
 	if err != nil {
-		return Algorithm{}, 0, err
+		return nil, 0, err
 	}
 	if code != Code {
-		return Algorithm{}, n, fmt.Errorf("signature code is not Ecdsa: 0x%02x, expected: 0x%02x", code, Code)
+		return nil, n, fmt.Errorf("signature code is not Ecdsa: 0x%02x, expected: 0x%02x", code, Code)
 	}
 	offset := n
 
 	curve, n, err := varint.FromUvarint(input[offset:])
 	if err != nil {
-		return Algorithm{}, 0, err
+		return nil, 0, err
 	}
 	curveCode := multicodec.Code(curve)
 	if curveCode.Tag() != "key" {
-		return Algorithm{}, 0, fmt.Errorf("invalid curve code: 0x%02x (%s, '%s'), expected a multicodec with 'key' tag", curve, curveCode, curveCode.Tag())
+		return nil, 0, fmt.Errorf("invalid curve code: 0x%02x (%s, '%s'), expected a multicodec with 'key' tag", curve, curveCode, curveCode.Tag())
 	}
 	offset += n
 
 	hashAlgo, n, err := varint.FromUvarint(input[offset:])
 	if err != nil {
-		return Algorithm{}, 0, err
+		return nil, 0, err
 	}
 	hashAlgoCode := multicodec.Code(hashAlgo)
 	if hashAlgoCode.Tag() != "multihash" {
-		return Algorithm{}, 0, fmt.Errorf("invalid hash algorithm code: 0x%02x (%s, '%s'), expected a multicodec with 'multihash' tag", hashAlgo, hashAlgoCode, hashAlgoCode.Tag())
+		return nil, 0, fmt.Errorf("invalid hash algorithm code: 0x%02x (%s, '%s'), expected a multicodec with 'multihash' tag", hashAlgo, hashAlgoCode, hashAlgoCode.Tag())
 	}
 	offset += n
 

@@ -1,40 +1,42 @@
 package multikey
 
 import (
+	"context"
 	"fmt"
 
 	"github.com/fil-forge/ucantone/did"
 	"github.com/fil-forge/ucantone/did/key"
 	"github.com/fil-forge/ucantone/ucan"
-	"github.com/fil-forge/ucantone/verification"
 	"github.com/multiformats/go-multibase"
+	"github.com/multiformats/go-multicodec"
 	"github.com/multiformats/go-varint"
 )
 
-func init() {
-	verification.RegisterVerifierFactory(
-		did.MultikeyVerificationMethodType,
-		DeriveVerifier,
-	)
-}
-
 // DeriveVerifier produces a [ucan.Verifier] from Multikey [did.VerificationMaterial].
-func DeriveVerifier(mat did.VerificationMaterial) (ucan.Verifier, error) {
-	pkm, ok := mat[did.MultikeyPublicKeyMultibase].(string)
+func DeriveVerifier(_ context.Context, mat did.VerificationMaterial) (ucan.Verifier, error) {
+	pkm, ok := mat[did.MultikeyPublicKeyMultibaseProp].(string)
 	if !ok {
-		return nil, fmt.Errorf("Multikey verification method missing %s", did.MultikeyPublicKeyMultibase)
+		return nil, fmt.Errorf("Multikey verification method missing %s", did.MultikeyPublicKeyMultibaseProp)
 	}
 	return Parse(pkm)
+}
+
+func DeriveVerificationMethod(id did.URL, v Verifier) did.VerificationMethod {
+	return did.VerificationMethod{
+		ID:       id,
+		Type:     did.MultikeyVerificationMethodType,
+		Material: did.GenericMap{did.MultikeyPublicKeyMultibaseProp: FormatVerifier(v)},
+	}
 }
 
 // Decoder decodes multiformat-tagged public key bytes into a Verifier.
 type Decoder func([]byte) (Verifier, error)
 
-var decoders = map[uint64]Decoder{}
+var decoders = map[multicodec.Code]Decoder{}
 
 // Register registers a [Decoder] for a given Multicodec code. The code should
 // be the Multicodec code tagged `key` in the multicodec table.
-func Register(code uint64, d Decoder) {
+func Register(code multicodec.Code, d Decoder) {
 	decoders[code] = d
 }
 
@@ -50,9 +52,9 @@ func Parse(mk string) (Verifier, error) {
 		return nil, fmt.Errorf("reading uvarint: %w", err)
 	}
 
-	d, ok := decoders[keyTypeCode]
+	d, ok := decoders[multicodec.Code(keyTypeCode)]
 	if !ok {
-		return nil, fmt.Errorf("no decoder registered for key type code: 0x%x", keyTypeCode)
+		return nil, fmt.Errorf("no decoder registered for key type code: %s [0x%02x]", multicodec.Code(keyTypeCode), keyTypeCode)
 	}
 	return d(bytes)
 }
@@ -62,18 +64,33 @@ func Parse(mk string) (Verifier, error) {
 type Signer interface {
 	ucan.Signer
 
+	Code() multicodec.Code
+
 	// Bytes returns the private key bytes with multiformats prefix varint.
 	Bytes() []byte
+
 	// Raw returns the bytes of the private key without multiformats tags.
 	Raw() []byte
+
+	// PrivateKey returns the private key in whatever format the underlying
+	// implementation uses. Where possible, this should be a type that
+	// ["crypto/x509".MarshalPKCS8PrivateKey] supports.
+	PrivateKey() any
+
+	// PublicKey returns the public key in whatever format the underlying
+	// implementation uses. Where possible, this should be a type that
+	// ["crypto/x509".MarshalPKIXPublicKey] supports.
+	PublicKey() any
 
 	// KeyDID is a convenience for `Verifier().KeyDID()`.
 	KeyDID() did.DID
 }
 
+// Issuer is a [ucan.Issuer] whose signer is specifically a multikey [Signer].
 type Issuer interface {
 	ucan.Principal
 	Signer
+	String() string
 }
 
 // Verifier is a multikey verifier. It contains the public key bytes and can
@@ -81,8 +98,18 @@ type Issuer interface {
 type Verifier interface {
 	ucan.Verifier
 
+	Code() multicodec.Code
+
 	// Bytes returns the public key bytes with multiformats prefix varint.
 	Bytes() []byte
+
+	// Raw returns the bytes of the public key without multiformats tags.
+	Raw() []byte
+
+	// PublicKey returns the public key in whatever format the underlying
+	// implementation uses. Where possible, this should be a type that
+	// ["crypto/x509".MarshalPKIXPublicKey] supports.
+	PublicKey() any
 
 	// KeyDID returns the `did:key` DID corresponding to this Verifier's public
 	// key (which is not necessarily the same DID as the issuer of a token this
@@ -110,8 +137,7 @@ func FormatVerifier(verifier Verifier) string {
 // definition the DID it was found on. If this key was found on, for example, a
 // `did:web` DID, then this is not.
 func KeyDID(v Verifier) did.DID {
-	id, _ := did.Parse(key.Prefix + FormatVerifier(v))
-	return id
+	return did.New(key.Method, FormatVerifier(v))
 }
 
 // KeyIssuer wraps a [Signer] to produce a [ucan.Issuer] using the signer's
@@ -122,4 +148,30 @@ func KeyIssuer(s Signer) Issuer {
 
 type keyIssuer struct{ Signer }
 
-func (k keyIssuer) DID() did.DID { return k.Signer.KeyDID() }
+func (k keyIssuer) DID() did.DID { return k.KeyDID() }
+
+func (k keyIssuer) String() string {
+	return k.DID().String()
+}
+
+type issuer struct {
+	did did.DID
+	Signer
+}
+
+var _ ucan.Issuer = issuer{}
+
+// NewIssuer creates a new multikey Issuer with the given DID and multikey
+// signer. The two may be completely unrelated: creating a useful Issuer is the
+// caller's responsibility.
+func NewIssuer(did did.DID, signer Signer) issuer {
+	return issuer{did: did, Signer: signer}
+}
+
+func (i issuer) DID() did.DID {
+	return i.did
+}
+
+func (i issuer) String() string {
+	return fmt.Sprintf("%s (key: %s)", i.did, i.Signer.Verifier().String())
+}

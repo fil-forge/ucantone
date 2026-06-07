@@ -12,13 +12,13 @@ import (
 	"github.com/fil-forge/ucantone/verification/multikey"
 	"github.com/fil-forge/ucantone/verification/multikey/ed25519/verifier"
 	"github.com/multiformats/go-multibase"
+	"github.com/multiformats/go-multicodec"
 	"github.com/multiformats/go-varint"
 )
 
-// Code is the multicodec code for `ed25519-priv`.
-const Code = 0x1300
+const Code = multicodec.Ed25519Priv
 
-var tagSize = varint.UvarintSize(Code)
+var tagSize = varint.UvarintSize(uint64(Code))
 
 // Go ed25519 private key size is private + public. Go refers to the private key
 // bytes as the "seed".
@@ -32,7 +32,7 @@ func Generate() (Signer, error) {
 		return nil, fmt.Errorf("generating Ed25519 key: %w", err)
 	}
 	s := make(Signer, size)
-	varint.PutUvarint(s, Code)
+	varint.PutUvarint(s, uint64(Code))
 	copy(s[tagSize:], priv)
 	return s, nil
 }
@@ -66,8 +66,8 @@ func Decode(b []byte) (Signer, error) {
 	if err != nil {
 		return nil, fmt.Errorf("reading private key uvarint: %w", err)
 	}
-	if skc != Code {
-		return nil, fmt.Errorf("invalid private key codec: 0x%02x, expected: 0x%02x", skc, Code)
+	if skc != uint64(Code) {
+		return nil, fmt.Errorf("invalid private key codec: %s [0x%02x], expected: %s [0x%02x]", multicodec.Code(skc), skc, Code, uint64(Code))
 	}
 
 	s := make(Signer, size)
@@ -87,7 +87,7 @@ func FromRaw(b []byte) (Signer, error) {
 		return nil, fmt.Errorf("invalid length: %d wanted: %d", len(b), ed25519.SeedSize)
 	}
 	s := make(Signer, size)
-	varint.PutUvarint(s, Code)
+	varint.PutUvarint(s, uint64(Code))
 	copy(s[tagSize:size], b[:ed25519.SeedSize])
 	return s, nil
 }
@@ -96,8 +96,17 @@ type Signer []byte
 
 var _ multikey.Signer = (Signer)(nil)
 
-func (s Signer) Code() uint64 {
+func (s Signer) Code() multicodec.Code {
 	return Code
+}
+
+func (s Signer) PrivateKey() any {
+	sk := ed25519.NewKeyFromSeed(s[tagSize:])
+	return sk
+}
+
+func (s Signer) PublicKey() any {
+	return s.verifier().PublicKey()
 }
 
 func (s Signer) SignatureAlgorithm() varsig.Algorithm {

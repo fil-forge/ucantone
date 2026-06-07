@@ -9,6 +9,7 @@ import (
 	"github.com/fil-forge/ucantone/verification/multikey"
 	"github.com/fil-forge/ucantone/verification/multikey/internal/multiformat"
 	"github.com/multiformats/go-multibase"
+	"github.com/multiformats/go-multicodec"
 	"github.com/multiformats/go-varint"
 )
 
@@ -16,12 +17,9 @@ func init() {
 	multikey.Register(Code, Decode)
 }
 
-// Code is the multicodec code for `ed25519-pub`.
-const Code = 0xed
+const Code = multicodec.Ed25519Pub
 
-// var SignatureAlgorithm = varsig_ed25519.New()
-
-var publicTagSize = varint.UvarintSize(Code)
+var publicTagSize = varint.UvarintSize(uint64(Code))
 
 const keySize = ed25519.PublicKeySize
 
@@ -57,8 +55,8 @@ func Decode(b []byte) (multikey.Verifier, error) {
 	if err != nil {
 		return nil, fmt.Errorf("reading uvarint: %w", err)
 	}
-	if code != Code {
-		return nil, fmt.Errorf("invalid public key codec: 0x%02x, expected: 0x%02x", code, Code)
+	if code != uint64(Code) {
+		return nil, fmt.Errorf("invalid public key codec: %s [0x%02x], expected: %s [0x%02x]", multicodec.Code(code), code, Code, uint64(Code))
 	}
 	v := make(Verifier, size)
 	copy(v, b)
@@ -82,8 +80,12 @@ type Verifier []byte
 
 var _ multikey.Verifier = (Verifier)(nil)
 
-func (v Verifier) Code() uint64 {
+func (v Verifier) Code() multicodec.Code {
 	return Code
+}
+
+func (v Verifier) PublicKey() any {
+	return ed25519.PublicKey(v[publicTagSize:])
 }
 
 func (v Verifier) Verify(msg []byte, sig []byte) bool {
@@ -91,7 +93,7 @@ func (v Verifier) Verify(msg []byte, sig []byte) bool {
 }
 
 func (v Verifier) String() string {
-	return fmt.Sprintf("ed25519 Verifier{key=%s}", multikey.FormatVerifier(v))
+	return multikey.FormatVerifier(v)
 }
 
 // Bytes returns the public key bytes with multiformat prefix varint.

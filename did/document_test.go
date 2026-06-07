@@ -17,7 +17,7 @@ func TestDocument_MarshalJSON(t *testing.T) {
 			ID:         doc.Fragment("key-1"),
 			Controller: controller,
 			Type:       did.MultikeyVerificationMethodType,
-			Material:   did.GenericMap{did.MultikeyPublicKeyMultibase: "zABC"},
+			Material:   did.GenericMap{did.MultikeyPublicKeyMultibaseProp: "zABC"},
 		}
 		require.NoError(t, doc.VerificationMethods.Add(vm))
 

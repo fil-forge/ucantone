@@ -15,7 +15,7 @@ func TestVerificationRelationship_Add(t *testing.T) {
 		ID:         doc.Fragment("key-1"),
 		Controller: d,
 		Type:       did.MultikeyVerificationMethodType,
-		Material:   did.GenericMap{did.MultikeyPublicKeyMultibase: "zABC"},
+		Material:   did.GenericMap{did.MultikeyPublicKeyMultibaseProp: "zABC"},
 	}
 	err = doc.VerificationMethods.Add(vm)
 	require.NoError(t, err)

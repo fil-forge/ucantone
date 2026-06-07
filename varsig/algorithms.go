@@ -41,10 +41,10 @@ var signatureAlgorithmDefs = map[AlgorithmScheme]AlgorithmSchemeDef{}
 // Varsig. It's a code and any additional fields needed to configure it.
 type Algorithm = algorithm.Algorithm
 
-// RegisterAlgorithmScheme registers a signature algorithm definition, which includes
-// the name and decoder for the algorithm. Technically, Varsig's list of
-// signature algorithms is closed. However, unofficially, codes in Multicodec's
-// private use area (0x300000–0x3FFFFF) should be safe to use for
+// RegisterAlgorithmScheme registers a signature algorithm definition, which
+// includes the name and decoder for the algorithm. Technically, Varsig's list
+// of signature algorithms is closed. However, unofficially, codes in
+// Multicodec's private use area (0x300000–0x3FFFFF) should be safe to use for
 // application-specific purposes (even though these are not actually Multicodec
 // codes).
 func RegisterAlgorithmScheme(def AlgorithmSchemeDef) {

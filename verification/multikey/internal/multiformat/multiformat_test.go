@@ -21,6 +21,6 @@ func TestTag(t *testing.T) {
 		tb := multiformat.TagWith(1, b)
 		_, err := multiformat.UntagWith(2, tb, 0)
 		require.Error(t, err)
-		require.Equal(t, "expected multiformat with 0x2 tag instead got 0x1", err.Error())
+		require.Equal(t, "expected multiformat with tag cidv2 [0x02] instead got cidv1 [0x01]", err.Error())
 	})
 }

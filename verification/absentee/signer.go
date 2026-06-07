@@ -1,6 +1,8 @@
 package absentee
 
 import (
+	"fmt"
+
 	"github.com/fil-forge/ucantone/did"
 	"github.com/fil-forge/ucantone/ucan"
 	"github.com/fil-forge/ucantone/varsig"
@@ -19,6 +21,10 @@ var _ ucan.Issuer = Issuer{}
 
 func (a Issuer) DID() did.DID {
 	return a.id
+}
+
+func (a Issuer) String() string {
+	return fmt.Sprintf("%s (absentee)", a.id)
 }
 
 func (a Issuer) Sign(msg []byte) []byte {

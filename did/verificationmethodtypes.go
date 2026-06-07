@@ -4,14 +4,14 @@ package did
 const MultikeyVerificationMethodType = "Multikey"
 
 const (
-	MultikeyPublicKeyMultibase = "publicKeyMultibase"
-	MultikeySecretKeyMultibase = "secretKeyMultibase"
+	MultikeyPublicKeyMultibaseProp = "publicKeyMultibase"
+	MultikeySecretKeyMultibaseProp = "secretKeyMultibase"
 )
 
 // https://www.w3.org/TR/cid-1.0/#JsonWebKey
 const JsonWebKeyVerificationMethodType = "JsonWebKey"
 
 const (
-	JsonWebKeyPublicKeyJwk = "publicKeyJwk"
-	JsonWebKeySecretKeyJwk = "secretKeyJwk"
+	JsonWebKeyPublicKeyJwkProp = "publicKeyJwk"
+	JsonWebKeySecretKeyJwkProp = "secretKeyJwk"
 )

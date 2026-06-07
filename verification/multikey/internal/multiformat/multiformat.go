@@ -4,18 +4,19 @@ import (
 	"bytes"
 	"fmt"
 
+	"github.com/multiformats/go-multicodec"
 	"github.com/multiformats/go-varint"
 )
 
-func TagWith(code uint64, bytes []byte) []byte {
-	offset := varint.UvarintSize(code)
+func TagWith(code multicodec.Code, bytes []byte) []byte {
+	offset := varint.UvarintSize(uint64(code))
 	tagged := make([]byte, len(bytes)+offset)
-	varint.PutUvarint(tagged, code)
+	varint.PutUvarint(tagged, uint64(code))
 	copy(tagged[offset:], bytes)
 	return tagged
 }
 
-func UntagWith(code uint64, source []byte, offset int) ([]byte, error) {
+func UntagWith(code multicodec.Code, source []byte, offset int) ([]byte, error) {
 	b := source
 	if offset != 0 {
 		b = source[offset:]
@@ -26,10 +27,10 @@ func UntagWith(code uint64, source []byte, offset int) ([]byte, error) {
 		return nil, err
 	}
 
-	if tag != code {
-		return nil, fmt.Errorf("expected multiformat with 0x%x tag instead got 0x%x", code, tag)
+	if tag != uint64(code) {
+		return nil, fmt.Errorf("expected multiformat with tag %s [0x%02x] instead got %s [0x%02x]", code, uint64(code), multicodec.Code(tag), tag)
 	}
 
-	size := varint.UvarintSize(code)
+	size := varint.UvarintSize(uint64(code))
 	return b[size:], nil
 }

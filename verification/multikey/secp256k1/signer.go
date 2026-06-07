@@ -12,14 +12,14 @@ import (
 	"github.com/fil-forge/ucantone/verification/multikey"
 	"github.com/fil-forge/ucantone/verification/multikey/secp256k1/verifier"
 	"github.com/multiformats/go-multibase"
+	"github.com/multiformats/go-multicodec"
 	"github.com/multiformats/go-varint"
 	"gitlab.com/yawning/secp256k1-voi/secec"
 )
 
-// Code is the multicodec code for `secp256k1-priv`.
-const Code = 0x1301
+const Code = multicodec.Secp256k1Priv
 
-var tagSize = varint.UvarintSize(Code)
+var tagSize = varint.UvarintSize(uint64(Code))
 
 const keySize = 32
 
@@ -31,7 +31,7 @@ func Generate() (Signer, error) {
 		return nil, fmt.Errorf("generating secp256k1 key: %w", err)
 	}
 	s := make(Signer, size)
-	varint.PutUvarint(s, Code)
+	varint.PutUvarint(s, uint64(Code))
 	copy(s[tagSize:], sk.Bytes())
 	return s, nil
 }
@@ -69,8 +69,8 @@ func Decode(b []byte) (Signer, error) {
 	if err != nil {
 		return nil, fmt.Errorf("reading private key uvarint: %w", err)
 	}
-	if skc != Code {
-		return nil, fmt.Errorf("invalid private key codec: 0x%02x, expected: 0x%02x", skc, Code)
+	if skc != uint64(Code) {
+		return nil, fmt.Errorf("invalid private key codec: %s [0x%02x], expected: %s [0x%02x]", multicodec.Code(skc), skc, Code, uint64(Code))
 	}
 	_, err = secec.NewPrivateKey(b[tagSize:])
 	if err != nil {
@@ -92,7 +92,7 @@ func FromRaw(b []byte) (Signer, error) {
 		return nil, fmt.Errorf("invalid length: %d wanted: %d", len(b), keySize)
 	}
 	s := make(Signer, size)
-	varint.PutUvarint(s, Code)
+	varint.PutUvarint(s, uint64(Code))
 	copy(s[tagSize:], b)
 	return s, nil
 }
@@ -103,6 +103,19 @@ var _ multikey.Signer = (Signer)(nil)
 
 func (s Signer) SignatureAlgorithm() varsig.Algorithm {
 	return ecdsa.Secp256k1
+}
+
+func (s Signer) Code() multicodec.Code {
+	return Code
+}
+
+func (s Signer) PrivateKey() any {
+	sk, _ := secec.NewPrivateKey(s[tagSize:])
+	return sk
+}
+
+func (s Signer) PublicKey() any {
+	return s.verifier().PublicKey()
 }
 
 func (s Signer) Verifier() ucan.Verifier {

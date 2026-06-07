@@ -19,7 +19,7 @@ func TestVerificationMethod_MarshalJSON(t *testing.T) {
 			ID:         keyID,
 			Controller: controller,
 			Type:       did.MultikeyVerificationMethodType,
-			Material:   did.GenericMap{did.MultikeyPublicKeyMultibase: "zABC"},
+			Material:   did.GenericMap{did.MultikeyPublicKeyMultibaseProp: "zABC"},
 		}
 		b, err := json.Marshal(vm)
 		require.NoError(t, err)
@@ -36,7 +36,7 @@ func TestVerificationMethod_MarshalJSON(t *testing.T) {
 			ID:         keyID,
 			Controller: controller,
 			Type:       did.JsonWebKeyVerificationMethodType,
-			Material:   did.GenericMap{did.JsonWebKeyPublicKeyJwk: did.GenericMap{"kty": "OKP", "crv": "Ed25519", "x": "somebase64"}},
+			Material:   did.GenericMap{did.JsonWebKeyPublicKeyJwkProp: did.GenericMap{"kty": "OKP", "crv": "Ed25519", "x": "somebase64"}},
 		}
 		b, err := json.Marshal(vm)
 		require.NoError(t, err)
@@ -63,7 +63,7 @@ func TestVerificationMethod_UnmarshalJSON(t *testing.T) {
 		require.Equal(t, "did:example:123#key-1", vm.ID.String())
 		require.Equal(t, did.MultikeyVerificationMethodType, vm.Type)
 		require.Equal(t, "did:example:123", vm.Controller.String())
-		require.Equal(t, "zH3C2AVvLMv6gmMNam3uVAjZpfkcJCwDwnZn6z3wXmqPV", vm.Material[did.MultikeyPublicKeyMultibase])
+		require.Equal(t, "zH3C2AVvLMv6gmMNam3uVAjZpfkcJCwDwnZn6z3wXmqPV", vm.Material[did.MultikeyPublicKeyMultibaseProp])
 	})
 
 	t.Run("JsonWebKey", func(t *testing.T) {
@@ -77,7 +77,7 @@ func TestVerificationMethod_UnmarshalJSON(t *testing.T) {
 		err := json.Unmarshal([]byte(data), &vm)
 		require.NoError(t, err)
 		require.Equal(t, did.JsonWebKeyVerificationMethodType, vm.Type)
-		jwk, ok := vm.Material[did.JsonWebKeyPublicKeyJwk].(map[string]any)
+		jwk, ok := vm.Material[did.JsonWebKeyPublicKeyJwkProp].(map[string]any)
 		require.True(t, ok)
 		require.Equal(t, "OKP", jwk["kty"])
 	})

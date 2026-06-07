@@ -16,9 +16,6 @@ import (
 	verrs "github.com/fil-forge/ucantone/validator/errors"
 	"github.com/fil-forge/ucantone/varsig/algorithm/nonstandard"
 	"github.com/fil-forge/ucantone/verification"
-	_ "github.com/fil-forge/ucantone/verification/multikey"
-	_ "github.com/fil-forge/ucantone/verification/multikey/ed25519/verifier"
-	_ "github.com/fil-forge/ucantone/verification/multikey/secp256k1/verifier"
 	"github.com/ipfs/go-cid"
 )
 
@@ -138,7 +135,14 @@ func verifyTokenSignature(ctx context.Context, tok ucan.Token, cfg validationCon
 			rejections = append(rejections, verrs.VMRejection{VM: vm, Reason: "revoked"})
 			continue
 		}
-		v, err := verification.DeriveVerifier(vm)
+		f, ok := cfg.verifierFactories[vm.Type]
+		if !ok {
+			err = fmt.Errorf("%w for VM type %q", verification.ErrNoVerifierFactory, vm.Type)
+		}
+		var v ucan.Verifier
+		if err == nil {
+			v, err = f(ctx, vm.Material)
+		}
 		if errors.Is(err, verification.ErrNoVerifierFactory) {
 			rejections = append(rejections, verrs.VMRejection{VM: vm, Reason: "unsupported verification method type"})
 			continue

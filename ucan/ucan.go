@@ -56,6 +56,7 @@ type Signature interface {
 type Issuer interface {
 	Principal
 	Signer
+	String() string
 }
 
 // Verifier is an entity that can verify UCAN signatures
