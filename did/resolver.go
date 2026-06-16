@@ -22,15 +22,10 @@ func (rm ResolverMap) Resolve(ctx context.Context, d DID) (Document, error) {
 	method := d.Method()
 	resolver, ok := rm[method]
 	if !ok {
-		return Document{}, MethodNotSupportedError{Method: method}
+		return Document{}, UnsupportedMethodError{
+			DID:    d,
+			Reason: "no resolver registered",
+		}
 	}
 	return resolver.Resolve(ctx, d)
-}
-
-type MethodNotSupportedError struct {
-	Method string
-}
-
-func (e MethodNotSupportedError) Error() string {
-	return "DID method not supported: " + e.Method
 }

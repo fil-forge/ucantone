@@ -81,18 +81,18 @@ func TestResolverMap(t *testing.T) {
 		require.Equal(t, webDoc, got)
 	})
 
-	t.Run("returns MethodNotSupportedError for unknown method", func(t *testing.T) {
+	t.Run("returns UnsupportedMethodError for unknown method", func(t *testing.T) {
 		rm := did.ResolverMap{}
 
 		_, err := rm.Resolve(t.Context(), keyDID)
 		require.Error(t, err)
 
-		var notSupported did.MethodNotSupportedError
+		var notSupported did.UnsupportedMethodError
 		require.ErrorAs(t, err, &notSupported)
-		require.Equal(t, "key", notSupported.Method)
+		require.Equal(t, "key", notSupported.DID.Method())
 	})
 
-	t.Run("MethodNotSupportedError message contains method name", func(t *testing.T) {
+	t.Run("UnsupportedMethodError message contains method name", func(t *testing.T) {
 		rm := did.ResolverMap{}
 
 		_, err := rm.Resolve(t.Context(), keyDID)
