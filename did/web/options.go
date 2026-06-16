@@ -27,9 +27,9 @@ func WithTimeout(timeout time.Duration) Option {
 	}
 }
 
-func WithInsecure() Option {
+func WithInsecure(insecure bool) Option {
 	return func(c *config) error {
-		c.insecure = true
+		c.insecure = insecure
 		return nil
 	}
 }

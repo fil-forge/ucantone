@@ -22,7 +22,7 @@ func TestNewResolver(t *testing.T) {
 	})
 
 	t.Run("creates resolver with custom timeout", func(t *testing.T) {
-		resolver, err := web.NewResolver(web.WithTimeout(5*time.Second), web.WithInsecure())
+		resolver, err := web.NewResolver(web.WithTimeout(5*time.Second), web.WithInsecure(true))
 		require.NoError(t, err)
 		require.NotNil(t, resolver)
 	})
@@ -166,7 +166,7 @@ func TestResolver(t *testing.T) {
 			}, nil
 		})
 
-		resolver, err := web.NewResolver(web.WithInsecure(), web.WithTransport(transport))
+		resolver, err := web.NewResolver(web.WithInsecure(true), web.WithTransport(transport))
 		require.NoError(t, err)
 
 		result, resolveErr := resolver.Resolve(t.Context(), did.MustParse("did:web:example.com"))
