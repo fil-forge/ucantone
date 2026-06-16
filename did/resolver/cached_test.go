@@ -1,4 +1,4 @@
-package utilresolvers_test
+package resolver_test
 
 import (
 	"context"
@@ -9,7 +9,7 @@ import (
 	"time"
 
 	"github.com/fil-forge/ucantone/did"
-	"github.com/fil-forge/ucantone/did/utilresolvers"
+	"github.com/fil-forge/ucantone/did/resolver"
 	"github.com/stretchr/testify/require"
 )
 
@@ -19,7 +19,7 @@ func TestCached(t *testing.T) {
 
 	t.Run("caches successful resolution", func(t *testing.T) {
 		var calls int
-		resolver := utilresolvers.NewCached(did.ResolverFunc(func(ctx context.Context, d did.DID) (did.Document, error) {
+		resolver := resolver.NewCached(did.ResolverFunc(func(ctx context.Context, d did.DID) (did.Document, error) {
 			calls++
 			return did.NewDocument(d), nil
 		}), 100*time.Millisecond)
@@ -44,7 +44,7 @@ func TestCached(t *testing.T) {
 
 	t.Run("does not cache errors", func(t *testing.T) {
 		var calls int
-		resolver := utilresolvers.NewCached(did.ResolverFunc(func(ctx context.Context, d did.DID) (did.Document, error) {
+		resolver := resolver.NewCached(did.ResolverFunc(func(ctx context.Context, d did.DID) (did.Document, error) {
 			calls++
 			return did.Document{}, errors.New("resolution failed")
 		}), 100*time.Millisecond)
@@ -60,7 +60,7 @@ func TestCached(t *testing.T) {
 
 	t.Run("handles concurrent access", func(t *testing.T) {
 		var calls atomic.Int32
-		resolver := utilresolvers.NewCached(did.ResolverFunc(func(ctx context.Context, d did.DID) (did.Document, error) {
+		resolver := resolver.NewCached(did.ResolverFunc(func(ctx context.Context, d did.DID) (did.Document, error) {
 			calls.Add(1)
 			time.Sleep(10 * time.Millisecond)
 			return did.NewDocument(d), nil
@@ -98,7 +98,7 @@ func TestCached(t *testing.T) {
 		require.NoError(t, err)
 
 		var calls int
-		resolver := utilresolvers.NewCached(did.ResolverFunc(func(ctx context.Context, d did.DID) (did.Document, error) {
+		resolver := resolver.NewCached(did.ResolverFunc(func(ctx context.Context, d did.DID) (did.Document, error) {
 			calls++
 			return did.NewDocument(d), nil
 		}), time.Second)

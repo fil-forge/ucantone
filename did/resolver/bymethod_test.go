@@ -1,11 +1,11 @@
-package utilresolvers_test
+package resolver_test
 
 import (
 	"context"
 	"testing"
 
 	"github.com/fil-forge/ucantone/did"
-	"github.com/fil-forge/ucantone/did/utilresolvers"
+	"github.com/fil-forge/ucantone/did/resolver"
 	"github.com/stretchr/testify/require"
 )
 
@@ -24,7 +24,7 @@ func TestByMethod(t *testing.T) {
 		}
 	}
 
-	resolver := utilresolvers.ByMethod{
+	resolver := resolver.ByMethod{
 		"web":     expectDID(did1),
 		"key":     expectDID(did2),
 		"example": expectDID(did3),

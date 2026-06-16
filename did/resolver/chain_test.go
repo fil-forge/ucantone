@@ -1,4 +1,4 @@
-package utilresolvers_test
+package resolver_test
 
 import (
 	"context"
@@ -6,7 +6,7 @@ import (
 	"testing"
 
 	"github.com/fil-forge/ucantone/did"
-	"github.com/fil-forge/ucantone/did/utilresolvers"
+	"github.com/fil-forge/ucantone/did/resolver"
 	"github.com/stretchr/testify/require"
 )
 
@@ -15,7 +15,7 @@ func TestChain(t *testing.T) {
 	require.NoError(t, err)
 
 	t.Run("returns from the first resolver when it succeeds", func(t *testing.T) {
-		chainResolver := &utilresolvers.Chain{
+		chainResolver := &resolver.Chain{
 			did.ResolverFunc(func(ctx context.Context, input did.DID) (did.Document, error) {
 				return did.NewDocument(resolvedDID), nil
 			}),
@@ -31,7 +31,7 @@ func TestChain(t *testing.T) {
 	})
 
 	t.Run("falls through to later resolver when earlier resolvers fail", func(t *testing.T) {
-		chainResolver := &utilresolvers.Chain{
+		chainResolver := &resolver.Chain{
 			did.ResolverFunc(func(ctx context.Context, input did.DID) (did.Document, error) {
 				return did.Document{}, errors.New("first resolver failed")
 			}),
@@ -49,7 +49,7 @@ func TestChain(t *testing.T) {
 	})
 
 	t.Run("returns joined error when all tiers fail", func(t *testing.T) {
-		chainResolver := &utilresolvers.Chain{
+		chainResolver := &resolver.Chain{
 			did.ResolverFunc(func(ctx context.Context, input did.DID) (did.Document, error) {
 				return did.Document{}, errors.New("first resolver failed")
 			}),
@@ -75,7 +75,7 @@ func TestChain(t *testing.T) {
 	})
 
 	t.Run("returns error with no tiers configured", func(t *testing.T) {
-		chainResolver := &utilresolvers.Chain{
+		chainResolver := &resolver.Chain{
 			// No resolvers configured
 		}
 		_, err := chainResolver.Resolve(t.Context(), resolvedDID)

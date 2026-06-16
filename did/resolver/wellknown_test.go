@@ -1,10 +1,10 @@
-package utilresolvers_test
+package resolver_test
 
 import (
 	"testing"
 
 	"github.com/fil-forge/ucantone/did"
-	"github.com/fil-forge/ucantone/did/utilresolvers"
+	"github.com/fil-forge/ucantone/did/resolver"
 	"github.com/stretchr/testify/require"
 )
 
@@ -16,7 +16,7 @@ func TestWellKnown(t *testing.T) {
 	did3, err := did.Parse("did:web:example.org")
 	require.NoError(t, err)
 
-	wellKnownResolver := utilresolvers.WellKnown{
+	wellKnownResolver := resolver.WellKnown{
 		did1: did.NewDocument(did1),
 		did2: did.NewDocument(did2),
 		did3: did.NewDocument(did3),

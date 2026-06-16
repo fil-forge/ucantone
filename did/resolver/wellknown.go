@@ -1,4 +1,4 @@
-package utilresolvers
+package resolver
 
 import (
 	"context"
