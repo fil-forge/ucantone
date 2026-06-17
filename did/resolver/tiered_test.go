@@ -10,12 +10,12 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-func TestChain(t *testing.T) {
+func TestTiered(t *testing.T) {
 	resolvedDID, err := did.Parse("did:example:abc123")
 	require.NoError(t, err)
 
 	t.Run("returns from the first resolver when it succeeds", func(t *testing.T) {
-		chainResolver := &resolver.Chain{
+		tieredResolver := &resolver.Tiered{
 			did.ResolverFunc(func(ctx context.Context, input did.DID) (did.Document, error) {
 				return did.NewDocument(resolvedDID), nil
 			}),
@@ -25,13 +25,13 @@ func TestChain(t *testing.T) {
 			}),
 		}
 
-		result, err := chainResolver.Resolve(t.Context(), resolvedDID)
+		result, err := tieredResolver.Resolve(t.Context(), resolvedDID)
 		require.NoError(t, err)
 		require.Equal(t, did.NewDocument(resolvedDID), result)
 	})
 
 	t.Run("falls through to later resolver when earlier resolvers fail", func(t *testing.T) {
-		chainResolver := &resolver.Chain{
+		tieredResolver := &resolver.Tiered{
 			did.ResolverFunc(func(ctx context.Context, input did.DID) (did.Document, error) {
 				return did.Document{}, errors.New("first resolver failed")
 			}),
@@ -43,13 +43,13 @@ func TestChain(t *testing.T) {
 			}),
 		}
 
-		result, err := chainResolver.Resolve(t.Context(), resolvedDID)
+		result, err := tieredResolver.Resolve(t.Context(), resolvedDID)
 		require.NoError(t, err)
 		require.Equal(t, did.NewDocument(resolvedDID), result)
 	})
 
 	t.Run("returns joined error when all tiers fail", func(t *testing.T) {
-		chainResolver := &resolver.Chain{
+		tieredResolver := &resolver.Tiered{
 			did.ResolverFunc(func(ctx context.Context, input did.DID) (did.Document, error) {
 				return did.Document{}, errors.New("first resolver failed")
 			}),
@@ -61,7 +61,7 @@ func TestChain(t *testing.T) {
 			}),
 		}
 
-		_, err := chainResolver.Resolve(t.Context(), resolvedDID)
+		_, err := tieredResolver.Resolve(t.Context(), resolvedDID)
 
 		var joinedError interface{ Unwrap() []error }
 		require.ErrorAs(t, err, &joinedError)
@@ -75,10 +75,10 @@ func TestChain(t *testing.T) {
 	})
 
 	t.Run("returns error with no tiers configured", func(t *testing.T) {
-		chainResolver := &resolver.Chain{
+		tieredResolver := &resolver.Tiered{
 			// No resolvers configured
 		}
-		_, err := chainResolver.Resolve(t.Context(), resolvedDID)
+		_, err := tieredResolver.Resolve(t.Context(), resolvedDID)
 		require.Error(t, err)
 		require.Contains(t, err.Error(), "unable to resolve")
 		require.Contains(t, err.Error(), "no resolvers configured")

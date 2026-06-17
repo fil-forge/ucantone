@@ -9,16 +9,16 @@ import (
 	verrs "github.com/fil-forge/ucantone/validator/errors"
 )
 
-// Chain is a DID resolver that tries multiple resolver tiers in order
+// Tiered is a DID resolver that tries multiple resolver tiers in order
 // until one resolves the DID or all fail. Each tier is expected to return an
 // error if it cannot resolve the DID so the next tier can be tried. If all
 // tiers fail, the error from each tier is aggregated and returned in a single
 // error.
-type Chain []did.Resolver
+type Tiered []did.Resolver
 
-var _ did.Resolver = (Chain)(nil)
+var _ did.Resolver = (Tiered)(nil)
 
-func (c Chain) Resolve(ctx context.Context, input did.DID) (did.Document, error) {
+func (c Tiered) Resolve(ctx context.Context, input did.DID) (did.Document, error) {
 	if len(c) == 0 {
 		return did.Document{}, verrs.NewDIDKeyResolutionError(input, fmt.Errorf("no resolvers configured"))
 	}
