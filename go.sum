@@ -1,3 +1,5 @@
+filippo.io/mldsa v0.0.0-20260215214346-43d0283efc3e h1:VsUbObBMxXlc23Eb9VeeJYE4jvTs87qa5RqSN2U5FJU=
+filippo.io/mldsa v0.0.0-20260215214346-43d0283efc3e/go.mod h1:32qQ5yj3R24Eu03iWFWchdC3OB653wPvoepWejkefbY=
 github.com/alanshaw/dag-json-gen v0.0.4 h1:qoryz04TVH6zu16NRFnzgolzQGaPfTvoIawv/F5rDoY=
 github.com/alanshaw/dag-json-gen v0.0.4/go.mod h1:rXxWw0SItP9QjxpRMpkju66h0KumF7TPCtvHdOKS5lY=
 github.com/creack/pty v1.1.9/go.mod h1:oKZEueFk5CKHvIhNR5MUki03XCEU+Q6VDXinZuGJ33E=
