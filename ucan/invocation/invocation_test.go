@@ -5,6 +5,7 @@ import (
 	"testing"
 
 	"github.com/fil-forge/ucantone/ipld/datamodel"
+	"github.com/fil-forge/ucantone/multikey/secp256k1"
 	"github.com/fil-forge/ucantone/testutil"
 	hdm "github.com/fil-forge/ucantone/testutil/datamodel"
 	"github.com/fil-forge/ucantone/ucan"
@@ -12,7 +13,6 @@ import (
 	"github.com/fil-forge/ucantone/ucan/invocation"
 	"github.com/fil-forge/ucantone/ucan/receipt"
 	"github.com/fil-forge/ucantone/ucan/token"
-	"github.com/fil-forge/ucantone/verification/multikey/secp256k1"
 	"github.com/stretchr/testify/require"
 	cbg "github.com/whyrusleeping/cbor-gen"
 )

@@ -1,38 +1,39 @@
-package secp256k1
+package ed25519
 
 import (
-	"crypto"
-	"crypto/sha256"
+	"crypto/ed25519"
+	"crypto/rand"
 	"fmt"
 
 	"github.com/fil-forge/ucantone/did"
+	"github.com/fil-forge/ucantone/multikey"
+	"github.com/fil-forge/ucantone/multikey/ed25519/verifier"
 	"github.com/fil-forge/ucantone/ucan"
 	"github.com/fil-forge/ucantone/varsig"
-	"github.com/fil-forge/ucantone/varsig/algorithm/ecdsa"
-	"github.com/fil-forge/ucantone/verification/multikey"
-	"github.com/fil-forge/ucantone/verification/multikey/secp256k1/verifier"
+	"github.com/fil-forge/ucantone/varsig/algorithm/eddsa"
 	"github.com/multiformats/go-multibase"
 	"github.com/multiformats/go-multicodec"
 	"github.com/multiformats/go-varint"
-	"gitlab.com/yawning/secp256k1-voi/secec"
 )
 
-const Code = multicodec.Secp256k1Priv
+const Code = multicodec.Ed25519Priv
 
 var tagSize = varint.UvarintSize(uint64(Code))
 
-const keySize = 32
+// Go ed25519 private key size is private + public. Go refers to the private key
+// bytes as the "seed".
+const keySize = ed25519.SeedSize
 
 var size = tagSize + keySize
 
 func Generate() (Signer, error) {
-	sk, err := secec.GenerateKey()
+	_, priv, err := ed25519.GenerateKey(rand.Reader)
 	if err != nil {
-		return nil, fmt.Errorf("generating secp256k1 key: %w", err)
+		return nil, fmt.Errorf("generating Ed25519 key: %w", err)
 	}
 	s := make(Signer, size)
 	varint.PutUvarint(s, uint64(Code))
-	copy(s[tagSize:], sk.Bytes())
+	copy(s[tagSize:], priv)
 	return s, nil
 }
 
@@ -44,8 +45,8 @@ func GenerateIssuer() (multikey.Issuer, error) {
 	return multikey.KeyIssuer(signer), nil
 }
 
-// Parse parses a multibase encoded string containing a secp256k1 signer
-// multiformat varint (0x1301) + byte secp256k1 raw scalar value.
+// Parse parses a multibase encoded string containing a ed25519 signer
+// multiformat varint (0x1300) + 32 byte ed25519 private key
 func Parse(str string) (Signer, error) {
 	_, bytes, err := multibase.Decode(str)
 	if err != nil {
@@ -54,17 +55,13 @@ func Parse(str string) (Signer, error) {
 	return Decode(bytes)
 }
 
-func Format(signer multikey.Signer) string {
-	s, _ := multibase.Encode(multibase.Base64pad, signer.Bytes())
-	return s
-}
-
-// Decode decodes a buffer of a secp256k1 signer multiformat varint (0x1301) +
-// 32 byte secp256k1 raw scalar value.
+// Decode decodes a buffer of an ed25519 signer multiformat varint (0x1300) + 32
+// byte ed25519 private key.
 func Decode(b []byte) (Signer, error) {
 	if len(b) != size {
 		return nil, fmt.Errorf("invalid length: %d wanted: %d", len(b), size)
 	}
+
 	skc, _, err := varint.FromUvarint(b)
 	if err != nil {
 		return nil, fmt.Errorf("reading private key uvarint: %w", err)
@@ -72,28 +69,26 @@ func Decode(b []byte) (Signer, error) {
 	if skc != uint64(Code) {
 		return nil, fmt.Errorf("invalid private key codec: %s [0x%02x], expected: %s [0x%02x]", multicodec.Code(skc), skc, Code, uint64(Code))
 	}
-	_, err = secec.NewPrivateKey(b[tagSize:])
-	if err != nil {
-		return nil, fmt.Errorf("creating private key: %w", err)
-	}
+
 	s := make(Signer, size)
 	copy(s, b)
+
 	return s, nil
 }
 
 func Encode(signer Signer) []byte {
-	return signer
+	return signer.Bytes()
 }
 
-// FromRaw takes raw 32 byte scalar value and tags with the secp256k1
-// signer multiformat code, returning a secp256k1 signer.
+// FromRaw takes raw 32 byte ed25519 private key bytes and tags with the ed25519
+// signer multiformat code, returning an ed25519 signer.
 func FromRaw(b []byte) (Signer, error) {
-	if len(b) != keySize {
-		return nil, fmt.Errorf("invalid length: %d wanted: %d", len(b), keySize)
+	if len(b) != ed25519.SeedSize {
+		return nil, fmt.Errorf("invalid length: %d wanted: %d", len(b), ed25519.SeedSize)
 	}
 	s := make(Signer, size)
 	varint.PutUvarint(s, uint64(Code))
-	copy(s[tagSize:], b)
+	copy(s[tagSize:size], b[:ed25519.SeedSize])
 	return s, nil
 }
 
@@ -101,16 +96,12 @@ type Signer []byte
 
 var _ multikey.Signer = (Signer)(nil)
 
-func (s Signer) SignatureAlgorithm() varsig.Algorithm {
-	return ecdsa.Secp256k1
-}
-
 func (s Signer) Code() multicodec.Code {
 	return Code
 }
 
 func (s Signer) PrivateKey() any {
-	sk, _ := secec.NewPrivateKey(s[tagSize:])
+	sk := ed25519.NewKeyFromSeed(s[tagSize:])
 	return sk
 }
 
@@ -118,13 +109,17 @@ func (s Signer) PublicKey() any {
 	return s.verifier().PublicKey()
 }
 
+func (s Signer) SignatureAlgorithm() varsig.Algorithm {
+	return eddsa.Ed25519
+}
+
 func (s Signer) Verifier() ucan.Verifier {
 	return s.verifier()
 }
 
 func (s Signer) verifier() multikey.Verifier {
-	sk, _ := secec.NewPrivateKey(s[tagSize:])
-	v, _ := verifier.FromRaw(sk.PublicKey().CompressedBytes())
+	sk := ed25519.NewKeyFromSeed(s[tagSize:])
+	v, _ := verifier.FromRaw(sk.Public().(ed25519.PublicKey))
 	return v
 }
 
@@ -141,19 +136,8 @@ func (s Signer) Raw() []byte {
 }
 
 func (s Signer) Sign(msg []byte) []byte {
-	sk, _ := secec.NewPrivateKey(s[tagSize:])
-	hash := sha256.New()
-	hash.Write(msg)
-	sig, _ := sk.Sign(
-		secec.RFC6979SHA256(), // for deterministic signatures, per RFC6979
-		hash.Sum(nil),
-		&secec.ECDSAOptions{
-			Encoding:   secec.EncodingCompact,
-			Hash:       crypto.SHA256,
-			SelfVerify: false,
-		},
-	)
-	return sig
+	sk := ed25519.NewKeyFromSeed(s[tagSize:])
+	return ed25519.Sign(sk, msg)
 }
 
 func (s Signer) KeyDID() did.DID {

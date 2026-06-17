@@ -1,30 +1,27 @@
 package verifier
 
 import (
-	"crypto"
-	"crypto/sha256"
+	"crypto/ed25519"
 	"errors"
 	"fmt"
 
 	"github.com/fil-forge/ucantone/did"
-	"github.com/fil-forge/ucantone/verification/multikey"
-	"github.com/fil-forge/ucantone/verification/multikey/internal/multiformat"
+	"github.com/fil-forge/ucantone/multikey"
+	"github.com/fil-forge/ucantone/multikey/internal/multiformat"
 	"github.com/multiformats/go-multibase"
 	"github.com/multiformats/go-multicodec"
 	"github.com/multiformats/go-varint"
-	"gitlab.com/yawning/secp256k1-voi/secec"
 )
 
 func init() {
 	multikey.Register(Code, Decode)
 }
 
-// Code is the multicodec code for `secp256k1-pub`.
-const Code = multicodec.Secp256k1Pub
+const Code = multicodec.Ed25519Pub
 
 var publicTagSize = varint.UvarintSize(uint64(Code))
 
-const keySize = 33
+const keySize = ed25519.PublicKeySize
 
 var size = publicTagSize + keySize
 
@@ -59,11 +56,7 @@ func Decode(b []byte) (multikey.Verifier, error) {
 		return nil, fmt.Errorf("reading uvarint: %w", err)
 	}
 	if code != uint64(Code) {
-		return nil, fmt.Errorf("invalid public key codec: 0x%02x, expected: 0x%02x", code, Code)
-	}
-	_, err = secec.NewPublicKey(b[publicTagSize:])
-	if err != nil {
-		return nil, fmt.Errorf("invalid public key bytes: %w", err)
+		return nil, fmt.Errorf("invalid public key codec: %s [0x%02x], expected: %s [0x%02x]", multicodec.Code(code), code, Code, uint64(Code))
 	}
 	v := make(Verifier, size)
 	copy(v, b)
@@ -74,11 +67,11 @@ func Encode(verifier Verifier) []byte {
 	return verifier
 }
 
-// FromRaw takes raw secp256k1 compressed public key bytes and tags with the
-// secp256k1 verifier multiformat code, returning a secp256k1 verifier.
+// FromRaw takes raw ed25519 public key bytes and tags with the ed25519 verifier
+// multiformat code, returning an ed25519 verifier.
 func FromRaw(b []byte) (Verifier, error) {
-	if len(b) != keySize {
-		return nil, fmt.Errorf("invalid length: %d wanted: %d", len(b), keySize)
+	if len(b) != ed25519.PublicKeySize {
+		return nil, fmt.Errorf("invalid length: %d wanted: %d", len(b), ed25519.PublicKeySize)
 	}
 	return Verifier(multiformat.TagWith(Code, b)), nil
 }
@@ -92,26 +85,11 @@ func (v Verifier) Code() multicodec.Code {
 }
 
 func (v Verifier) PublicKey() any {
-	pk, _ := secec.NewPublicKey(v[publicTagSize:])
-	return pk
+	return ed25519.PublicKey(v[publicTagSize:])
 }
 
 func (v Verifier) Verify(msg []byte, sig []byte) bool {
-	pk, err := secec.NewPublicKey(v[publicTagSize:])
-	if err != nil {
-		return false
-	}
-	hash := sha256.New()
-	hash.Write(msg)
-	return pk.Verify(
-		hash.Sum(nil),
-		sig,
-		&secec.ECDSAOptions{
-			Encoding:        secec.EncodingCompact,
-			Hash:            crypto.SHA256,
-			RejectMalleable: true,
-		},
-	)
+	return ed25519.Verify(ed25519.PublicKey(v[publicTagSize:]), msg, sig)
 }
 
 func (v Verifier) String() string {
@@ -125,7 +103,7 @@ func (v Verifier) Bytes() []byte {
 
 // Raw encodes the bytes of the public key without multiformats tags.
 func (v Verifier) Raw() []byte {
-	k := make([]byte, keySize)
+	k := make(ed25519.PublicKey, ed25519.PublicKeySize)
 	copy(k, v[publicTagSize:])
 	return k
 }

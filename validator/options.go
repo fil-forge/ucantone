@@ -5,15 +5,14 @@ import (
 
 	"github.com/fil-forge/ucantone/did"
 	"github.com/fil-forge/ucantone/did/key"
+	"github.com/fil-forge/ucantone/multikey"
 	"github.com/fil-forge/ucantone/ucan"
-	"github.com/fil-forge/ucantone/verification"
-	"github.com/fil-forge/ucantone/verification/multikey"
 )
 
 type validationConfig struct {
 	resolveProof               ProofResolverFunc
 	didResolver                did.Resolver
-	verifierFactories          map[string]verification.Factory
+	verifierFactories          map[string]VerifierFactory
 	validationTime             ucan.UnixTimestamp
 	verifyNonStandardSignature NonStandardSignatureVerifierFunc
 	metadata                   ucan.Container
@@ -22,8 +21,8 @@ type validationConfig struct {
 // DefaultFactories returns a map pre-populated with factories for the standard
 // verification method types (currently Multikey). It is used by the validator
 // when no custom registry is supplied via [WithVerifierRegistry].
-func DefaultFactories() map[string]verification.Factory {
-	return map[string]verification.Factory{
+func DefaultFactories() map[string]VerifierFactory {
+	return map[string]VerifierFactory{
 		did.MultikeyVerificationMethodType: multikey.DeriveVerifier,
 	}
 }
@@ -59,7 +58,7 @@ func WithDIDResolver(resolveDID did.Resolver) Option {
 
 // WithVerifierFactories adds factories for deriving verifiers for a specific
 // verification method type.
-func WithVerifierFactories(factories map[string]verification.Factory) Option {
+func WithVerifierFactories(factories map[string]VerifierFactory) Option {
 	return func(vc *validationConfig) {
 		vc.verifierFactories = factories
 	}

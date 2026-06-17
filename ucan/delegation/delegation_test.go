@@ -9,14 +9,14 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"github.com/fil-forge/ucantone/did"
+	"github.com/fil-forge/ucantone/multikey"
+	"github.com/fil-forge/ucantone/multikey/ed25519"
+	"github.com/fil-forge/ucantone/multikey/secp256k1"
 	"github.com/fil-forge/ucantone/testutil"
 	"github.com/fil-forge/ucantone/ucan"
 	"github.com/fil-forge/ucantone/ucan/command"
 	"github.com/fil-forge/ucantone/ucan/delegation"
 	"github.com/fil-forge/ucantone/ucan/token"
-	"github.com/fil-forge/ucantone/verification/multikey"
-	"github.com/fil-forge/ucantone/verification/multikey/ed25519"
-	"github.com/fil-forge/ucantone/verification/multikey/secp256k1"
 )
 
 func TestDelegation(t *testing.T) {

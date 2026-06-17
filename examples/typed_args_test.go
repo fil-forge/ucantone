@@ -10,10 +10,10 @@ import (
 	edm "github.com/fil-forge/ucantone/errors/datamodel"
 	"github.com/fil-forge/ucantone/examples/types"
 	"github.com/fil-forge/ucantone/ipld/datamodel"
+	"github.com/fil-forge/ucantone/multikey/ed25519"
 	"github.com/fil-forge/ucantone/ucan/command"
 	"github.com/fil-forge/ucantone/ucan/invocation"
 	"github.com/fil-forge/ucantone/ucan/receipt"
-	"github.com/fil-forge/ucantone/verification/multikey/ed25519"
 )
 
 // TestExtractTypedArgsFromInvocation demonstrates the bytes-native pattern

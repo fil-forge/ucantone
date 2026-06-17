@@ -5,12 +5,12 @@ import (
 
 	"github.com/fil-forge/ucantone/did"
 	"github.com/fil-forge/ucantone/ipld/datamodel"
+	"github.com/fil-forge/ucantone/multikey"
 	"github.com/fil-forge/ucantone/testutil"
 	"github.com/fil-forge/ucantone/ucan"
 	"github.com/fil-forge/ucantone/ucan/command"
 	"github.com/fil-forge/ucantone/ucan/invocation"
 	verrs "github.com/fil-forge/ucantone/validator/errors"
-	"github.com/fil-forge/ucantone/verification"
 	"github.com/ipfs/go-cid"
 	"github.com/stretchr/testify/require"
 )
@@ -25,9 +25,9 @@ func (t token) Link() cid.Cid { return t.link }
 func TestNewInvalidSignatureError(t *testing.T) {
 	crankWidget := testutil.Must(command.Parse("/widget/crank"))(t)
 
-	issuer := verification.NewIssuer(
+	issuer := multikey.NewIssuer(
 		testutil.Must(did.Parse("did:example:123"))(t),
-		testutil.RandomSigner(t),
+		testutil.RandomMultikeySigner(t),
 	)
 	tok := token{
 		link: cid.MustParse("bafkqacyaexampletokenlink"),

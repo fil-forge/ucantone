@@ -1,15 +1,15 @@
 package verifier_test
 
 import (
-	"crypto/ed25519"
 	"testing"
 
-	"github.com/fil-forge/ucantone/verification/multikey/ed25519/verifier"
+	"github.com/fil-forge/ucantone/multikey/secp256k1/verifier"
 	"github.com/stretchr/testify/require"
+	"gitlab.com/yawning/secp256k1-voi/secec"
 )
 
-func TestParseKeyDID(t *testing.T) {
-	str := "did:key:z6MkgZN5cRgWqesJeaZCEs7eKzyQsfpzmhnSEqTL6FZt56Ym"
+func TestParse(t *testing.T) {
+	str := "did:key:zQ3shokFvN6Ggnq5j6G76527464y7n7y767y767y767y767y7"
 	v, err := verifier.ParseKeyDID(str)
 	require.NoError(t, err)
 	require.Equal(t, str, v.KeyDID().String())
@@ -17,10 +17,10 @@ func TestParseKeyDID(t *testing.T) {
 
 func TestDecode(t *testing.T) {
 	t.Run("round trip", func(t *testing.T) {
-		pub, _, err := ed25519.GenerateKey(nil)
+		priv, err := secec.GenerateKey()
 		require.NoError(t, err)
 
-		v, err := verifier.FromRaw(pub)
+		v, err := verifier.FromRaw(priv.PublicKey().CompressedBytes())
 		require.NoError(t, err)
 
 		v2, err := verifier.Decode(v.Bytes())
@@ -31,13 +31,14 @@ func TestDecode(t *testing.T) {
 
 func TestFromRaw(t *testing.T) {
 	t.Run("round trip", func(t *testing.T) {
-		pub, _, err := ed25519.GenerateKey(nil)
+		priv, err := secec.GenerateKey()
 		require.NoError(t, err)
 
+		pub := priv.PublicKey().CompressedBytes()
 		v, err := verifier.FromRaw(pub)
 		require.NoError(t, err)
 
-		require.Equal(t, pub, ed25519.PublicKey(v.Raw()))
+		require.Equal(t, pub, v.Raw())
 	})
 
 	t.Run("invalid length", func(t *testing.T) {

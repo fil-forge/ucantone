@@ -10,6 +10,8 @@ import (
 	"github.com/fil-forge/ucantone/did"
 	"github.com/fil-forge/ucantone/ipld/codec/dagcbor"
 	"github.com/fil-forge/ucantone/ipld/datamodel"
+	"github.com/fil-forge/ucantone/multikey"
+	"github.com/fil-forge/ucantone/multikey/ed25519"
 	"github.com/fil-forge/ucantone/ucan"
 	"github.com/fil-forge/ucantone/ucan/command"
 	"github.com/fil-forge/ucantone/ucan/delegation"
@@ -22,8 +24,6 @@ import (
 	fdm "github.com/fil-forge/ucantone/validator/internal/fixtures/datamodel"
 	"github.com/fil-forge/ucantone/varsig"
 	"github.com/fil-forge/ucantone/varsig/algorithm/eddsa"
-	"github.com/fil-forge/ucantone/verification/multikey"
-	"github.com/fil-forge/ucantone/verification/multikey/ed25519"
 	"github.com/ipfs/go-cid"
 	"github.com/multiformats/go-multihash"
 )

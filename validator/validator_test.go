@@ -10,6 +10,7 @@ import (
 	"github.com/ipfs/go-cid"
 	"github.com/stretchr/testify/require"
 
+	"github.com/fil-forge/ucantone/absentee"
 	"github.com/fil-forge/ucantone/did"
 	"github.com/fil-forge/ucantone/did/key"
 	"github.com/fil-forge/ucantone/ipld/datamodel"
@@ -23,7 +24,6 @@ import (
 	"github.com/fil-forge/ucantone/validator"
 	verrs "github.com/fil-forge/ucantone/validator/errors"
 	fdm "github.com/fil-forge/ucantone/validator/internal/fixtures/datamodel"
-	"github.com/fil-forge/ucantone/verification/absentee"
 )
 
 const (

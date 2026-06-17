@@ -1,4 +1,4 @@
-package verification
+package validator
 
 import (
 	"context"
@@ -8,9 +8,9 @@ import (
 	"github.com/fil-forge/ucantone/ucan"
 )
 
-// Factory is a function that produces a [ucan.Verifier] from
+// VerifierFactory is a function that produces a [ucan.Verifier] from
 // [did.VerificationMaterial] for a specific verification method type.
-type Factory func(context.Context, did.VerificationMaterial) (ucan.Verifier, error)
+type VerifierFactory func(context.Context, did.VerificationMaterial) (ucan.Verifier, error)
 
 // ErrNoVerifierFactory is returned when no factory is registered for a
 // verification method's type. Callers that want to skip unsupported VM types
