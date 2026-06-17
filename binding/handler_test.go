@@ -33,7 +33,7 @@ func TestHandler(t *testing.T) {
 	req := execution.NewRequest(t.Context(), inv)
 	require.NoError(t, err)
 
-	res, err := execution.NewResponse(inv.Task().Link(), execution.WithSigner(alice))
+	res, err := execution.NewResponse(inv.Task().Link(), execution.WithIssuer(alice))
 	require.NoError(t, err)
 
 	err = handler(req, res)

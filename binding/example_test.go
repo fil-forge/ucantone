@@ -37,7 +37,7 @@ func Example() {
 	})
 
 	xreq := execution.NewRequest(context.Background(), inv)
-	xres, _ := execution.NewResponse(inv.Task().Link(), execution.WithSigner(service))
+	xres, _ := execution.NewResponse(inv.Task().Link(), execution.WithIssuer(service))
 	_ = handle(xreq, xres)
 
 	// Client: unpack the typed result (OK) out of the receipt.

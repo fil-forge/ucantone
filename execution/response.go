@@ -21,7 +21,7 @@ type ExecResponse struct {
 
 type ResponseOption func(r *ExecResponse) error
 
-func WithSigner(issuer ucan.Issuer) ResponseOption {
+func WithIssuer(issuer ucan.Issuer) ResponseOption {
 	return func(resp *ExecResponse) error {
 		resp.issuer = issuer
 		return nil

@@ -47,7 +47,7 @@ func (d *Dispatcher) Execute(req execution.Request) (execution.Response, error) 
 	if aud != d.authority.DID() {
 		return execution.NewResponse(
 			req.Invocation().Task().Link(),
-			execution.WithSigner(d.authority),
+			execution.WithIssuer(d.authority),
 			execution.WithReceiptTimestamp(d.receiptTimestamps),
 			execution.WithFailure(execution.NewInvalidAudienceError(d.authority.DID(), aud)),
 		)
@@ -58,7 +58,7 @@ func (d *Dispatcher) Execute(req execution.Request) (execution.Response, error) 
 	if !ok {
 		return execution.NewResponse(
 			req.Invocation().Task().Link(),
-			execution.WithSigner(d.authority),
+			execution.WithIssuer(d.authority),
 			execution.WithReceiptTimestamp(d.receiptTimestamps),
 			execution.WithFailure(NewHandlerNotFoundError(cmd)),
 		)
@@ -78,7 +78,7 @@ func (d *Dispatcher) Execute(req execution.Request) (execution.Response, error) 
 	if err != nil {
 		return execution.NewResponse(
 			req.Invocation().Task().Link(),
-			execution.WithSigner(d.authority),
+			execution.WithIssuer(d.authority),
 			execution.WithReceiptTimestamp(d.receiptTimestamps),
 			execution.WithFailure(err),
 		)
@@ -86,7 +86,7 @@ func (d *Dispatcher) Execute(req execution.Request) (execution.Response, error) 
 
 	res, err := execution.NewResponse(
 		req.Invocation().Task().Link(),
-		execution.WithSigner(d.authority),
+		execution.WithIssuer(d.authority),
 		execution.WithReceiptTimestamp(d.receiptTimestamps),
 	)
 	if err != nil {
@@ -97,7 +97,7 @@ func (d *Dispatcher) Execute(req execution.Request) (execution.Response, error) 
 	if err != nil {
 		return execution.NewResponse(
 			req.Invocation().Task().Link(),
-			execution.WithSigner(d.authority),
+			execution.WithIssuer(d.authority),
 			execution.WithReceiptTimestamp(d.receiptTimestamps),
 			execution.WithFailure(execution.NewHandlerExecutionError(cmd, err)),
 		)
