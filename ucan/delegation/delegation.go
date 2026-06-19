@@ -18,7 +18,6 @@ import (
 	edm "github.com/fil-forge/ucantone/ucan/envelope/datamodel"
 	"github.com/fil-forge/ucantone/ucan/nonce"
 	"github.com/fil-forge/ucantone/varsig"
-	varsig_dagcbor "github.com/fil-forge/ucantone/varsig/payload/dagcbor"
 )
 
 type Delegation struct {
@@ -151,7 +150,7 @@ func (d *Delegation) UnmarshalCBOR(r io.Reader) error {
 	if sigPayload.TokenPayload1_0_0_rc1 == nil {
 		return errors.New("invalid or unsupported delegation token payload")
 	}
-	header, err := varsig.Decode(sigPayload.Header)
+	header, _, err := varsig.Decode(sigPayload.Header)
 	if err != nil {
 		return fmt.Errorf("decoding varsig header: %w", err)
 	}
@@ -188,7 +187,7 @@ func (d *Delegation) UnmarshalDagJSON(r io.Reader) error {
 	if sigPayload.TokenPayload1_0_0_rc1 == nil {
 		return errors.New("invalid or unsupported delegation token payload")
 	}
-	header, err := varsig.Decode(sigPayload.Header)
+	header, _, err := varsig.Decode(sigPayload.Header)
 	if err != nil {
 		return fmt.Errorf("decoding varsig header: %w", err)
 	}
@@ -228,7 +227,7 @@ func Decode(b []byte) (*Delegation, error) {
 }
 
 func Delegate(
-	issuer ucan.Signer,
+	issuer ucan.Issuer,
 	audience did.DID,
 	subject did.DID,
 	command ucan.Command,
@@ -242,12 +241,9 @@ func Delegate(
 		}
 	}
 
-	sigAlgo, ok := varsig.GetSignatureAlgorithmCodec(issuer.SignatureAlgorithm())
-	if !ok {
-		return nil, fmt.Errorf("missing codec for signature algorithm: %d", issuer.SignatureAlgorithm().Code())
-	}
-	sigHeader := varsig.NewHeader(sigAlgo, varsig_dagcbor.NewCodec())
-	h, err := varsig.Encode(sigHeader)
+	sigAlgo := issuer.SignatureAlgorithm()
+	vsig := varsig.New(sigAlgo, varsig.DagCbor)
+	h, err := vsig.Encode()
 	if err != nil {
 		return nil, fmt.Errorf("encoding varsig header: %w", err)
 	}
@@ -309,7 +305,7 @@ func Delegate(
 	}
 
 	sigBytes := issuer.Sign(sigBuf.Bytes())
-	sig := signature.NewSignature(sigHeader, sigBytes)
+	sig := signature.NewSignature(vsig, sigBytes)
 
 	envelope := edm.EnvelopeModel{
 		Signature:  sigBytes,

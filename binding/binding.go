@@ -81,13 +81,13 @@ func Bind[Args, OK CBORValue](cmd command.Command) Binding[Args, OK] {
 
 // Invoke constructs a signed invocation of the command carrying the given
 // typed arguments.
-func (c Binding[Args, OK]) Invoke(issuer ucan.Signer, subject did.DID, arguments Args, options ...invocation.Option) (ucan.Invocation, error) {
+func (c Binding[Args, OK]) Invoke(issuer ucan.Issuer, subject did.DID, arguments Args, options ...invocation.Option) (ucan.Invocation, error) {
 	return invocation.Invoke(issuer, subject, c.Command, arguments, options...)
 }
 
 // Delegate issues a delegation granting authority over this command. It does
 // not involve the argument or result types.
-func (c Binding[Args, OK]) Delegate(issuer ucan.Signer, audience did.DID, subject did.DID, options ...delegation.Option) (ucan.Delegation, error) {
+func (c Binding[Args, OK]) Delegate(issuer ucan.Issuer, audience did.DID, subject did.DID, options ...delegation.Option) (ucan.Delegation, error) {
 	return delegation.Delegate(issuer, audience, subject, c.Command, options...)
 }
 

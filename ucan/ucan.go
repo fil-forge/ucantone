@@ -29,31 +29,43 @@ type Command = command.Command
 // an explicit conversion from a known-seconds value.
 type UnixTimestamp int64
 
-// Signer is an entity that can sign UCANs on behalf of a DID.
+type Principal interface {
+	DID() did.DID
+}
+
+// Signer is an entity that can sign UCANs
 type Signer interface {
 	crypto.Signer
 
-	// DID returns the DID this signer signs on behalf of.
-	DID() did.DID
-
 	// SignatureAlgorithm identifies the signature algorithm used by this signer
 	// as well as any additional fields needed to configure it.
-	SignatureAlgorithm() varsig.SignatureAlgorithm
+	SignatureAlgorithm() varsig.Algorithm
+
+	// Verifier returns a Verifier that can verify signatures from this Signer.
+	Verifier() Verifier
 }
 
 // Signature encapsulates the bytes that comprise the signature as well as the
 // details of the signing algorithm and payload encoding.
 type Signature interface {
-	Header() varsig.VarsigHeader[varsig.SignatureAlgorithm, varsig.PayloadEncoding]
+	Header() varsig.Varsig
 	Bytes() []byte
 }
 
-// Verifier is an entity that can verify UCAN signatures against a DID.
+// Issuer can be the issuer of a UCAN.
+type Issuer interface {
+	Principal
+	Signer
+	String() string
+}
+
+// Verifier is an entity that can verify UCAN signatures
 type Verifier interface {
 	signature.Verifier
 
-	// DID returns the DID this verifier verifies signatures for.
-	DID() did.DID
+	// String returns a human readable string representation of the verifier, for
+	// use in logging and error messages.
+	String() string
 }
 
 // Token is the common ancestor of elements of UCAN which make claims, including

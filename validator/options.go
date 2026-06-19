@@ -1,13 +1,44 @@
 package validator
 
-import "github.com/fil-forge/ucantone/ucan"
+import (
+	"time"
+
+	"github.com/fil-forge/ucantone/did"
+	"github.com/fil-forge/ucantone/did/key"
+	"github.com/fil-forge/ucantone/multikey"
+	"github.com/fil-forge/ucantone/ucan"
+)
 
 type validationConfig struct {
 	resolveProof               ProofResolverFunc
-	resolveDIDVerifier         DIDVerifierResolverFunc
+	didResolver                did.Resolver
+	verifierFactories          map[string]VerifierFactory
 	validationTime             ucan.UnixTimestamp
 	verifyNonStandardSignature NonStandardSignatureVerifierFunc
 	metadata                   ucan.Container
+}
+
+// DefaultFactories returns a map pre-populated with factories for the standard
+// verification method types (currently Multikey). It is used by the validator
+// when no custom registry is supplied via [WithVerifierRegistry].
+func DefaultFactories() map[string]VerifierFactory {
+	return map[string]VerifierFactory{
+		did.MultikeyVerificationMethodType: multikey.DeriveVerifier,
+	}
+}
+
+func makeCfg(options ...Option) validationConfig {
+	cfg := validationConfig{
+		resolveProof:               ProofUnavailable,
+		didResolver:                key.Resolver,
+		verifierFactories:          DefaultFactories(),
+		validationTime:             ucan.UnixTimestamp(time.Now().Unix()),
+		verifyNonStandardSignature: FailNonStandardSignatureVerification,
+	}
+	for _, opt := range options {
+		opt(&cfg)
+	}
+	return cfg
 }
 
 // Option is an option configuring the validator.
@@ -19,20 +50,17 @@ func WithProofResolver(resolveProof ProofResolverFunc) Option {
 	}
 }
 
-// WithDIDVerifierResolver sets the function to be used for resolving a DID to a
-// verifier.
-func WithDIDVerifierResolver(resolveDIDVerifier DIDVerifierResolverFunc) Option {
+func WithDIDResolver(resolveDID did.Resolver) Option {
 	return func(vc *validationConfig) {
-		vc.resolveDIDVerifier = resolveDIDVerifier
+		vc.didResolver = resolveDID
 	}
 }
 
-// WithDIDVerifierResolvers is a convenience option for composing a verifier
-// resolver from multiple DID method-specific resolvers using
-// [NewDIDVerifierResolverByMethod].
-func WithDIDVerifierResolvers(resolvers VerifierResolverMap) Option {
+// WithVerifierFactories adds factories for deriving verifiers for a specific
+// verification method type.
+func WithVerifierFactories(factories map[string]VerifierFactory) Option {
 	return func(vc *validationConfig) {
-		vc.resolveDIDVerifier = NewDIDVerifierResolverByMethod(resolvers)
+		vc.verifierFactories = factories
 	}
 }
 
@@ -56,5 +84,12 @@ func WithNonStandardSignatureVerifier(verifyNonStandardSignature NonStandardSign
 func WithMetadata(meta ucan.Container) Option {
 	return func(vc *validationConfig) {
 		vc.metadata = meta
+	}
+}
+
+// withConfig reuses an entire built [validationConfig].
+func withConfig(cfg validationConfig) Option {
+	return func(vc *validationConfig) {
+		*vc = cfg
 	}
 }

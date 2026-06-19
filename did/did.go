@@ -13,6 +13,10 @@ import (
 )
 
 const Prefix = "did:"
+
+// TODO: This should really go in `did/key`, but we use it in `did.Parse` to
+// validate `did:key` DIDs during parsing. We could drop that, but it's a nice
+// check to have.
 const KeyPrefix = Prefix + "key:"
 
 const DIDCore = 0x0d1d
@@ -150,10 +154,16 @@ func (d *DID) UnmarshalDagJSON(r io.Reader) error {
 	return nil
 }
 
+func New(method, identifier string) DID {
+	return DID{fmt.Sprintf("%s%s:%s", Prefix, method, identifier)}
+}
+
 func Parse(str string) (DID, error) {
 	if !strings.HasPrefix(str, Prefix) {
 		return DID{}, fmt.Errorf("must start with 'did:'")
 	}
+
+	// Convenience validation for `did:key` DIDs.
 	if strings.HasPrefix(str, KeyPrefix) {
 		code, _, err := mbase.Decode(str[len(KeyPrefix):])
 		if err != nil {
@@ -163,5 +173,14 @@ func Parse(str string) (DID, error) {
 			return DID{}, fmt.Errorf("not Base58BTC encoded")
 		}
 	}
+
 	return DID{str}, nil
+}
+
+func MustParse(str string) DID {
+	d, err := Parse(str)
+	if err != nil {
+		panic(fmt.Sprintf("invalid DID: %s", str))
+	}
+	return d
 }

@@ -5,15 +5,15 @@ import (
 	"errors"
 	"os"
 	"testing"
+	"time"
 
 	"github.com/ipfs/go-cid"
 	"github.com/stretchr/testify/require"
 
+	"github.com/fil-forge/ucantone/absentee"
 	"github.com/fil-forge/ucantone/did"
+	"github.com/fil-forge/ucantone/did/key"
 	"github.com/fil-forge/ucantone/ipld/datamodel"
-	"github.com/fil-forge/ucantone/principal/absentee"
-	"github.com/fil-forge/ucantone/principal/ed25519"
-	"github.com/fil-forge/ucantone/principal/secp256k1"
 	"github.com/fil-forge/ucantone/testutil"
 	"github.com/fil-forge/ucantone/ucan"
 	"github.com/fil-forge/ucantone/ucan/command"
@@ -32,11 +32,11 @@ const (
 	now    ucan.UnixTimestamp = 1746748800 // 2025-05-09 (fixed validation time for tests)
 )
 
-// badSigner is a Signer that produces invalid signatures, for testing purposes.
-type badSigner struct{ ucan.Signer }
+// badIssuer is a Signer that produces invalid signatures, for testing purposes.
+type badIssuer struct{ ucan.Issuer }
 
-func (b badSigner) Sign(msg []byte) []byte {
-	sig := b.Signer.Sign(msg)
+func (b badIssuer) Sign(msg []byte) []byte {
+	sig := b.Issuer.Sign(msg)
 	sig[0] ^= 0xff // flip a bit
 	return sig
 }
@@ -45,7 +45,7 @@ func TestValidate(t *testing.T) {
 	crankWidget := testutil.Must(command.Parse("/widget/crank"))(t)
 
 	t.Run("validates with root authority", func(t *testing.T) {
-		subject := testutil.RandomSigner(t)
+		subject := testutil.RandomIssuer(t)
 		inv, err := invocation.Invoke(subject, subject.DID(), crankWidget, datamodel.Map{})
 		require.NoError(t, err)
 
@@ -54,7 +54,7 @@ func TestValidate(t *testing.T) {
 	})
 
 	t.Run("rejects with a bad signature", func(t *testing.T) {
-		subject := badSigner{testutil.RandomSigner(t)}
+		subject := badIssuer{testutil.RandomIssuer(t)}
 		inv, err := invocation.Invoke(subject, subject.DID(), crankWidget, datamodel.Map{})
 		require.NoError(t, err)
 
@@ -63,8 +63,8 @@ func TestValidate(t *testing.T) {
 	})
 
 	t.Run("rejects with unauthorized invoker", func(t *testing.T) {
-		subject := testutil.RandomSigner(t)
-		invoker := testutil.RandomSigner(t)
+		subject := testutil.RandomIssuer(t)
+		invoker := testutil.RandomIssuer(t)
 
 		inv, err := invocation.Invoke(subject, invoker.DID(), crankWidget, datamodel.Map{})
 		require.NoError(t, err)
@@ -74,8 +74,8 @@ func TestValidate(t *testing.T) {
 	})
 
 	t.Run("validates with subject → invoker", func(t *testing.T) {
-		subject := testutil.RandomSigner(t)
-		invoker := testutil.RandomSigner(t)
+		subject := testutil.RandomIssuer(t)
+		invoker := testutil.RandomIssuer(t)
 
 		del, err := delegation.Delegate(subject, invoker.DID(), subject.DID(), crankWidget)
 		require.NoError(t, err)
@@ -102,7 +102,7 @@ func TestValidate(t *testing.T) {
 	})
 
 	t.Run("rejects an expired invocation", func(t *testing.T) {
-		subject := testutil.RandomSigner(t)
+		subject := testutil.RandomIssuer(t)
 		inv, err := invocation.Invoke(subject, subject.DID(), crankWidget, datamodel.Map{},
 			invocation.WithExpiration(past),
 		)
@@ -113,7 +113,7 @@ func TestValidate(t *testing.T) {
 	})
 
 	t.Run("accepts an invocation with a future expiry", func(t *testing.T) {
-		subject := testutil.RandomSigner(t)
+		subject := testutil.RandomIssuer(t)
 		inv, err := invocation.Invoke(subject, subject.DID(), crankWidget, datamodel.Map{},
 			invocation.WithExpiration(future),
 		)
@@ -124,8 +124,8 @@ func TestValidate(t *testing.T) {
 	})
 
 	t.Run("rejects a proof that is not yet valid", func(t *testing.T) {
-		subject := testutil.RandomSigner(t)
-		invoker := testutil.RandomSigner(t)
+		subject := testutil.RandomIssuer(t)
+		invoker := testutil.RandomIssuer(t)
 
 		del, err := delegation.Delegate(subject, invoker.DID(), subject.DID(), crankWidget,
 			delegation.WithNotBefore(future),
@@ -155,9 +155,9 @@ func TestValidate(t *testing.T) {
 	})
 
 	t.Run("rejects when final proof audience does not match invoker", func(t *testing.T) {
-		subject := testutil.RandomSigner(t)
-		invoker := testutil.RandomSigner(t)
-		other := testutil.RandomSigner(t)
+		subject := testutil.RandomIssuer(t)
+		invoker := testutil.RandomIssuer(t)
+		other := testutil.RandomIssuer(t)
 
 		// Delegation goes to other, but invoker invokes
 		del, err := delegation.Delegate(subject, other.DID(), subject.DID(), crankWidget)
@@ -185,10 +185,10 @@ func TestValidate(t *testing.T) {
 	})
 
 	t.Run("rejects a broken mid-chain (issuer mismatch)", func(t *testing.T) {
-		subject := testutil.RandomSigner(t)
-		alice := testutil.RandomSigner(t)
-		bob := testutil.RandomSigner(t)
-		eve := testutil.RandomSigner(t)
+		subject := testutil.RandomIssuer(t)
+		alice := testutil.RandomIssuer(t)
+		bob := testutil.RandomIssuer(t)
+		eve := testutil.RandomIssuer(t)
 
 		del1, err := delegation.Delegate(subject, alice.DID(), subject.DID(), crankWidget)
 		require.NoError(t, err)
@@ -218,9 +218,9 @@ func TestValidate(t *testing.T) {
 	})
 
 	t.Run("validates with subject → alice → bob", func(t *testing.T) {
-		subject := testutil.RandomSigner(t)
-		alice := testutil.RandomSigner(t)
-		bob := testutil.RandomSigner(t)
+		subject := testutil.RandomIssuer(t)
+		alice := testutil.RandomIssuer(t)
+		bob := testutil.RandomIssuer(t)
 
 		del1, err := delegation.Delegate(subject, alice.DID(), subject.DID(), crankWidget)
 		require.NoError(t, err)
@@ -249,8 +249,8 @@ func TestValidate(t *testing.T) {
 	})
 
 	t.Run("rejects when a referenced proof cannot be resolved", func(t *testing.T) {
-		subject := testutil.RandomSigner(t)
-		invoker := testutil.RandomSigner(t)
+		subject := testutil.RandomIssuer(t)
+		invoker := testutil.RandomIssuer(t)
 
 		del, err := delegation.Delegate(subject, invoker.DID(), subject.DID(), crankWidget)
 		require.NoError(t, err)
@@ -271,9 +271,9 @@ func TestValidate(t *testing.T) {
 
 	// https://github.com/ucan-wg/delegation#powerline
 	t.Run("validates with powerline delegation in chain", func(t *testing.T) {
-		subject := testutil.RandomSigner(t)
-		alice := testutil.RandomSigner(t)
-		bob := testutil.RandomSigner(t)
+		subject := testutil.RandomIssuer(t)
+		alice := testutil.RandomIssuer(t)
+		bob := testutil.RandomIssuer(t)
 
 		del1, err := delegation.Delegate(subject, alice.DID(), subject.DID(), crankWidget)
 		require.NoError(t, err)
@@ -306,8 +306,8 @@ func TestValidate(t *testing.T) {
 	// Explicitly disallowed by spec:
 	// https://github.com/ucan-wg/delegation#powerline
 	t.Run("rejects a powerline delegation at root of chain", func(t *testing.T) {
-		subject := testutil.RandomSigner(t)
-		invoker := testutil.RandomSigner(t)
+		subject := testutil.RandomIssuer(t)
+		invoker := testutil.RandomIssuer(t)
 
 		// Root delegation has nil subject — invalid per spec.
 		del, err := delegation.Delegate(subject, invoker.DID(), did.Undef, crankWidget)
@@ -335,8 +335,8 @@ func TestValidate(t *testing.T) {
 	})
 
 	t.Run("accepts a proof with a NotBefore in the past", func(t *testing.T) {
-		subject := testutil.RandomSigner(t)
-		invoker := testutil.RandomSigner(t)
+		subject := testutil.RandomIssuer(t)
+		invoker := testutil.RandomIssuer(t)
 
 		del, err := delegation.Delegate(subject, invoker.DID(), subject.DID(), crankWidget,
 			delegation.WithNotBefore(past),
@@ -366,8 +366,8 @@ func TestValidate(t *testing.T) {
 	})
 
 	t.Run("with a policy on a delegation", func(t *testing.T) {
-		subject := testutil.RandomSigner(t)
-		invoker := testutil.RandomSigner(t)
+		subject := testutil.RandomIssuer(t)
+		invoker := testutil.RandomIssuer(t)
 
 		del, err := delegation.Delegate(subject, invoker.DID(), subject.DID(), crankWidget,
 			delegation.WithPolicyBuilder(policy.Equal(".answer", 42)),
@@ -416,10 +416,10 @@ func TestValidate(t *testing.T) {
 	})
 
 	t.Run("rejects with incorrect subject in chain", func(t *testing.T) {
-		subject := testutil.RandomSigner(t)
-		alice := testutil.RandomSigner(t)
-		bob := testutil.RandomSigner(t)
-		unrelatedSubject := testutil.RandomSigner(t)
+		subject := testutil.RandomIssuer(t)
+		alice := testutil.RandomIssuer(t)
+		bob := testutil.RandomIssuer(t)
+		unrelatedSubject := testutil.RandomIssuer(t)
 
 		del1, err := delegation.Delegate(subject, alice.DID(), subject.DID(), crankWidget)
 		require.NoError(t, err)
@@ -448,10 +448,59 @@ func TestValidate(t *testing.T) {
 		require.Error(t, err)
 	})
 
+	t.Run("rejects when the signing key is expired", func(t *testing.T) {
+		subject := testutil.RandomIssuer(t)
+
+		// Build a DID document with an expired Multikey VM.
+		expires := did.DateTimeStamp(time.Unix(int64(past), 0))
+		resolver := expiredKeyResolver(t, subject, &expires, nil)
+
+		inv, err := invocation.Invoke(subject, subject.DID(), crankWidget, datamodel.Map{})
+		require.NoError(t, err)
+
+		err = validator.ValidateInvocation(t.Context(), inv,
+			validator.WithDIDResolver(resolver),
+			validator.WithValidationTime(now),
+		)
+		require.ErrorContains(t, err, "expired")
+	})
+
+	t.Run("rejects when the signing key is revoked", func(t *testing.T) {
+		subject := testutil.RandomIssuer(t)
+
+		revoked := did.DateTimeStamp(time.Unix(int64(past), 0))
+		resolver := expiredKeyResolver(t, subject, nil, &revoked)
+
+		inv, err := invocation.Invoke(subject, subject.DID(), crankWidget, datamodel.Map{})
+		require.NoError(t, err)
+
+		err = validator.ValidateInvocation(t.Context(), inv,
+			validator.WithDIDResolver(resolver),
+			validator.WithValidationTime(now),
+		)
+		require.ErrorContains(t, err, "revoked")
+	})
+
+	t.Run("accepts when the signing key has not yet expired", func(t *testing.T) {
+		subject := testutil.RandomIssuer(t)
+
+		expires := did.DateTimeStamp(time.Unix(int64(future), 0))
+		resolver := expiredKeyResolver(t, subject, &expires, nil)
+
+		inv, err := invocation.Invoke(subject, subject.DID(), crankWidget, datamodel.Map{})
+		require.NoError(t, err)
+
+		err = validator.ValidateInvocation(t.Context(), inv,
+			validator.WithDIDResolver(resolver),
+			validator.WithValidationTime(now),
+		)
+		require.NoError(t, err)
+	})
+
 	t.Run("with non-standard signature in chain", func(t *testing.T) {
-		subject := testutil.RandomSigner(t)
-		alice := absentee.From(testutil.Must(did.Parse("did:mailto:web.mail:alice"))(t))
-		bob := testutil.RandomSigner(t)
+		subject := testutil.RandomIssuer(t)
+		alice := absentee.From(testutil.Must(did.Parse("did:example:alice"))(t))
+		bob := testutil.RandomIssuer(t)
 
 		del1, err := delegation.Delegate(subject, alice.DID(), subject.DID(), crankWidget)
 		require.NoError(t, err)
@@ -478,12 +527,12 @@ func TestValidate(t *testing.T) {
 				t.Context(),
 				inv,
 				validator.WithProofResolver(resolveProof),
-				validator.WithDIDVerifierResolvers(validator.VerifierResolverMap{
-					"key": validator.ResolveDIDKeyVerifier,
-					"mailto": func(ctx context.Context, d did.DID) (ucan.Verifier, error) {
+				validator.WithDIDResolver(did.ResolverMap{
+					"key": key.Resolver,
+					"example": did.ResolverFunc(func(ctx context.Context, d did.DID) (did.Document, error) {
 						require.Fail(t, "shouldn't try to resolve a verifier for a non-standard signature")
-						return nil, nil
-					},
+						return did.Document{}, nil
+					}),
 				}),
 			)
 			require.ErrorContains(t, err, "no non-standard signature verifier configured")
@@ -521,65 +570,32 @@ func TestValidate(t *testing.T) {
 	})
 }
 
-func TestResolveDIDKeyVerifier(t *testing.T) {
-	t.Run("ed25519 did:key returns a verifier matching the DID", func(t *testing.T) {
-		signer, err := ed25519.Generate()
-		require.NoError(t, err)
-		d := signer.Verifier().DID()
-
-		v, err := validator.ResolveDIDKeyVerifier(t.Context(), d)
-		require.NoError(t, err)
-		require.NotNil(t, v)
-		require.Equal(t, d, v.DID())
-	})
-
-	t.Run("ed25519 verifier verifies a signature from the corresponding signer", func(t *testing.T) {
-		signer, err := ed25519.Generate()
-		require.NoError(t, err)
-		d := signer.Verifier().DID()
-
-		v, err := validator.ResolveDIDKeyVerifier(t.Context(), d)
-		require.NoError(t, err)
-		require.NotNil(t, v)
-
-		msg := []byte("hello, world")
-		sig := signer.Sign(msg)
-
-		require.True(t, v.Verify(msg, sig), "verifier should accept a valid signature")
-
-		tampered := []byte("hello, worle")
-		require.False(t, v.Verify(tampered, sig), "verifier should reject a signature over a different message")
-	})
-
-	t.Run("secp256k1 did:key returns a verifier matching the DID", func(t *testing.T) {
-		signer, err := secp256k1.Generate()
-		require.NoError(t, err)
-		d := signer.Verifier().DID()
-
-		v, err := validator.ResolveDIDKeyVerifier(t.Context(), d)
-		require.NoError(t, err)
-		require.NotNil(t, v)
-		require.Equal(t, d, v.DID())
-
-		msg := []byte("hello, world")
-		sig := signer.Sign(msg)
-		require.True(t, v.Verify(msg, sig))
-	})
-
-	t.Run("rejects non-did:key DIDs", func(t *testing.T) {
-		for _, didStr := range []string{
-			"did:web:example.com",
-			"did:dns:example.com",
-		} {
-			t.Run(didStr, func(t *testing.T) {
-				d, err := did.Parse(didStr)
-				require.NoError(t, err)
-
-				v, err := validator.ResolveDIDKeyVerifier(t.Context(), d)
-				require.Error(t, err)
-				require.Nil(t, v)
-			})
+// expiredKeyResolver returns a DID resolver that serves a document for the
+// issuer's DID with its Multikey VM marked expired or revoked as specified.
+func expiredKeyResolver(t *testing.T, issuer ucan.Issuer, expires, revoked *did.DateTimeStamp) did.Resolver {
+	t.Helper()
+	return did.ResolverFunc(func(_ context.Context, d did.DID) (did.Document, error) {
+		doc := did.NewDocument(d)
+		vm := did.VerificationMethod{
+			ID:         doc.Fragment(d.Identifier()),
+			Controller: d,
+			Expires:    expires,
+			Revoked:    revoked,
+			Type:       did.MultikeyVerificationMethodType,
+			Material:   did.GenericMap{did.MultikeyPublicKeyMultibaseProp: d.Identifier()},
 		}
+		if err := doc.VerificationMethods.Add(vm); err != nil {
+			return did.Document{}, err
+		}
+		for _, rel := range []*did.VerificationRelationship{
+			doc.Authentication, doc.AssertionMethod,
+			doc.CapabilityDelegation, doc.CapabilityInvocation,
+		} {
+			if err := rel.Add(vm); err != nil {
+				return did.Document{}, err
+			}
+		}
+		return doc, nil
 	})
 }
 
@@ -594,56 +610,6 @@ func (s StubVerifier) DID() did.DID {
 
 func (s StubVerifier) Verify(msg []byte, sig []byte) bool {
 	return false
-}
-
-func TestNewDIDVerifierResolverByMethod(t *testing.T) {
-	resolveExample1DID := func(ctx context.Context, d did.DID) (ucan.Verifier, error) {
-		if d.Method() != "example1" {
-			return nil, errors.New("unsupported DID method")
-		}
-		return StubVerifier{did: d, resolverUsed: "example1"}, nil
-	}
-
-	resolveExample2DID := func(ctx context.Context, d did.DID) (ucan.Verifier, error) {
-		if d.Method() != "example2" {
-			return nil, errors.New("unsupported DID method")
-		}
-		return StubVerifier{did: d, resolverUsed: "example2"}, nil
-	}
-
-	resolver := validator.NewDIDVerifierResolverByMethod(validator.VerifierResolverMap{
-		"example1": resolveExample1DID,
-		"example2": resolveExample2DID,
-	})
-
-	t.Run("dispatches to the correct resolver based on DID method", func(t *testing.T) {
-		d1, err := did.Parse("did:example1:alice")
-		require.NoError(t, err)
-
-		v1, err := resolver(t.Context(), d1)
-		require.NoError(t, err)
-		require.NotNil(t, v1)
-		require.Equal(t, d1, v1.DID())
-		require.Equal(t, "example1", v1.(StubVerifier).resolverUsed)
-
-		d2, err := did.Parse("did:example2:bob")
-		require.NoError(t, err)
-
-		v2, err := resolver(t.Context(), d2)
-		require.NoError(t, err)
-		require.NotNil(t, v2)
-		require.Equal(t, d2, v2.DID())
-		require.Equal(t, "example2", v2.(StubVerifier).resolverUsed)
-	})
-
-	t.Run("returns an error for unsupported DID methods", func(t *testing.T) {
-		d, err := did.Parse("did:unsupported:example")
-		require.NoError(t, err)
-
-		v, err := resolver(t.Context(), d)
-		require.Error(t, err)
-		require.Nil(t, v)
-	})
 }
 
 type NamedError interface {

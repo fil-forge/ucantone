@@ -1,0 +1,176 @@
+package did_test
+
+import (
+	"encoding/json"
+	"testing"
+
+	"github.com/fil-forge/ucantone/did"
+	"github.com/stretchr/testify/require"
+)
+
+func TestDocument_MarshalJSON(t *testing.T) {
+	t.Run("verificationMethod marshals as array", func(t *testing.T) {
+		controller, err := did.Parse("did:example:123")
+		require.NoError(t, err)
+		doc := did.NewDocument(controller)
+		vm := did.VerificationMethod{
+			ID:         doc.Fragment("key-1"),
+			Controller: controller,
+			Type:       did.MultikeyVerificationMethodType,
+			Material:   did.GenericMap{did.MultikeyPublicKeyMultibaseProp: "zABC"},
+		}
+		require.NoError(t, doc.VerificationMethods.Add(vm))
+
+		b, err := json.Marshal(doc)
+		require.NoError(t, err)
+
+		require.JSONEq(t, `{
+			"@context": "https://www.w3.org/ns/did/v1.1",
+			"id": "did:example:123",
+			"verificationMethod": [
+				{
+					"controller": "did:example:123",
+					"id": "did:example:123#key-1",
+					"publicKeyMultibase": "zABC",
+					"type": "Multikey"
+				}
+			]
+		}`, string(b))
+	})
+
+	t.Run("empty verificationMethod is omitted", func(t *testing.T) {
+		exampleDID, err := did.Parse("did:example:123")
+		require.NoError(t, err)
+		doc := did.Document{ID: exampleDID}
+		b, err := json.Marshal(doc)
+		require.NoError(t, err)
+
+		require.NotContains(t, string(b), "verificationMethod")
+	})
+}
+
+func TestDocument_UnmarshalJSON(t *testing.T) {
+	t.Run("URL references only", func(t *testing.T) {
+		data := `{
+			"@context": "https://www.w3.org/ns/did/v1.1",
+			"id": "did:example:123",
+			"verificationMethod": [{
+				"id": "did:example:123#key-1",
+				"type": "Multikey",
+				"controller": "did:example:123",
+				"publicKeyMultibase": "zABC"
+			}],
+			"authentication": ["did:example:123#key-1"]
+		}`
+		var doc did.Document
+		err := json.Unmarshal([]byte(data), &doc)
+		require.NoError(t, err)
+		require.Len(t, doc.VerificationMethods.All(), 1)
+		require.Equal(t, 1, doc.Authentication.Len())
+		require.Equal(t, "did:example:123#key-1", doc.Authentication.Get(0).String())
+	})
+
+	t.Run("embedded method in authentication", func(t *testing.T) {
+		data := `{
+			"@context": "https://www.w3.org/ns/did/v1.1",
+			"id": "did:example:123",
+			"authentication": [{
+				"id": "did:example:123#key-1",
+				"type": "Multikey",
+				"controller": "did:example:123",
+				"publicKeyMultibase": "zABC"
+			}]
+		}`
+		var doc did.Document
+		err := json.Unmarshal([]byte(data), &doc)
+		require.NoError(t, err)
+		require.Len(t, doc.VerificationMethods.All(), 1)
+		require.Equal(t, "did:example:123#key-1", doc.VerificationMethods.All()[0].ID.String())
+		require.Equal(t, 1, doc.Authentication.Len())
+		require.Equal(t, "did:example:123#key-1", doc.Authentication.Get(0).String())
+	})
+
+	t.Run("mixed URL and embedded in same relationship", func(t *testing.T) {
+		data := `{
+			"@context": "https://www.w3.org/ns/did/v1.1",
+			"id": "did:example:123",
+			"verificationMethod": [{
+				"id": "did:example:123#key-1",
+				"type": "Multikey",
+				"controller": "did:example:123",
+				"publicKeyMultibase": "zABC"
+			}],
+			"authentication": [
+				"did:example:123#key-1",
+				{
+					"id": "did:example:123#key-2",
+					"type": "Multikey",
+					"controller": "did:example:123",
+					"publicKeyMultibase": "zDEF"
+				}
+			]
+		}`
+		var doc did.Document
+		err := json.Unmarshal([]byte(data), &doc)
+		require.NoError(t, err)
+		require.Len(t, doc.VerificationMethods.All(), 2)
+		require.Equal(t, 2, doc.Authentication.Len())
+		require.Equal(t, "did:example:123#key-1", doc.Authentication.Get(0).String())
+		require.Equal(t, "did:example:123#key-2", doc.Authentication.Get(1).String())
+	})
+
+	t.Run("same embedded method in multiple relationships", func(t *testing.T) {
+		data := `{
+			"@context": "https://www.w3.org/ns/did/v1.1",
+			"id": "did:example:123",
+			"authentication": [{
+				"id": "did:example:123#key-1",
+				"type": "Multikey",
+				"controller": "did:example:123",
+				"publicKeyMultibase": "zABC"
+			}],
+			"assertionMethod": [{
+				"id": "did:example:123#key-1",
+				"type": "Multikey",
+				"controller": "did:example:123",
+				"publicKeyMultibase": "zABC"
+			}]
+		}`
+		var doc did.Document
+		err := json.Unmarshal([]byte(data), &doc)
+		require.NoError(t, err)
+		require.Len(t, doc.VerificationMethods.All(), 1, "identical duplicate should appear once")
+		require.Equal(t, "did:example:123#key-1", doc.Authentication.Get(0).String())
+		require.Equal(t, "did:example:123#key-1", doc.AssertionMethod.Get(0).String())
+	})
+
+	t.Run("conflicting definitions for same ID", func(t *testing.T) {
+		data := `{
+			"@context": "https://www.w3.org/ns/did/v1.1",
+			"id": "did:example:123",
+			"authentication": [{
+				"id": "did:example:123#key-1",
+				"type": "Multikey",
+				"controller": "did:example:123",
+				"publicKeyMultibase": "zABC"
+			}],
+			"assertionMethod": [{
+				"id": "did:example:123#key-1",
+				"type": "Multikey",
+				"controller": "did:example:123",
+				"publicKeyMultibase": "zDIFFERENT"
+			}]
+		}`
+		var doc did.Document
+		err := json.Unmarshal([]byte(data), &doc)
+		require.ErrorContains(t, err, `conflicting definitions for verification method "did:example:123#key-1"`)
+	})
+}
+
+func TestDocument_Fragment(t *testing.T) {
+	exampleDID, err := did.Parse("did:example:123")
+	require.NoError(t, err)
+	doc := did.Document{ID: exampleDID}
+	fragment := doc.Fragment("key-1")
+	require.Equal(t, "did:example:123#key-1", fragment.String())
+}

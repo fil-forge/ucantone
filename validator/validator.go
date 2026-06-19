@@ -11,9 +11,6 @@ import (
 
 	"github.com/fil-forge/ucantone/did"
 	"github.com/fil-forge/ucantone/ipld/datamodel"
-	_ "github.com/fil-forge/ucantone/principal/ed25519/verifier"
-	_ "github.com/fil-forge/ucantone/principal/secp256k1/verifier"
-	"github.com/fil-forge/ucantone/principal/verifier"
 	"github.com/fil-forge/ucantone/ucan"
 	"github.com/fil-forge/ucantone/ucan/token"
 	verrs "github.com/fil-forge/ucantone/validator/errors"
@@ -30,18 +27,10 @@ func ValidateInvocation(
 	inv ucan.Invocation,
 	options ...Option,
 ) error {
-	cfg := validationConfig{
-		resolveProof:               ProofUnavailable,
-		resolveDIDVerifier:         ResolveDIDKeyVerifier,
-		validationTime:             ucan.UnixTimestamp(time.Now().Unix()),
-		verifyNonStandardSignature: FailNonStandardSignatureVerification,
-	}
-	for _, opt := range options {
-		opt(&cfg)
-	}
+	cfg := makeCfg(options...)
 
 	// To be valid, an invocation must be a valid token...
-	err := ValidateToken(ctx, inv, cfg)
+	err := ValidateToken(ctx, inv, withConfig(cfg))
 	if err != nil {
 		return err
 	}
@@ -75,7 +64,13 @@ func ValidateInvocation(
 // time bounds. An [ucan.Invocation] is a token, but has additional
 // requirements. An invocation may be a valid token but still an invalid
 // invocation, if its proof chain is insufficient.
-func ValidateToken(ctx context.Context, tok ucan.Token, cfg validationConfig) error {
+func ValidateToken(
+	ctx context.Context,
+	tok ucan.Token,
+	options ...Option,
+) error {
+	cfg := makeCfg(options...)
+
 	// To be valid, a token must have a valid signature from its issuer...
 	err := verifyTokenSignature(ctx, tok, cfg)
 	if err != nil {
@@ -106,23 +101,61 @@ func ValidateToken(ctx context.Context, tok ucan.Token, cfg validationConfig) er
 
 // verifyTokenSignature verifies the token was signed by the passed verifier.
 func verifyTokenSignature(ctx context.Context, tok ucan.Token, cfg validationConfig) error {
-	if tok.Signature().Header().SignatureAlgorithm().Code() == nonstandard.Code {
+	if tok.Signature().Header().SignatureAlgorithm() == nonstandard.NonStandard {
 		return cfg.verifyNonStandardSignature(ctx, tok, cfg.metadata)
 	}
 
-	verifier, err := cfg.resolveDIDVerifier(ctx, tok.Issuer())
+	doc, err := cfg.didResolver.Resolve(ctx, tok.Issuer())
 	if err != nil {
 		return err
 	}
 
-	ok, err := token.VerifySignature(tok, verifier)
-	if err != nil {
-		return err
+	// Look at the correct verification relationship in the DID Document.
+	var verRel *did.VerificationRelationship
+	switch tok.(type) {
+	case ucan.Invocation:
+		verRel = doc.CapabilityInvocation
+	case ucan.Delegation:
+		verRel = doc.CapabilityDelegation
+	default:
+		return fmt.Errorf("unsupported token type: %T", tok)
 	}
-	if !ok {
-		return verrs.NewInvalidSignatureError(tok, verifier)
+
+	// Try each verification method, collecting rejection reasons for the error.
+	validationTime := time.Unix(int64(cfg.validationTime), 0)
+	var rejections []verrs.VMRejection
+
+	for _, vm := range verRel.All() {
+		if vm.ExpiredAt(validationTime) {
+			rejections = append(rejections, verrs.VMRejection{VM: vm, Reason: "expired"})
+			continue
+		}
+		if vm.RevokedAt(validationTime) {
+			rejections = append(rejections, verrs.VMRejection{VM: vm, Reason: "revoked"})
+			continue
+		}
+		f, ok := cfg.verifierFactories[vm.Type]
+		if !ok {
+			err = fmt.Errorf("%w for VM type %q", ErrNoVerifierFactory, vm.Type)
+		}
+		var v ucan.Verifier
+		if err == nil {
+			v, err = f(ctx, vm.Material)
+		}
+		if errors.Is(err, ErrNoVerifierFactory) {
+			rejections = append(rejections, verrs.VMRejection{VM: vm, Reason: "unsupported verification method type"})
+			continue
+		}
+		if err != nil {
+			return err
+		}
+		if token.VerifySignature(tok, v) {
+			return nil
+		}
+		rejections = append(rejections, verrs.VMRejection{VM: vm, Reason: "signature mismatch"})
 	}
-	return nil
+
+	return verrs.NewInvalidSignatureError(tok, rejections)
 }
 
 func capabilityFromProofChain(ctx context.Context, inv ucan.Invocation, cfg validationConfig) (Capability, error) {
@@ -138,7 +171,7 @@ func capabilityFromProofChain(ctx context.Context, inv ucan.Invocation, cfg vali
 	currentAuthority := inv.Subject()
 	currentCapability := NewCapability(inv.Subject())
 	for i, prf := range prfs {
-		if err := ValidateToken(ctx, prf, cfg); err != nil {
+		if err := ValidateToken(ctx, prf, withConfig(cfg)); err != nil {
 			return Capability{}, err
 		}
 
@@ -185,11 +218,6 @@ func capabilityFromProofChain(ctx context.Context, inv ucan.Invocation, cfg vali
 // ProofResolverFunc finds a delegation corresponding to an external proof link.
 type ProofResolverFunc func(ctx context.Context, link cid.Cid) (ucan.Delegation, error)
 
-// DIDVerifierResolverFunc is used to resolve the verification methods of a
-// DID. It returns a [ucan.Verifier] that can verify signatures from the given
-// DID.
-type DIDVerifierResolverFunc func(ctx context.Context, did did.DID) (ucan.Verifier, error)
-
 // NonStandardSignatureVerifierFunc is used to verify signatures from
 // non-standard signature algorithms. It can be passed into a UCAN validator in
 // order to support delegations signed with non-standard signature algorithms.
@@ -213,31 +241,6 @@ func ProofsFromContainer(c ucan.Container) ProofResolverFunc {
 			return nil, verrs.NewUnavailableProofError(l, errors.New("proof not found in container"))
 		}
 		return prf, nil
-	}
-}
-
-// ResolveDIDKeyVerifier is a [DIDVerifierResolverFunc] that only supports `did:key`
-// DIDs and returns an error for any other DID method.
-//
-// To support multiple DID methods, use [NewDIDVerifierResolverByMethod] and
-// include [ResolveDIDKeyVerifier] in the resolvers map for the "key" method.
-func ResolveDIDKeyVerifier(ctx context.Context, d did.DID) (ucan.Verifier, error) {
-	return verifier.FromDIDKey(d)
-}
-
-type VerifierResolverMap map[string]DIDVerifierResolverFunc
-
-// NewDIDVerifierResolverByMethod returns a [DIDVerifierResolverFunc] that
-// dispatches to different resolver functions based on the method of the DID. If
-// a DID is given in with a method that is not present in the resolvers map, the
-// resolver will return an error.
-func NewDIDVerifierResolverByMethod(resolvers VerifierResolverMap) DIDVerifierResolverFunc {
-	return func(ctx context.Context, d did.DID) (ucan.Verifier, error) {
-		resolver, ok := resolvers[d.Method()]
-		if !ok {
-			return nil, fmt.Errorf("unsupported DID method: %s", d.Method())
-		}
-		return resolver(ctx, d)
 	}
 }
 

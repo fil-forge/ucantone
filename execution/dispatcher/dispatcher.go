@@ -4,7 +4,6 @@ import (
 	"fmt"
 
 	"github.com/fil-forge/ucantone/execution"
-	"github.com/fil-forge/ucantone/principal"
 	"github.com/fil-forge/ucantone/ucan"
 	"github.com/fil-forge/ucantone/validator"
 )
@@ -12,7 +11,7 @@ import (
 // Dispatcher executes UCAN invocations by dispatching them to registered
 // handlers.
 type Dispatcher struct {
-	authority         principal.Signer
+	authority         ucan.Issuer
 	handlers          map[ucan.Command]execution.HandlerFunc
 	validationOpts    []validator.Option
 	receiptTimestamps bool
@@ -23,7 +22,7 @@ type Dispatcher struct {
 //
 // The authority is the identity of the local authority, used to verify
 // signatures of delegations signed by it and sign receipts for executed tasks.
-func New(authority principal.Signer, options ...Option) *Dispatcher {
+func New(authority ucan.Issuer, options ...Option) *Dispatcher {
 	cfg := execConfig{}
 	for _, opt := range options {
 		opt(&cfg)
@@ -48,7 +47,7 @@ func (d *Dispatcher) Execute(req execution.Request) (execution.Response, error) 
 	if aud != d.authority.DID() {
 		return execution.NewResponse(
 			req.Invocation().Task().Link(),
-			execution.WithSigner(d.authority),
+			execution.WithIssuer(d.authority),
 			execution.WithReceiptTimestamp(d.receiptTimestamps),
 			execution.WithFailure(execution.NewInvalidAudienceError(d.authority.DID(), aud)),
 		)
@@ -59,7 +58,7 @@ func (d *Dispatcher) Execute(req execution.Request) (execution.Response, error) 
 	if !ok {
 		return execution.NewResponse(
 			req.Invocation().Task().Link(),
-			execution.WithSigner(d.authority),
+			execution.WithIssuer(d.authority),
 			execution.WithReceiptTimestamp(d.receiptTimestamps),
 			execution.WithFailure(NewHandlerNotFoundError(cmd)),
 		)
@@ -79,7 +78,7 @@ func (d *Dispatcher) Execute(req execution.Request) (execution.Response, error) 
 	if err != nil {
 		return execution.NewResponse(
 			req.Invocation().Task().Link(),
-			execution.WithSigner(d.authority),
+			execution.WithIssuer(d.authority),
 			execution.WithReceiptTimestamp(d.receiptTimestamps),
 			execution.WithFailure(err),
 		)
@@ -87,7 +86,7 @@ func (d *Dispatcher) Execute(req execution.Request) (execution.Response, error) 
 
 	res, err := execution.NewResponse(
 		req.Invocation().Task().Link(),
-		execution.WithSigner(d.authority),
+		execution.WithIssuer(d.authority),
 		execution.WithReceiptTimestamp(d.receiptTimestamps),
 	)
 	if err != nil {
@@ -98,7 +97,7 @@ func (d *Dispatcher) Execute(req execution.Request) (execution.Response, error) 
 	if err != nil {
 		return execution.NewResponse(
 			req.Invocation().Task().Link(),
-			execution.WithSigner(d.authority),
+			execution.WithIssuer(d.authority),
 			execution.WithReceiptTimestamp(d.receiptTimestamps),
 			execution.WithFailure(execution.NewHandlerExecutionError(cmd, err)),
 		)

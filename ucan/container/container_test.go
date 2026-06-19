@@ -25,7 +25,7 @@ func TestContainer(t *testing.T) {
 	}
 	for _, code := range codecs {
 		t.Run(container.FormatCodec(code)+" with invocation", func(t *testing.T) {
-			issuer := testutil.RandomSigner(t)
+			issuer := testutil.RandomIssuer(t)
 			subject := testutil.RandomDID(t)
 			command := testutil.Must(command.Parse("/test/invoke"))(t)
 			arguments := testutil.RandomArgs(t)
@@ -46,7 +46,7 @@ func TestContainer(t *testing.T) {
 }
 
 func TestContainerDeduplicates(t *testing.T) {
-	issuer := testutil.RandomSigner(t)
+	issuer := testutil.RandomIssuer(t)
 	audience := testutil.RandomDID(t)
 	subject := testutil.RandomDID(t)
 	cmd := testutil.Must(command.Parse("/test/invoke"))(t)

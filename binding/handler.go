@@ -82,25 +82,25 @@ func (r *Request[Args]) Task() *Task[Args] {
 	return r.task
 }
 
-// SignerSetter is implemented by responses that can issue their own receipt and
-// therefore need a signer. [WithSigner] uses it to set that signer.
-type SignerSetter interface {
-	SetSigner(ucan.Signer) error
+// IssuerSetter is implemented by responses that can issue their own receipt and
+// therefore need an issuer. [WithIssuer] uses it to set that issuer.
+type IssuerSetter interface {
+	SetIssuer(ucan.Issuer) error
 }
 
 // ResponseOption configures a [Response] as it is built by [NewResponse],
-// typically setting its outcome (success or failure), signer, or metadata.
+// typically setting its outcome (success or failure), issuer, or metadata.
 type ResponseOption[OK cbg.CBORMarshaler] func(r *Response[OK]) error
 
-// WithSigner sets the signer used to issue the response's receipt. It fails if
-// the underlying response cannot accept one (does not implement [SignerSetter]).
-func WithSigner[OK cbg.CBORMarshaler](signer ucan.Signer) ResponseOption[OK] {
+// WithIssuer sets the issuer used to issue the response's receipt. It fails if
+// the underlying response cannot accept one (does not implement [IssuerSetter]).
+func WithIssuer[OK cbg.CBORMarshaler](issuer ucan.Issuer) ResponseOption[OK] {
 	return func(resp *Response[OK]) error {
-		setter, ok := resp.res.(SignerSetter)
+		setter, ok := resp.res.(IssuerSetter)
 		if !ok {
-			return fmt.Errorf("cannot set signer: underlying response is not a signer setter")
+			return fmt.Errorf("cannot set issuer: underlying response is not an issuer setter")
 		}
-		return setter.SetSigner(signer)
+		return setter.SetIssuer(issuer)
 	}
 }
 
@@ -144,7 +144,7 @@ type Response[OK cbg.CBORMarshaler] struct {
 }
 
 // NewResponse creates a response for the given task, applying any options
-// (such as [WithSuccess], [WithFailure], or [WithSigner]) that set its outcome.
+// (such as [WithSuccess], [WithFailure], or [WithIssuer]) that set its outcome.
 func NewResponse[OK cbg.CBORMarshaler](task cid.Cid, options ...ResponseOption[OK]) (*Response[OK], error) {
 	xres, err := execution.NewResponse(task)
 	if err != nil {

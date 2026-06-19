@@ -14,19 +14,21 @@ import (
 
 const UnavailableProofErrorName = "UnavailableProof"
 
-func NewUnavailableProofError(p cid.Cid, cause error) edm.ErrorModel {
-	return edm.ErrorModel{
+func NewUnavailableProofError(p cid.Cid, cause error) edm.ErrorModelWithCause {
+	return edm.ErrorModelWithCause{
 		ErrorName: UnavailableProofErrorName,
-		Message:   fmt.Sprintf("linked proof %q could not be resolved: %s", p, cause.Error()),
+		Message:   fmt.Sprintf("linked proof %q could not be resolved", p),
+		Cause:     cause,
 	}
 }
 
 const DIDKeyResolutionErrorName = "DIDKeyResolutionError"
 
-func NewDIDKeyResolutionError(d did.DID, cause error) edm.ErrorModel {
-	return edm.ErrorModel{
+func NewDIDKeyResolutionError(d did.DID, cause error) edm.ErrorModelWithCause {
+	return edm.ErrorModelWithCause{
 		ErrorName: DIDKeyResolutionErrorName,
-		Message:   fmt.Sprintf("unable to resolve %q key: %s", d, cause.Error()),
+		Message:   fmt.Sprintf("unable to resolve %q key", d),
+		Cause:     cause,
 	}
 }
 
@@ -56,31 +58,37 @@ func NewTooEarlyError(t ucan.Delegation) edm.ErrorModel {
 
 const InvalidSignatureErrorName = "InvalidSignature"
 
-func NewInvalidSignatureError(token ucan.Token, verifier ucan.Verifier) edm.ErrorModel {
+// VMRejection records a verification method that was tried and the reason it
+// did not produce a valid signature.
+type VMRejection struct {
+	VM     did.VerificationMethod
+	Reason string
+}
+
+func NewInvalidSignatureError(token ucan.Token, rejections []VMRejection) edm.ErrorModel {
 	issuer := token.Issuer()
-	key := verifier.DID()
-	var message string
-	if issuer.Method() == "key" {
-		message = fmt.Sprintf(`proof %s does not have a valid signature from %s`, token.Link(), key)
-	} else {
-		message = strings.Join([]string{
-			fmt.Sprintf("proof %q issued by %q does not have a valid signature from %q", token.Link(), issuer, key),
-			"  ℹ️ Issuer probably signed with a different key, which got rotated, invalidating delegations that were issued with prior keys",
-		}, "\n")
+	var message strings.Builder
+	message.WriteString(strings.Join([]string{
+		fmt.Sprintf("proof %q does not have a valid signature from %q", token.Link(), issuer),
+		"  ℹ️ Tried these verification methods:",
+	}, "\n"))
+	for _, r := range rejections {
+		fmt.Fprintf(&message, "\n    - %s: %s", r.VM.ID, r.Reason)
 	}
 	return edm.ErrorModel{
 		ErrorName: InvalidSignatureErrorName,
-		Message:   message,
+		Message:   message.String(),
 	}
 }
 
 const UnverifiableSignatureErrorName = "UnverifiableSignature"
 
-func NewUnverifiableSignatureError(token ucan.Token, cause error) edm.ErrorModel {
+func NewUnverifiableSignatureError(token ucan.Token, cause error) edm.ErrorModelWithCause {
 	issuer := token.Issuer()
-	return edm.ErrorModel{
+	return edm.ErrorModelWithCause{
 		ErrorName: UnverifiableSignatureErrorName,
-		Message:   fmt.Sprintf("proof %q issued by %q cannot be verified: %s", token.Link(), issuer, cause.Error()),
+		Message:   fmt.Sprintf("proof %q issued by %q cannot be verified", token.Link(), issuer),
+		Cause:     cause,
 	}
 }
 
@@ -114,10 +122,11 @@ func NewSubjectAlignmentError(expectedSubject did.DID, dlg ucan.Delegation) edm.
 
 const MalformedArgumentsErrorName = "MalformedArguments"
 
-func NewMalformedArgumentsError(cmd ucan.Command, cause error) edm.ErrorModel {
-	return edm.ErrorModel{
+func NewMalformedArgumentsError(cmd ucan.Command, cause error) edm.ErrorModelWithCause {
+	return edm.ErrorModelWithCause{
 		ErrorName: MalformedArgumentsErrorName,
-		Message:   fmt.Sprintf("malformed arguments for command %q: %s", cmd, cause.Error()),
+		Message:   fmt.Sprintf("malformed arguments for command %q", cmd),
+		Cause:     cause,
 	}
 }
 

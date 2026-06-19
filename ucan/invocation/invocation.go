@@ -20,7 +20,6 @@ import (
 	idm "github.com/fil-forge/ucantone/ucan/invocation/datamodel"
 	"github.com/fil-forge/ucantone/ucan/nonce"
 	"github.com/fil-forge/ucantone/varsig"
-	varsig_dagcbor "github.com/fil-forge/ucantone/varsig/payload/dagcbor"
 )
 
 // Validity is the time an invocation is valid for by default.
@@ -191,7 +190,7 @@ func (inv *Invocation) UnmarshalCBOR(r io.Reader) error {
 	if sigPayload.TokenPayload1_0_0_rc1 == nil {
 		return errors.New("invalid or unsupported invocation token payload")
 	}
-	header, err := varsig.Decode(sigPayload.Header)
+	header, _, err := varsig.Decode(sigPayload.Header)
 	if err != nil {
 		return fmt.Errorf("decoding varsig header: %w", err)
 	}
@@ -238,7 +237,7 @@ func (inv *Invocation) UnmarshalDagJSON(r io.Reader) error {
 	if sigPayload.TokenPayload1_0_0_rc1 == nil {
 		return errors.New("invalid or unsupported invocation token payload")
 	}
-	header, err := varsig.Decode(sigPayload.Header)
+	header, _, err := varsig.Decode(sigPayload.Header)
 	if err != nil {
 		return fmt.Errorf("decoding varsig header: %w", err)
 	}
@@ -292,7 +291,7 @@ func Decode(b []byte) (*Invocation, error) {
 // directly when the args have a typed cborgen schema; use InvokeMap when you
 // just want to pass a Go map literal.
 func InvokeMap(
-	issuer ucan.Signer,
+	issuer ucan.Issuer,
 	subject did.DID,
 	command ucan.Command,
 	args map[string]any,
@@ -306,7 +305,7 @@ func InvokeMap(
 // expects, and which encodes as a CBOR map (per the UCAN spec).
 // Pass nil to encode an empty CBOR map.
 func Invoke(
-	issuer ucan.Signer,
+	issuer ucan.Issuer,
 	subject did.DID,
 	command ucan.Command,
 	args cbg.CBORMarshaler,
@@ -317,12 +316,9 @@ func Invoke(
 		opt(&cfg)
 	}
 
-	sigAlgo, ok := varsig.GetSignatureAlgorithmCodec(issuer.SignatureAlgorithm())
-	if !ok {
-		return nil, fmt.Errorf("missing codec for signature algorithm: %d", issuer.SignatureAlgorithm().Code())
-	}
-	sigHeader := varsig.NewHeader(sigAlgo, varsig_dagcbor.NewCodec())
-	h, err := varsig.Encode(sigHeader)
+	sigAlgo := issuer.SignatureAlgorithm()
+	vsig := varsig.New(sigAlgo, varsig.DagCbor)
+	h, err := vsig.Encode()
 	if err != nil {
 		return nil, fmt.Errorf("encoding varsig header: %w", err)
 	}
@@ -397,7 +393,7 @@ func Invoke(
 	}
 
 	sigBytes := issuer.Sign(sigBuf.Bytes())
-	sig := signature.NewSignature(sigHeader, sigBytes)
+	sig := signature.NewSignature(vsig, sigBytes)
 
 	envelope := edm.EnvelopeModel{
 		Signature:  sigBytes,

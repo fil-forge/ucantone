@@ -6,7 +6,7 @@ import (
 
 	"github.com/fil-forge/ucantone/binding"
 	"github.com/fil-forge/ucantone/execution"
-	"github.com/fil-forge/ucantone/principal/ed25519"
+	"github.com/fil-forge/ucantone/multikey/ed25519"
 	tdm "github.com/fil-forge/ucantone/testutil/datamodel"
 	"github.com/fil-forge/ucantone/ucan/command"
 )
@@ -22,8 +22,8 @@ var echo = binding.Bind[*tdm.TestObject, *tdm.TestObject2](command.MustParse("/e
 // typed arguments, a server handles it and returns a typed result, and the
 // client unpacks that result — all without hand-written encoding or decoding.
 func Example() {
-	client, _ := ed25519.Generate()
-	service, _ := ed25519.Generate()
+	client, _ := ed25519.GenerateIssuer()
+	service, _ := ed25519.GenerateIssuer()
 
 	// Client: invoke the command with typed arguments. Invoke encodes them into
 	// a signed invocation addressed to the service.
@@ -37,7 +37,7 @@ func Example() {
 	})
 
 	xreq := execution.NewRequest(context.Background(), inv)
-	xres, _ := execution.NewResponse(inv.Task().Link(), execution.WithSigner(service))
+	xres, _ := execution.NewResponse(inv.Task().Link(), execution.WithIssuer(service))
 	_ = handle(xreq, xres)
 
 	// Client: unpack the typed result (OK) out of the receipt.

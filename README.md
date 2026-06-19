@@ -24,19 +24,19 @@ fmt.Println("DID:", principal)
 ```
 
 ```go
-// generate a new ed25519 signer
-signerPrincipal, err := ed25519.Generate()
-fmt.Println("DID:", signerPrincipal.DID())
+// generate a new ed25519 issuer
+issuer, err := ed25519.GenerateIssuer()
+fmt.Println("DID:", issuer.DID())
 
 // this principal can sign
-sig := signerPrincipal.Sign([]byte{1, 2, 3})
+sig := issuer.Sign([]byte{1, 2, 3})
 fmt.Printf("Signature: 0x%x\n", sig)
 
 // and has a private key (use format utility to multibase base64pad encode)
-fmt.Println("Private Key:", signer.Format(signerPrincipal))
+fmt.Println("Private Key:", multikey.FormatSigner(issuer))
 
 // which can be stored and decoded later...
-signerPrincipal2, err := ed25519.Decode(signerPrincipal.Bytes())
+issuer2, err := ed25519.Decode(issuer.Bytes())
 ```
 
 #### Delegation
@@ -134,7 +134,7 @@ See examples in [server_test.go](./examples/server_test.go)
 
 ```go
 echo, err := command.Parse("/example/echo")
-serviceID, err := ed25519.Generate()
+serviceID, err := ed25519.GenerateIssuer()
 
 ucanSrv := server.NewHTTP(serviceID)
 
@@ -167,14 +167,15 @@ c, err := client.NewHTTP(serviceURL)
 
 // create an execution request and send it to the service, passing the
 // invocation and the delegation as proof we are authorized
-req := execution.NewRequest(context.Background(), inv, execution.WithProofs(dlg))
+req := execution.NewRequest(context.Background(), inv, execution.WithDelegations(dlg))
 resp, err := c.Execute(req)
 
-o, x := result.Unwrap(resp.Receipt().Out())
-if x != nil {
-  fmt.Printf("Invocation failed: %v\n", x)
+if out := resp.Receipt().Out(); out.IsOK() {
+  ok, _ := out.Unpack()
+  fmt.Printf("Echo response: %+v\n", ok)
 } else {
-  fmt.Printf("Echo response: %+v\n", o)
+  _, x := out.Unpack()
+  fmt.Printf("Invocation failed: %v\n", x)
 }
 ```
 

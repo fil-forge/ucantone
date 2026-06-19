@@ -21,9 +21,9 @@ import (
 )
 
 func TestHTTPInboundCodec(t *testing.T) {
-	alice := testutil.RandomSigner(t)
-	bob := testutil.RandomSigner(t)
-	service := testutil.RandomSigner(t)
+	alice := testutil.RandomIssuer(t)
+	bob := testutil.RandomIssuer(t)
+	service := testutil.RandomIssuer(t)
 
 	cmd, err := command.Parse("/console/log")
 	require.NoError(t, err)
@@ -120,9 +120,9 @@ func TestHTTPInboundCodec(t *testing.T) {
 }
 
 func TestHTTPOutboundCodec(t *testing.T) {
-	alice := testutil.RandomSigner(t)
-	bob := testutil.RandomSigner(t)
-	service := testutil.RandomSigner(t)
+	alice := testutil.RandomIssuer(t)
+	bob := testutil.RandomIssuer(t)
+	service := testutil.RandomIssuer(t)
 
 	cmd, err := command.Parse("/console/log")
 	require.NoError(t, err)

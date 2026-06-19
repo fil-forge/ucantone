@@ -9,7 +9,7 @@ import (
 	"github.com/fil-forge/ucantone/binding"
 	"github.com/fil-forge/ucantone/client"
 	"github.com/fil-forge/ucantone/execution"
-	"github.com/fil-forge/ucantone/principal/ed25519"
+	"github.com/fil-forge/ucantone/multikey/ed25519"
 	"github.com/fil-forge/ucantone/server"
 	tdm "github.com/fil-forge/ucantone/testutil/datamodel"
 	"github.com/fil-forge/ucantone/ucan/command"
@@ -35,7 +35,7 @@ func ExampleNewRoute() {
 		}),
 	}
 
-	service, _ := ed25519.Generate()
+	service, _ := ed25519.GenerateIssuer()
 	srv := server.NewHTTP(service)
 	for _, r := range routes {
 		srv.Handle(r.Command, r.Handler)
@@ -47,7 +47,7 @@ func ExampleNewRoute() {
 
 	// A client invokes the command with typed arguments and unpacks the typed
 	// result from the receipt.
-	alice, _ := ed25519.Generate()
+	alice, _ := ed25519.GenerateIssuer()
 	inv, _ := echo.Invoke(alice, alice.DID(), &tdm.TestObject{Bytes: []byte("hi")}, invocation.WithAudience(service.DID()))
 	resp, _ := c.Execute(execution.NewRequest(context.Background(), inv))
 

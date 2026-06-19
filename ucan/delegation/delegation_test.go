@@ -6,20 +6,22 @@ import (
 	"os"
 	"testing"
 
+	"github.com/stretchr/testify/require"
+
 	"github.com/fil-forge/ucantone/did"
-	"github.com/fil-forge/ucantone/principal/ed25519"
-	"github.com/fil-forge/ucantone/principal/secp256k1"
+	"github.com/fil-forge/ucantone/multikey"
+	"github.com/fil-forge/ucantone/multikey/ed25519"
+	"github.com/fil-forge/ucantone/multikey/secp256k1"
 	"github.com/fil-forge/ucantone/testutil"
 	"github.com/fil-forge/ucantone/ucan"
 	"github.com/fil-forge/ucantone/ucan/command"
 	"github.com/fil-forge/ucantone/ucan/delegation"
 	"github.com/fil-forge/ucantone/ucan/token"
-	"github.com/stretchr/testify/require"
 )
 
 func TestDelegation(t *testing.T) {
 	t.Run("minimal", func(t *testing.T) {
-		issuer := testutil.RandomSigner(t)
+		issuer := testutil.RandomIssuer(t)
 		audience := testutil.RandomDID(t)
 		command := testutil.Must(command.Parse("/test/invoke"))(t)
 		then := ucan.Now()
@@ -42,7 +44,7 @@ func TestDelegation(t *testing.T) {
 	})
 
 	t.Run("secp256k1", func(t *testing.T) {
-		issuer := testutil.Must(secp256k1.Generate())(t)
+		issuer := testutil.Must(secp256k1.GenerateIssuer())(t)
 		audience := testutil.RandomDID(t)
 		command := testutil.Must(command.Parse("/test/invoke"))(t)
 
@@ -55,8 +57,7 @@ func TestDelegation(t *testing.T) {
 		decoded, err := delegation.Decode(encoded)
 		require.NoError(t, err)
 
-		ok, err := token.VerifySignature(decoded, issuer.Verifier())
-		require.NoError(t, err)
+		ok := token.VerifySignature(decoded, issuer.Verifier())
 		require.True(t, ok)
 	})
 }
@@ -102,12 +103,12 @@ func TestFixtures(t *testing.T) {
 	err := json.Unmarshal(fixtureBytes, &fixtures)
 	require.NoError(t, err)
 
-	principals := map[string]ucan.Signer{}
+	principals := map[string]multikey.Issuer{}
 	for name, skstr := range fixtures.Principals {
 		bytes := testutil.Must(base64.StdEncoding.DecodeString(skstr))(t)
 		signer := testutil.Must(ed25519.Decode(bytes))(t)
-		principals[signer.DID().String()] = signer
-		t.Logf("%s: %s", name, signer.DID())
+		principals[signer.KeyDID().String()] = multikey.KeyIssuer(signer)
+		t.Logf("%s: %s", name, signer.KeyDID())
 	}
 
 	for _, vector := range fixtures.Valid {

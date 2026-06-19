@@ -1,0 +1,16 @@
+name: Workspace Test
+
+on:
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: workspace-test-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  workspace-test:
+    uses: fil-forge/libforge/.github/workflows/go-workspace-test.yml@v1

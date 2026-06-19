@@ -176,17 +176,17 @@ func Decode(b []byte) (*Receipt, error) {
 // IssueOK creates a receipt attesting to a successful execution. The ok value
 // is any cborgen-marshalable type whose schema matches what the executed
 // task's command expects to produce.
-func IssueOK(executor ucan.Signer, ran cid.Cid, ok cbg.CBORMarshaler, options ...Option) (*Receipt, error) {
+func IssueOK(executor ucan.Issuer, ran cid.Cid, ok cbg.CBORMarshaler, options ...Option) (*Receipt, error) {
 	return issue(executor, ran, ok, nil, options...)
 }
 
 // IssueErr creates a receipt attesting to a failed execution. The err value
 // is any cborgen-marshalable type representing the failure.
-func IssueErr(executor ucan.Signer, ran cid.Cid, err cbg.CBORMarshaler, options ...Option) (*Receipt, error) {
+func IssueErr(executor ucan.Issuer, ran cid.Cid, err cbg.CBORMarshaler, options ...Option) (*Receipt, error) {
 	return issue(executor, ran, nil, err, options...)
 }
 
-func issue(executor ucan.Signer, ran cid.Cid, ok, errVal cbg.CBORMarshaler, options ...Option) (*Receipt, error) {
+func issue(executor ucan.Issuer, ran cid.Cid, ok, errVal cbg.CBORMarshaler, options ...Option) (*Receipt, error) {
 	if (ok == nil) == (errVal == nil) {
 		return nil, errors.New("issue requires exactly one of ok or err to be non-nil")
 	}
@@ -236,15 +236,6 @@ func issue(executor ucan.Signer, ran cid.Cid, ok, errVal cbg.CBORMarshaler, opti
 		ran: ran,
 		out: out,
 	}, nil
-}
-
-// VerifySignature verifies the receipt's signature against the literal
-// signed-payload bytes preserved on decode.
-func VerifySignature(rcpt ucan.Receipt, verifier ucan.Verifier) (bool, error) {
-	if rcpt.Issuer() != verifier.DID() {
-		return false, nil
-	}
-	return verifier.Verify(rcpt.SignedBytes(), rcpt.Signature().Bytes()), nil
 }
 
 func marshalToRaw(m cbg.CBORMarshaler) (datamodel.Raw, error) {

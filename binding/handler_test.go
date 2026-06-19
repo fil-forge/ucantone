@@ -15,7 +15,7 @@ import (
 )
 
 func TestHandler(t *testing.T) {
-	alice := testutil.RandomSigner(t)
+	alice := testutil.RandomIssuer(t)
 	handler := binding.NewHandler(func(req *binding.Request[*tdm.TestObject], res *binding.Response[*tdm.TestObject2]) error {
 		args := req.Task().Arguments()
 		require.Equal(t, args.Bytes, []byte{0x01, 0x02, 0x03})
@@ -33,7 +33,7 @@ func TestHandler(t *testing.T) {
 	req := execution.NewRequest(t.Context(), inv)
 	require.NoError(t, err)
 
-	res, err := execution.NewResponse(inv.Task().Link(), execution.WithSigner(alice))
+	res, err := execution.NewResponse(inv.Task().Link(), execution.WithIssuer(alice))
 	require.NoError(t, err)
 
 	err = handler(req, res)

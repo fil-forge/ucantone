@@ -3,7 +3,7 @@ package examples
 import (
 	"testing"
 
-	"github.com/fil-forge/ucantone/principal/ed25519"
+	"github.com/fil-forge/ucantone/multikey/ed25519"
 	"github.com/fil-forge/ucantone/ucan/command"
 	"github.com/fil-forge/ucantone/ucan/delegation"
 	"github.com/fil-forge/ucantone/ucan/delegation/policy"
@@ -11,17 +11,17 @@ import (
 
 func TestDelegations(t *testing.T) {
 	// mailer is an email service that can send emails
-	mailer, err := ed25519.Generate()
+	mailer, err := ed25519.GenerateIssuer()
 	if err != nil {
 		panic(err)
 	}
 
-	alice, err := ed25519.Generate()
+	alice, err := ed25519.GenerateIssuer()
 	if err != nil {
 		panic(err)
 	}
 
-	bob, err := ed25519.Generate()
+	bob, err := ed25519.GenerateIssuer()
 	if err != nil {
 		panic(err)
 	}

@@ -8,8 +8,8 @@ import (
 	"github.com/fil-forge/ucantone/did"
 	"github.com/fil-forge/ucantone/ipld"
 	"github.com/fil-forge/ucantone/ipld/datamodel"
-	"github.com/fil-forge/ucantone/principal"
-	"github.com/fil-forge/ucantone/principal/ed25519"
+	"github.com/fil-forge/ucantone/multikey"
+	"github.com/fil-forge/ucantone/multikey/ed25519"
 	"github.com/fil-forge/ucantone/ucan"
 	"github.com/ipfs/go-cid"
 	"github.com/multiformats/go-multihash"
@@ -76,12 +76,32 @@ func RandomDigest(t *testing.T) multihash.Multihash {
 	return RandomCID(t).Hash()
 }
 
-func RandomSigner(t *testing.T) principal.Signer {
+func RandomMultikeySigner(t *testing.T) multikey.Signer {
 	t.Helper()
 	return Must(ed25519.Generate())(t)
 }
 
+func RandomSigner(t *testing.T) ucan.Signer {
+	t.Helper()
+	return RandomMultikeySigner(t)
+}
+
+func RandomMultikeyIssuer(t *testing.T) multikey.Issuer {
+	t.Helper()
+	return Must(ed25519.GenerateIssuer())(t)
+}
+
+func RandomIssuer(t *testing.T) ucan.Issuer {
+	t.Helper()
+	return RandomMultikeyIssuer(t)
+}
+
+func RandomPrincipal(t *testing.T) ucan.Principal {
+	t.Helper()
+	return RandomMultikeyIssuer(t)
+}
+
 func RandomDID(t *testing.T) did.DID {
 	t.Helper()
-	return RandomSigner(t).DID()
+	return RandomMultikeyIssuer(t).DID()
 }
