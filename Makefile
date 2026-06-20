@@ -15,7 +15,7 @@ gen:
 	rm ./errors/datamodel/*_gen.go || true
 	cd ./errors/datamodel/gen && go run ./main.go
 
-	rm ./examples/types/cbor_gen.go || true
+	rm ./examples/types/cbor_gen.go ./examples/types/fields/*_gen.go || true
 	cd ./examples/types/gen && go run ./main.go
 
 	rm ./result/datamodel/*_gen.go || true
@@ -34,6 +34,9 @@ gen:
 	cd ./ucan/delegation/datamodel/gen && go run ./main.go
 
 	cd ./ucan/delegation/policy/datamodel/gen && go run ./main.go
+
+	rm ./ucan/delegation/policy/policytest/fields/*_gen.go || true
+	cd ./ucan/delegation/policy/policytest/gen && go run ./main.go
 
 	rm ./ucan/delegation/policy/internal/fixtures/datamodel/*_gen.go || true
 	cd ./ucan/delegation/policy/internal/fixtures/datamodel/gen && go run ./main.go

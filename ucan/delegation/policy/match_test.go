@@ -356,6 +356,49 @@ func TestMatch(t *testing.T) {
 			value:  "138",
 			match:  false,
 		},
+		// String ordering is lexicographic (matcher extension; see isOrdered).
+		{
+			name:   "comparison greater than string match",
+			policy: policy.GreaterThan(".", "m"),
+			value:  "zebra",
+			match:  true,
+		},
+		{
+			name:   "comparison greater than string no match",
+			policy: policy.GreaterThan(".", "m"),
+			value:  "apple",
+			match:  false,
+		},
+		{
+			name:   "comparison greater than string no match equal",
+			policy: policy.GreaterThan(".", "m"),
+			value:  "m",
+			match:  false,
+		},
+		{
+			name:   "comparison greater than or equal string match equal",
+			policy: policy.GreaterThanOrEqual(".", "m"),
+			value:  "m",
+			match:  true,
+		},
+		{
+			name:   "comparison less than string match",
+			policy: policy.LessThan(".", "m"),
+			value:  "apple",
+			match:  true,
+		},
+		{
+			name:   "comparison less than or equal string match equal",
+			policy: policy.LessThanOrEqual(".", "m"),
+			value:  "m",
+			match:  true,
+		},
+		{
+			name:   "comparison greater than string no match non-string",
+			policy: policy.GreaterThan(".", "m"),
+			value:  138,
+			match:  false,
+		},
 		{
 			name:   "negation match",
 			policy: policy.Not(policy.Equal(".", true)),

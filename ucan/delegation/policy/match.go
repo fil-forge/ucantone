@@ -1,10 +1,11 @@
 package policy
 
 import (
-	"cmp"
 	"errors"
 	"fmt"
+	"math/big"
 	"reflect"
+	"strings"
 
 	"github.com/fil-forge/ucantone/ucan"
 	"github.com/fil-forge/ucantone/ucan/delegation/policy/selector"
@@ -22,14 +23,12 @@ func Match(policy ucan.Policy, value any) error {
 	return nil
 }
 
-// normalize converts values to their normalized forms for comparison.
-// Currently, it converts int to int64. It may do more in the future to cover
-// other types.
+// normalize converts values to their canonical IPLD form for comparison, so
+// that a statement literal (which may be a named Go type like
+// multihash.Multihash) compares equal to the plain []byte/int64/etc. the
+// selector decodes out of invocation arguments. See [canonicalize].
 func normalize(value any) any {
-	if intVal, ok := value.(int); ok {
-		return int64(intVal)
-	}
-	return value
+	return normalizeValue(value)
 }
 
 func MatchStatement(statement ucan.Statement, value any) error {
@@ -55,12 +54,12 @@ func MatchStatement(statement ucan.Statement, value any) error {
 
 		switch statement.Operator() {
 		case OpEqual:
-			if !reflect.DeepEqual(statementValue, selectedValue) {
+			if !valuesEqual(statementValue, selectedValue) {
 				return NewMatchError(statement, fmt.Errorf(`matching "%s": "%v" does not equal "%v"`, s.Selector(), selectedValue, statementValue))
 			}
 			return nil
 		case OpNotEqual:
-			if reflect.DeepEqual(statementValue, selectedValue) {
+			if valuesEqual(statementValue, selectedValue) {
 				return NewMatchError(statement, fmt.Errorf(`matching "%s": "%v" equals "%v"`, s.Selector(), selectedValue, statementValue))
 			}
 			return nil
@@ -200,13 +199,77 @@ func MatchStatement(statement ucan.Statement, value any) error {
 }
 
 func isOrdered(a any, b any, satisfies func(order int) bool) bool {
-	if aint64, ok := a.(int64); ok {
-		if bint64, ok := b.(int64); ok {
-			return satisfies(cmp.Compare(aint64, bint64))
+	// Integers — int64 and CBOR bignums (*big.Int) — share one ordering: both
+	// sides are promoted to *big.Int and compared by value, so an int64 and a
+	// numerically-equal bignum order consistently. See [canonicalize].
+	if ab, ok := asBigInt(a); ok {
+		if bb, ok := asBigInt(b); ok {
+			return satisfies(ab.Cmp(bb))
 		}
 	}
-	// TODO: support float
+	// Strings order lexicographically. Both sides come through canonicalize as
+	// plain strings (named string types are flattened), so a string field and
+	// a string literal compare directly.
+	if as, ok := a.(string); ok {
+		if bs, ok := b.(string); ok {
+			return satisfies(strings.Compare(as, bs))
+		}
+	}
+	// Floats are intentionally unsupported: neither the CBOR nor the DAG-JSON
+	// codec represents them, so a float literal could not round-trip. The
+	// typed builders exclude float field types via the policy.Ordered
+	// constraint, so this is unreachable from generated descriptors.
 	return false
+}
+
+// asBigInt promotes the integer kinds canonicalize can produce (int64, or a
+// *big.Int for magnitudes that overflow int64) to a *big.Int for comparison.
+func asBigInt(v any) (*big.Int, bool) {
+	switch x := v.(type) {
+	case *big.Int:
+		return x, x != nil
+	case int64:
+		return big.NewInt(x), true
+	}
+	return nil, false
+}
+
+// valuesEqual reports IPLD value equality for the == / != operators. It differs
+// from reflect.DeepEqual in two ways: integers compare by numeric value across
+// the int64/bignum split (so DeepEqual's type-identity sensitivity does not
+// make a bignum silently never match), and lists/maps recurse through the same
+// rule. All other kinds fall back to DeepEqual.
+func valuesEqual(a, b any) bool {
+	if ai, ok := asBigInt(a); ok {
+		bi, ok := asBigInt(b)
+		return ok && ai.Cmp(bi) == 0
+	}
+	switch av := a.(type) {
+	case []any:
+		bv, ok := b.([]any)
+		if !ok || len(av) != len(bv) {
+			return false
+		}
+		for i := range av {
+			if !valuesEqual(av[i], bv[i]) {
+				return false
+			}
+		}
+		return true
+	case map[string]any:
+		bv, ok := b.(map[string]any)
+		if !ok || len(av) != len(bv) {
+			return false
+		}
+		for k, x := range av {
+			y, ok := bv[k]
+			if !ok || !valuesEqual(x, y) {
+				return false
+			}
+		}
+		return true
+	}
+	return reflect.DeepEqual(a, b)
 }
 
 func gt(order int) bool  { return order == 1 }
