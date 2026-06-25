@@ -43,7 +43,7 @@ func (f roundTripFunc) RoundTrip(r *http.Request) (*http.Response, error) { retu
 func TestResolver(t *testing.T) {
 	t.Run("resolves a pathless DID", func(t *testing.T) {
 		doc := did.NewDocument(did.MustParse("did:web:example.com"))
-		doc.AlsoKnownAs = []did.DID{did.MustParse("did:example:abc123")}
+		doc.AlsoKnownAs = []string{"did:example:abc123"}
 		body, err := json.Marshal(doc)
 		require.NoError(t, err)
 
@@ -62,12 +62,12 @@ func TestResolver(t *testing.T) {
 		result, resolveErr := resolver.Resolve(t.Context(), did.MustParse("did:web:example.com"))
 		require.NoError(t, resolveErr)
 		require.Equal(t, did.MustParse("did:web:example.com"), result.ID)
-		require.Equal(t, []did.DID{did.MustParse("did:example:abc123")}, result.AlsoKnownAs)
+		require.Equal(t, []string{"did:example:abc123"}, result.AlsoKnownAs)
 	})
 
 	t.Run("resolves a pathful DID", func(t *testing.T) {
 		doc := did.NewDocument(did.MustParse("did:web:example.com:users:alice"))
-		doc.AlsoKnownAs = []did.DID{did.MustParse("did:example:abc123")}
+		doc.AlsoKnownAs = []string{"did:example:abc123"}
 		body, err := json.Marshal(doc)
 		require.NoError(t, err)
 
@@ -86,12 +86,12 @@ func TestResolver(t *testing.T) {
 		result, resolveErr := resolver.Resolve(t.Context(), did.MustParse("did:web:example.com:users:alice"))
 		require.NoError(t, resolveErr)
 		require.Equal(t, did.MustParse("did:web:example.com:users:alice"), result.ID)
-		require.Equal(t, []did.DID{did.MustParse("did:example:abc123")}, result.AlsoKnownAs)
+		require.Equal(t, []string{"did:example:abc123"}, result.AlsoKnownAs)
 	})
 
 	t.Run("resolves a portly DID", func(t *testing.T) {
 		doc := did.NewDocument(did.MustParse("did:web:example.com%3A3000"))
-		doc.AlsoKnownAs = []did.DID{did.MustParse("did:example:abc123")}
+		doc.AlsoKnownAs = []string{"did:example:abc123"}
 		body, err := json.Marshal(doc)
 		require.NoError(t, err)
 
@@ -110,7 +110,7 @@ func TestResolver(t *testing.T) {
 		result, resolveErr := resolver.Resolve(t.Context(), did.MustParse("did:web:example.com%3A3000"))
 		require.NoError(t, resolveErr)
 		require.Equal(t, did.MustParse("did:web:example.com%3A3000"), result.ID)
-		require.Equal(t, []did.DID{did.MustParse("did:example:abc123")}, result.AlsoKnownAs)
+		require.Equal(t, []string{"did:example:abc123"}, result.AlsoKnownAs)
 	})
 
 	t.Run("returns error on HTTP 404", func(t *testing.T) {

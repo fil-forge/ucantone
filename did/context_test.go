@@ -43,7 +43,14 @@ func TestContext(t *testing.T) {
 		t.Run("with a single string of the wrong context, fails", func(t *testing.T) {
 			var ctx did.Context
 			err := json.Unmarshal([]byte(`"https://example.com/wrong-context"`), &ctx)
-			require.ErrorContains(t, err, `@context must list "https://www.w3.org/ns/did/v1.1" first`)
+			require.ErrorContains(t, err, `@context must list "https://www.w3.org/ns/did/v1.1" or "https://www.w3.org/ns/did/v1" first`)
+		})
+
+		t.Run("accepts the DID Core v1.0 context for interoperability", func(t *testing.T) {
+			var ctx did.Context
+			err := json.Unmarshal([]byte(`["https://www.w3.org/ns/did/v1", "https://example.com/context1"]`), &ctx)
+			require.NoError(t, err)
+			require.Equal(t, did.Context{"https://example.com/context1"}, ctx)
 		})
 
 		t.Run("with multiple contexts, puts them in the Context", func(t *testing.T) {
@@ -56,13 +63,13 @@ func TestContext(t *testing.T) {
 		t.Run("with multiple contexts missing the DID Core context, fails", func(t *testing.T) {
 			var ctx did.Context
 			err := json.Unmarshal([]byte(`["https://example.com/context1", "https://example.com/context2"]`), &ctx)
-			require.ErrorContains(t, err, `@context must list "https://www.w3.org/ns/did/v1.1" first`)
+			require.ErrorContains(t, err, `@context must list "https://www.w3.org/ns/did/v1.1" or "https://www.w3.org/ns/did/v1" first`)
 		})
 
 		t.Run("with no contexts, fails", func(t *testing.T) {
 			var ctx did.Context
 			err := json.Unmarshal([]byte(`[]`), &ctx)
-			require.ErrorContains(t, err, `@context must list "https://www.w3.org/ns/did/v1.1" first`)
+			require.ErrorContains(t, err, `@context must list "https://www.w3.org/ns/did/v1.1" or "https://www.w3.org/ns/did/v1" first`)
 		})
 	})
 }
