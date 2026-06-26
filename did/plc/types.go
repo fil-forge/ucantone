@@ -79,6 +79,7 @@ type opConfig struct {
 
 type OperationOption func(*opConfig)
 
+// WithVerificationMethod adds a verification method to the PLC operation.
 func WithVerificationMethods(methods map[string]did.DID) OperationOption {
 	return func(c *opConfig) {
 		if c.verificationMethods == nil {
@@ -88,24 +89,65 @@ func WithVerificationMethods(methods map[string]did.DID) OperationOption {
 	}
 }
 
+// WithoutVerificationMethods removes the given verification methods from the
+// PLC operation.
+func WithoutVerificationMethods(methods map[string]did.DID) OperationOption {
+	return func(c *opConfig) {
+		for m := range methods {
+			delete(c.verificationMethods, m)
+		}
+	}
+}
+
+// WithRotationKeys adds rotation keys to the PLC operation.
 func WithRotationKeys(keys []did.DID) OperationOption {
 	return func(c *opConfig) {
 		c.rotationKeys = append(c.rotationKeys, keys...)
 	}
 }
 
+// WithoutRotationKeys removes the given rotation keys from the PLC operation.
+func WithoutRotationKeys(keys []did.DID) OperationOption {
+	return func(c *opConfig) {
+		c.rotationKeys = slices.DeleteFunc(c.rotationKeys, func(k did.DID) bool {
+			return slices.Contains(keys, k)
+		})
+	}
+}
+
+// WithAlsoKnownAs adds also known as entries to the PLC operation.
 func WithAlsoKnownAs(alsoKnownAs []string) OperationOption {
 	return func(c *opConfig) {
 		c.alsoKnownAs = append(c.alsoKnownAs, alsoKnownAs...)
 	}
 }
 
+// WithoutAlsoKnownAs removes the given also known as entries from the PLC
+// operation.
+func WithoutAlsoKnownAs(alsoKnownAs []string) OperationOption {
+	return func(c *opConfig) {
+		c.alsoKnownAs = slices.DeleteFunc(c.alsoKnownAs, func(a string) bool {
+			return slices.Contains(alsoKnownAs, a)
+		})
+	}
+}
+
+// WithServices adds services to the PLC operation.
 func WithServices(services map[string]Service) OperationOption {
 	return func(c *opConfig) {
 		if c.services == nil {
 			c.services = make(map[string]Service, len(services))
 		}
 		maps.Copy(c.services, services)
+	}
+}
+
+// WithoutServices removes the given services from the PLC operation.
+func WithoutServices(services map[string]Service) OperationOption {
+	return func(c *opConfig) {
+		for s := range services {
+			delete(c.services, s)
+		}
 	}
 }
 

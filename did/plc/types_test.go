@@ -70,6 +70,60 @@ func TestOperationOptions(t *testing.T) {
 		)
 		require.Equal(t, []string{"at://alice.example", "at://alice.other"}, op.AlsoKnownAs)
 	})
+
+	t.Run("WithoutVerificationMethods removes map entries by key", func(t *testing.T) {
+		a := testutil.RandomDID(t)
+		b := testutil.RandomDID(t)
+		op := plc.NewOperation(
+			nil,
+			plc.WithVerificationMethods(map[string]did.DID{"atproto": a, "other": b}),
+			// Value is ignored: removal is keyed on the map key.
+			plc.WithoutVerificationMethods(map[string]did.DID{"atproto": testutil.RandomDID(t)}),
+		)
+		require.Equal(t, map[string]did.DID{"other": b}, op.VerificationMethods)
+	})
+
+	t.Run("WithoutServices removes map entries by key", func(t *testing.T) {
+		s1 := plc.Service{Type: "AtprotoPersonalDataServer", Endpoint: "https://pds.example"}
+		s2 := plc.Service{Type: "Other", Endpoint: "https://other.example"}
+		op := plc.NewOperation(
+			nil,
+			plc.WithServices(map[string]plc.Service{"atproto_pds": s1, "other": s2}),
+			plc.WithoutServices(map[string]plc.Service{"other": {}}),
+		)
+		require.Equal(t, map[string]plc.Service{"atproto_pds": s1}, op.Services)
+	})
+
+	t.Run("WithoutRotationKeys removes the given keys", func(t *testing.T) {
+		a := testutil.RandomDID(t)
+		b := testutil.RandomDID(t)
+		c := testutil.RandomDID(t)
+		op := plc.NewOperation(
+			nil,
+			plc.WithRotationKeys([]did.DID{a, b, c}),
+			plc.WithoutRotationKeys([]did.DID{a, c}),
+		)
+		require.Equal(t, []did.DID{b}, op.RotationKeys)
+	})
+
+	t.Run("WithoutRotationKeys ignores absent keys", func(t *testing.T) {
+		a := testutil.RandomDID(t)
+		op := plc.NewOperation(
+			nil,
+			plc.WithRotationKeys([]did.DID{a}),
+			plc.WithoutRotationKeys([]did.DID{testutil.RandomDID(t)}),
+		)
+		require.Equal(t, []did.DID{a}, op.RotationKeys)
+	})
+
+	t.Run("WithoutAlsoKnownAs removes the given entries", func(t *testing.T) {
+		op := plc.NewOperation(
+			nil,
+			plc.WithAlsoKnownAs([]string{"at://x.example", "at://y.example", "at://z.example"}),
+			plc.WithoutAlsoKnownAs([]string{"at://y.example"}),
+		)
+		require.Equal(t, []string{"at://x.example", "at://z.example"}, op.AlsoKnownAs)
+	})
 }
 
 func TestNewFromPreviousOperation(t *testing.T) {
@@ -110,6 +164,32 @@ func TestNewFromPreviousOperation(t *testing.T) {
 
 		require.NotNil(t, next.Previous)
 		require.Equal(t, expectedLink.String(), *next.Previous)
+	})
+
+	t.Run("removes inherited values via Without options", func(t *testing.T) {
+		signer := testutil.RandomMultikeySigner(t)
+		vmA := testutil.RandomDID(t)
+		vmB := testutil.RandomDID(t)
+		rkA := testutil.RandomDID(t)
+		rkB := testutil.RandomDID(t)
+
+		_, genesis, err := plc.New(
+			signer,
+			plc.WithVerificationMethods(map[string]did.DID{"atproto": vmA, "other": vmB}),
+			plc.WithRotationKeys([]did.DID{rkA, rkB}),
+		)
+		require.NoError(t, err)
+
+		next, err := plc.NewFromPreviousOperation(
+			genesis,
+			plc.WithoutRotationKeys([]did.DID{rkA}),
+			plc.WithoutVerificationMethods(map[string]did.DID{"atproto": testutil.RandomDID(t)}),
+		)
+		require.NoError(t, err)
+
+		// Exactly the named entries are removed from the inherited collections.
+		require.Equal(t, []did.DID{rkB}, next.RotationKeys)
+		require.Equal(t, map[string]did.DID{"other": vmB}, next.VerificationMethods)
 	})
 }
 

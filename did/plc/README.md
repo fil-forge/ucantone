@@ -164,6 +164,68 @@ func update(signer secp256k1.Signer, d did.DID) error {
 }
 ```
 
+### Rotating a rotation key
+
+To replace a rotation key, add the new key and remove the outgoing one in a single
+operation. The operation must be signed by a rotation key that is valid in the *previous*
+operation, so it is signed by the outgoing key as it is being removed:
+
+```go
+package main
+
+import (
+	"context"
+	"net/url"
+
+	"github.com/fil-forge/ucantone/did"
+	"github.com/fil-forge/ucantone/did/plc"
+	"github.com/fil-forge/ucantone/multikey/secp256k1"
+)
+
+// rotateKey replaces current with a freshly generated rotation key and returns
+// the new signer.
+func rotateKey(current secp256k1.Signer, d did.DID) (secp256k1.Signer, error) {
+	endpoint, _ := url.Parse("https://plc.directory")
+	client, err := plc.NewDirectoryClient(*endpoint)
+	if err != nil {
+		return nil, err
+	}
+	ctx := context.Background()
+
+	// Generate the replacement rotation key.
+	next, err := secp256k1.Generate()
+	if err != nil {
+		return nil, err
+	}
+
+	last, err := client.Last(ctx, d)
+	if err != nil {
+		return nil, err
+	}
+
+	// In a single operation, add the new rotation key and remove the old one.
+	op, err := plc.NewFromPreviousOperation(
+		last,
+		plc.WithRotationKeys([]did.DID{next.KeyDID()}),
+		plc.WithoutRotationKeys([]did.DID{current.KeyDID()}),
+	)
+	if err != nil {
+		return nil, err
+	}
+
+	// Sign with the outgoing key — it is still valid in the previous operation,
+	// which is what authorizes this change.
+	signed, err := plc.SignOperation(current, op)
+	if err != nil {
+		return nil, err
+	}
+	if err := client.Update(ctx, d, signed); err != nil {
+		return nil, err
+	}
+	return next, nil
+}
+```
+
 To deactivate a DID, build a tombstone from the last operation, sign it, and publish it
 with `Deactivate`:
 
