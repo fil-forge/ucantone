@@ -14,6 +14,8 @@ import (
 
 const Method = "plc"
 
+var Base32LowerNoPad = base32.NewEncoding("abcdefghijklmnopqrstuvwxyz234567").WithPadding(base32.NoPadding)
+
 func New(signer Signer, options ...OperationOption) (did.DID, *SignedOperation, error) {
 	op := NewOperation(nil, options...)
 	signedOp, err := SignOperation(signer, op)
@@ -27,7 +29,7 @@ func New(signer Signer, options ...OperationOption) (did.DID, *SignedOperation, 
 	}
 
 	digest := sha256.Sum256(signedOpBytes.Bytes())
-	str := base32.StdEncoding.EncodeToString(digest[:])
+	str := Base32LowerNoPad.EncodeToString(digest[:])
 	return did.New(Method, str[:24]), signedOp, nil
 }
 

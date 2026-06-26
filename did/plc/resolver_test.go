@@ -21,8 +21,8 @@ func (f roundTripperFunc) RoundTrip(req *http.Request) (*http.Response, error) {
 	return f(req)
 }
 
-// jsonResponse builds a canned HTTP response with the given status and body.
-func stringResponse(status int, body string) *http.Response {
+// mockResponse builds a canned HTTP response with the given status and body.
+func mockResponse(status int, body string) *http.Response {
 	return &http.Response{
 		StatusCode: status,
 		Body:       io.NopCloser(strings.NewReader(body)),
@@ -50,7 +50,7 @@ func TestResolve(t *testing.T) {
 		var gotReq *http.Request
 		rt := roundTripperFunc(func(req *http.Request) (*http.Response, error) {
 			gotReq = req
-			return stringResponse(http.StatusOK, string(body)), nil
+			return mockResponse(http.StatusOK, string(body)), nil
 		})
 		r, err := plc.NewResolver(endpoint, plc.WithTransport(rt))
 		require.NoError(t, err)
@@ -67,7 +67,7 @@ func TestResolve(t *testing.T) {
 		called := false
 		rt := roundTripperFunc(func(req *http.Request) (*http.Response, error) {
 			called = true
-			return stringResponse(http.StatusOK, "{}"), nil
+			return mockResponse(http.StatusOK, "{}"), nil
 		})
 		r, err := plc.NewResolver(endpoint, plc.WithTransport(rt))
 		require.NoError(t, err)
@@ -81,7 +81,7 @@ func TestResolve(t *testing.T) {
 
 	t.Run("errors on non-200 status", func(t *testing.T) {
 		rt := roundTripperFunc(func(req *http.Request) (*http.Response, error) {
-			return stringResponse(http.StatusNotFound, "not found"), nil
+			return mockResponse(http.StatusNotFound, "not found"), nil
 		})
 		r, err := plc.NewResolver(endpoint, plc.WithTransport(rt))
 		require.NoError(t, err)
@@ -92,7 +92,7 @@ func TestResolve(t *testing.T) {
 
 	t.Run("errors on invalid JSON", func(t *testing.T) {
 		rt := roundTripperFunc(func(req *http.Request) (*http.Response, error) {
-			return stringResponse(http.StatusOK, "this is not json"), nil
+			return mockResponse(http.StatusOK, "this is not json"), nil
 		})
 		r, err := plc.NewResolver(endpoint, plc.WithTransport(rt))
 		require.NoError(t, err)

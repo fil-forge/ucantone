@@ -3,10 +3,12 @@ package plc
 import (
 	"bytes"
 	"fmt"
+	"maps"
+	"slices"
 
 	"github.com/fil-forge/ucantone/did"
 	cid "github.com/ipfs/go-cid"
-	multihash "github.com/multiformats/go-multihash/core"
+	"github.com/multiformats/go-multihash"
 )
 
 const (
@@ -82,9 +84,7 @@ func WithVerificationMethods(methods map[string]did.DID) OperationOption {
 		if c.verificationMethods == nil {
 			c.verificationMethods = make(map[string]did.DID, len(methods))
 		}
-		for k, v := range methods {
-			c.verificationMethods[k] = v
-		}
+		maps.Copy(c.verificationMethods, methods)
 	}
 }
 
@@ -105,16 +105,17 @@ func WithServices(services map[string]Service) OperationOption {
 		if c.services == nil {
 			c.services = make(map[string]Service, len(services))
 		}
-		for k, v := range services {
-			c.services[k] = v
-		}
+		maps.Copy(c.services, services)
 	}
 }
 
 // NewOperation creates a new PLC operation with the given previous operation
 // CID and options.
 func NewOperation(prev *cid.Cid, options ...OperationOption) *Operation {
-	cfg := opConfig{}
+	cfg := opConfig{
+		verificationMethods: map[string]did.DID{},
+		services:            map[string]Service{},
+	}
 	for _, option := range options {
 		option(&cfg)
 	}
@@ -139,14 +140,22 @@ func NewOperation(prev *cid.Cid, options ...OperationOption) *Operation {
 // the previous operation, merged with the values passed in the options.
 func NewFromPreviousOperation(prev *SignedOperation, options ...OperationOption) (*Operation, error) {
 	cfg := opConfig{
-		verificationMethods: prev.VerificationMethods,
-		rotationKeys:        prev.RotationKeys,
-		alsoKnownAs:         prev.AlsoKnownAs,
-		services:            prev.Services,
+		verificationMethods: map[string]did.DID{},
+		services:            map[string]Service{},
 	}
+	if len(prev.RotationKeys) != 0 {
+		cfg.rotationKeys = slices.Clone(prev.RotationKeys)
+	}
+	if len(prev.AlsoKnownAs) != 0 {
+		cfg.alsoKnownAs = slices.Clone(prev.AlsoKnownAs)
+	}
+	maps.Copy(cfg.verificationMethods, prev.VerificationMethods)
+	maps.Copy(cfg.services, prev.Services)
+
 	for _, option := range options {
 		option(&cfg)
 	}
+
 	prevLink, err := operationCID(prev)
 	if err != nil {
 		return nil, err

@@ -98,6 +98,7 @@ func (c *DirectoryClient) post(ctx context.Context, d did.DID, op dagJSONMarshal
 	if err != nil {
 		return fmt.Errorf("creating HTTP request: %w", err)
 	}
+	req.Header.Set("Content-Type", "application/json")
 	resp, err := c.client.Do(req)
 	if err != nil {
 		return fmt.Errorf("performing HTTP request: %w", err)

@@ -26,7 +26,7 @@ func TestDirectoryClientLast(t *testing.T) {
 		var gotReq *http.Request
 		rt := roundTripperFunc(func(req *http.Request) (*http.Response, error) {
 			gotReq = req
-			return stringResponse(http.StatusOK, opJSON.String()), nil
+			return mockResponse(http.StatusOK, opJSON.String()), nil
 		})
 		c, err := plc.NewDirectoryClient(endpoint, plc.WithTransport(rt))
 		require.NoError(t, err)
@@ -41,7 +41,7 @@ func TestDirectoryClientLast(t *testing.T) {
 
 	t.Run("rejects a non-plc DID", func(t *testing.T) {
 		c, err := plc.NewDirectoryClient(endpoint, plc.WithTransport(roundTripperFunc(func(req *http.Request) (*http.Response, error) {
-			return stringResponse(http.StatusOK, opJSON.String()), nil
+			return mockResponse(http.StatusOK, opJSON.String()), nil
 		})))
 		require.NoError(t, err)
 
@@ -53,7 +53,7 @@ func TestDirectoryClientLast(t *testing.T) {
 
 	t.Run("errors on non-200 status", func(t *testing.T) {
 		c, err := plc.NewDirectoryClient(endpoint, plc.WithTransport(roundTripperFunc(func(req *http.Request) (*http.Response, error) {
-			return stringResponse(http.StatusNotFound, "not found"), nil
+			return mockResponse(http.StatusNotFound, "not found"), nil
 		})))
 		require.NoError(t, err)
 
@@ -63,7 +63,7 @@ func TestDirectoryClientLast(t *testing.T) {
 
 	t.Run("errors on a malformed body", func(t *testing.T) {
 		c, err := plc.NewDirectoryClient(endpoint, plc.WithTransport(roundTripperFunc(func(req *http.Request) (*http.Response, error) {
-			return stringResponse(http.StatusOK, "not json"), nil
+			return mockResponse(http.StatusOK, "not json"), nil
 		})))
 		require.NoError(t, err)
 
@@ -80,7 +80,7 @@ func TestDirectoryClientLast(t *testing.T) {
 		require.NoError(t, signedTomb.MarshalDagJSON(&tombJSON))
 
 		c, err := plc.NewDirectoryClient(endpoint, plc.WithTransport(roundTripperFunc(func(req *http.Request) (*http.Response, error) {
-			return stringResponse(http.StatusOK, tombJSON.String()), nil
+			return mockResponse(http.StatusOK, tombJSON.String()), nil
 		})))
 		require.NoError(t, err)
 
@@ -96,7 +96,7 @@ func TestDirectoryClientLast(t *testing.T) {
 
 	t.Run("errors on a tombstone with no previous operation", func(t *testing.T) {
 		c, err := plc.NewDirectoryClient(endpoint, plc.WithTransport(roundTripperFunc(func(req *http.Request) (*http.Response, error) {
-			return stringResponse(http.StatusOK, `{"type":"plc_tombstone","sig":"c2ln"}`), nil
+			return mockResponse(http.StatusOK, `{"type":"plc_tombstone","sig":"c2ln"}`), nil
 		})))
 		require.NoError(t, err)
 
@@ -123,7 +123,7 @@ func TestDirectoryClientUpdate(t *testing.T) {
 			b, err := readAll(req)
 			require.NoError(t, err)
 			gotBody = b
-			return stringResponse(http.StatusOK, ""), nil
+			return mockResponse(http.StatusOK, ""), nil
 		})
 		c, err := plc.NewDirectoryClient(endpoint, plc.WithTransport(rt))
 		require.NoError(t, err)
@@ -142,7 +142,7 @@ func TestDirectoryClientUpdate(t *testing.T) {
 
 	t.Run("rejects a non-plc DID", func(t *testing.T) {
 		c, err := plc.NewDirectoryClient(endpoint, plc.WithTransport(roundTripperFunc(func(req *http.Request) (*http.Response, error) {
-			return stringResponse(http.StatusOK, ""), nil
+			return mockResponse(http.StatusOK, ""), nil
 		})))
 		require.NoError(t, err)
 
@@ -154,7 +154,7 @@ func TestDirectoryClientUpdate(t *testing.T) {
 
 	t.Run("errors on non-200 status", func(t *testing.T) {
 		c, err := plc.NewDirectoryClient(endpoint, plc.WithTransport(roundTripperFunc(func(req *http.Request) (*http.Response, error) {
-			return stringResponse(http.StatusInternalServerError, "boom"), nil
+			return mockResponse(http.StatusInternalServerError, "boom"), nil
 		})))
 		require.NoError(t, err)
 
@@ -178,7 +178,7 @@ func TestDirectoryClientDeactivate(t *testing.T) {
 			b, err := readAll(req)
 			require.NoError(t, err)
 			gotBody = b
-			return stringResponse(http.StatusOK, ""), nil
+			return mockResponse(http.StatusOK, ""), nil
 		})
 		c, err := plc.NewDirectoryClient(endpoint, plc.WithTransport(rt))
 		require.NoError(t, err)
@@ -197,7 +197,7 @@ func TestDirectoryClientDeactivate(t *testing.T) {
 
 	t.Run("rejects a non-plc DID", func(t *testing.T) {
 		c, err := plc.NewDirectoryClient(endpoint, plc.WithTransport(roundTripperFunc(func(req *http.Request) (*http.Response, error) {
-			return stringResponse(http.StatusOK, ""), nil
+			return mockResponse(http.StatusOK, ""), nil
 		})))
 		require.NoError(t, err)
 
@@ -209,7 +209,7 @@ func TestDirectoryClientDeactivate(t *testing.T) {
 
 	t.Run("errors on non-200 status", func(t *testing.T) {
 		c, err := plc.NewDirectoryClient(endpoint, plc.WithTransport(roundTripperFunc(func(req *http.Request) (*http.Response, error) {
-			return stringResponse(http.StatusInternalServerError, "boom"), nil
+			return mockResponse(http.StatusInternalServerError, "boom"), nil
 		})))
 		require.NoError(t, err)
 
