@@ -8,6 +8,8 @@ import (
 	"encoding/base32"
 	"encoding/base64"
 	"fmt"
+	"maps"
+	"slices"
 
 	did "github.com/fil-forge/ucantone/did"
 )
@@ -41,13 +43,18 @@ func SignOperation(signer Signer, op *Operation) (*SignedOperation, error) {
 		return nil, err
 	}
 	sig := signer.Sign(sigPayload.Bytes())
+	var prev *string
+	if op.Previous != nil {
+		s := *op.Previous
+		prev = &s
+	}
 	return &SignedOperation{
 		Type:                op.Type,
-		VerificationMethods: op.VerificationMethods,
-		RotationKeys:        op.RotationKeys,
-		AlsoKnownAs:         op.AlsoKnownAs,
-		Services:            op.Services,
-		Previous:            op.Previous,
+		VerificationMethods: maps.Clone(op.VerificationMethods),
+		RotationKeys:        slices.Clone(op.RotationKeys),
+		AlsoKnownAs:         slices.Clone(op.AlsoKnownAs),
+		Services:            maps.Clone(op.Services),
+		Previous:            prev,
 		Signature:           base64.RawURLEncoding.EncodeToString(sig),
 	}, nil
 }
