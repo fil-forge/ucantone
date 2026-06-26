@@ -126,7 +126,7 @@ func TestOperationOptions(t *testing.T) {
 	})
 }
 
-func TestNewFromPreviousOperation(t *testing.T) {
+func TestNewOperationFromPrevious(t *testing.T) {
 	t.Run("inherits previous fields, merges options, links to previous CID", func(t *testing.T) {
 		signer := testutil.RandomMultikeySigner(t)
 		vm := testutil.RandomDID(t)
@@ -141,7 +141,7 @@ func TestNewFromPreviousOperation(t *testing.T) {
 		require.NoError(t, err)
 
 		newRotationKey := testutil.RandomDID(t)
-		next, err := plc.NewFromPreviousOperation(
+		next, err := plc.NewOperationFromPrevious(
 			genesis,
 			plc.WithRotationKeys([]did.DID{newRotationKey}),
 		)
@@ -180,7 +180,7 @@ func TestNewFromPreviousOperation(t *testing.T) {
 		)
 		require.NoError(t, err)
 
-		next, err := plc.NewFromPreviousOperation(
+		next, err := plc.NewOperationFromPrevious(
 			genesis,
 			plc.WithoutRotationKeys([]did.DID{rkA}),
 			plc.WithoutVerificationMethods(map[string]did.DID{"atproto": testutil.RandomDID(t)}),
@@ -200,17 +200,17 @@ func TestNewTombstone(t *testing.T) {
 	require.Equal(t, prev.String(), tomb.Previous)
 }
 
-func TestNewTombstoneFromPreviousOperation(t *testing.T) {
+func TestNewTombstoneFromPrevious(t *testing.T) {
 	signer := testutil.RandomMultikeySigner(t)
 	_, prev, err := plc.New(signer, plc.WithRotationKeys([]did.DID{testutil.RandomDID(t)}))
 	require.NoError(t, err)
 
-	tomb, err := plc.NewTombstoneFromPreviousOperation(prev)
+	tomb, err := plc.NewTombstoneFromPrevious(prev)
 	require.NoError(t, err)
 	require.Equal(t, plc.TombstoneType, tomb.Type)
 
 	// The previous link matches the CID computed from the previous operation's
-	// CBOR encoding — the same link NewFromPreviousOperation would produce.
+	// CBOR encoding — the same link NewOperationFromPrevious would produce.
 	var prevBytes bytes.Buffer
 	require.NoError(t, prev.MarshalCBOR(&prevBytes))
 	expectedLink, err := cid.V1Builder{
@@ -220,7 +220,7 @@ func TestNewTombstoneFromPreviousOperation(t *testing.T) {
 	require.NoError(t, err)
 	require.Equal(t, expectedLink.String(), tomb.Previous)
 
-	next, err := plc.NewFromPreviousOperation(prev)
+	next, err := plc.NewOperationFromPrevious(prev)
 	require.NoError(t, err)
 	require.NotNil(t, next.Previous)
 	require.Equal(t, *next.Previous, tomb.Previous)

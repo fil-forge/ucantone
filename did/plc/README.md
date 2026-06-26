@@ -16,7 +16,7 @@ This package provides:
   DID — it implements the shared `did.Resolver` interface.
 - A [`DirectoryClient`](./client.go) that additionally fetches the last operation
   (`Last`), publishes operations (`Update`), and deactivates a DID (`Deactivate`).
-- Operation builders (`NewOperation`, `NewFromPreviousOperation`, `NewTombstone`),
+- Operation builders (`NewOperation`, `NewOperationFromPrevious`, `NewTombstone`),
   signing (`New`, `SignOperation`, `SignTombstone`), and signature verification
   (`VerifyOperationSignature`, `VerifyTombstoneSignature`).
 
@@ -147,7 +147,7 @@ func update(signer secp256k1.Signer, d did.DID) error {
 	}
 
 	// Build an operation that updates the handle, carrying over everything else.
-	op, err := plc.NewFromPreviousOperation(
+	op, err := plc.NewOperationFromPrevious(
 		last,
 		plc.WithAlsoKnownAs([]string{"at://alice.new.example.com"}),
 	)
@@ -204,7 +204,7 @@ func rotateKey(current secp256k1.Signer, d did.DID) (secp256k1.Signer, error) {
 	}
 
 	// In a single operation, add the new rotation key and remove the old one.
-	op, err := plc.NewFromPreviousOperation(
+	op, err := plc.NewOperationFromPrevious(
 		last,
 		plc.WithRotationKeys([]did.DID{next.KeyDID()}),
 		plc.WithoutRotationKeys([]did.DID{current.KeyDID()}),
@@ -231,7 +231,7 @@ with `Deactivate`:
 
 ```go
 last, _ := client.Last(ctx, d)
-tomb, _ := plc.NewTombstoneFromPreviousOperation(last)
+tomb, _ := plc.NewTombstoneFromPrevious(last)
 tombstone, _ := plc.SignTombstone(signer, tomb)
 err := client.Deactivate(ctx, d, tombstone)
 ```

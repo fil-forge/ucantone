@@ -176,11 +176,11 @@ func NewOperation(prev *cid.Cid, options ...OperationOption) *Operation {
 	}
 }
 
-// NewFromPreviousOperation creates a new PLC operation that updates the given
+// NewOperationFromPrevious creates a new PLC operation that updates the given
 // previous operation with the provided options. The new operation will have the
 // previous verification methods, rotation keys, also known as, and services as
 // the previous operation, merged with the values passed in the options.
-func NewFromPreviousOperation(prev *SignedOperation, options ...OperationOption) (*Operation, error) {
+func NewOperationFromPrevious(prev *SignedOperation, options ...OperationOption) (*Operation, error) {
 	cfg := opConfig{
 		verificationMethods: map[string]did.DID{},
 		services:            map[string]Service{},
@@ -240,11 +240,11 @@ func NewTombstone(prev cid.Cid) *Tombstone {
 	}
 }
 
-// NewTombstoneFromPreviousOperation creates a new PLC tombstone that deactivates
+// NewTombstoneFromPrevious creates a new PLC tombstone that deactivates
 // the DID, linking to the given previous operation by its computed CID. It is a
 // convenience over [NewTombstone] for the common case where you have fetched the
 // last signed operation (e.g. via DirectoryClient.Last) rather than its CID.
-func NewTombstoneFromPreviousOperation(prev *SignedOperation) (*Tombstone, error) {
+func NewTombstoneFromPrevious(prev *SignedOperation) (*Tombstone, error) {
 	prevLink, err := operationCID(prev)
 	if err != nil {
 		return nil, err
