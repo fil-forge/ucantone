@@ -198,7 +198,7 @@ func NewOperationFromPrevious(prev *SignedOperation, options ...OperationOption)
 		option(&cfg)
 	}
 
-	prevLink, err := operationCID(prev)
+	prevLink, err := SumOperation(prev)
 	if err != nil {
 		return nil, err
 	}
@@ -213,9 +213,9 @@ func NewOperationFromPrevious(prev *SignedOperation, options ...OperationOption)
 	}, nil
 }
 
-// operationCID computes the CID of a signed operation, as used to link the next
+// SumOperation computes the CID of a signed operation, as used to link the next
 // operation in the chain to its predecessor.
-func operationCID(op *SignedOperation) (cid.Cid, error) {
+func SumOperation(op *SignedOperation) (cid.Cid, error) {
 	var opBytes bytes.Buffer
 	if err := op.MarshalCBOR(&opBytes); err != nil {
 		return cid.Undef, err
@@ -245,7 +245,7 @@ func NewTombstone(prev cid.Cid) *Tombstone {
 // convenience over [NewTombstone] for the common case where you have fetched the
 // last signed operation (e.g. via DirectoryClient.Last) rather than its CID.
 func NewTombstoneFromPrevious(prev *SignedOperation) (*Tombstone, error) {
-	prevLink, err := operationCID(prev)
+	prevLink, err := SumOperation(prev)
 	if err != nil {
 		return nil, err
 	}
