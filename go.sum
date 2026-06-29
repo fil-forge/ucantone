@@ -1,5 +1,5 @@
-github.com/alanshaw/dag-json-gen v0.0.6 h1:MiscvWVOhs6/ux7OUdPz2nDRA7GwklZyaAy4XWexpr0=
-github.com/alanshaw/dag-json-gen v0.0.6/go.mod h1:rXxWw0SItP9QjxpRMpkju66h0KumF7TPCtvHdOKS5lY=
+github.com/alanshaw/dag-json-gen v0.0.7 h1:YV4f57j5Q4PJuR2yjJWgrXlTPXwvp35a0KQOEAhuBfI=
+github.com/alanshaw/dag-json-gen v0.0.7/go.mod h1:rXxWw0SItP9QjxpRMpkju66h0KumF7TPCtvHdOKS5lY=
 github.com/creack/pty v1.1.9/go.mod h1:oKZEueFk5CKHvIhNR5MUki03XCEU+Q6VDXinZuGJ33E=
 github.com/davecgh/go-spew v1.1.2-0.20180830191138-d8f796af33cc h1:U9qPSI2PIWSS1VwoXQT9A3Wy9MM3WgvqSxFWenqJduM=
 github.com/davecgh/go-spew v1.1.2-0.20180830191138-d8f796af33cc/go.mod h1:J7Y8YcW2NihsgmVo/mv3lAwl/skON4iLHjSsI+c5H38=
