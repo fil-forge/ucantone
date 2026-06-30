@@ -3,7 +3,7 @@ module github.com/fil-forge/ucantone
 go 1.25.0
 
 require (
-	github.com/alanshaw/dag-json-gen v0.0.7
+	github.com/alanshaw/dag-json-gen v0.0.8
 	github.com/gobwas/glob v0.2.3
 	github.com/ipfs/go-cid v0.6.1
 	github.com/multiformats/go-multibase v0.3.0
@@ -34,5 +34,5 @@ require (
 	gopkg.in/check.v1 v1.0.0-20201130134442-10cb98267c6c // indirect
 	gopkg.in/yaml.v3 v3.0.1 // indirect
 	lukechampine.com/blake3 v1.4.1 // indirect
-	pitr.ca/jsontokenizer v0.3.0 // indirect
+	pitr.ca/jsontokenizer v0.3.2 // indirect
 )

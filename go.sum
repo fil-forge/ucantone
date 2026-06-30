@@ -1,5 +1,5 @@
-github.com/alanshaw/dag-json-gen v0.0.7 h1:YV4f57j5Q4PJuR2yjJWgrXlTPXwvp35a0KQOEAhuBfI=
-github.com/alanshaw/dag-json-gen v0.0.7/go.mod h1:rXxWw0SItP9QjxpRMpkju66h0KumF7TPCtvHdOKS5lY=
+github.com/alanshaw/dag-json-gen v0.0.8 h1:Y0SfO2bp9ECDvcNbw6aQ91jmnfLC7UgRDshCeASDfT8=
+github.com/alanshaw/dag-json-gen v0.0.8/go.mod h1:v1YBZcS4B355MqxtyQr+fGNbEhm0CzHd+gOqOO/MZ+I=
 github.com/creack/pty v1.1.9/go.mod h1:oKZEueFk5CKHvIhNR5MUki03XCEU+Q6VDXinZuGJ33E=
 github.com/davecgh/go-spew v1.1.2-0.20180830191138-d8f796af33cc h1:U9qPSI2PIWSS1VwoXQT9A3Wy9MM3WgvqSxFWenqJduM=
 github.com/davecgh/go-spew v1.1.2-0.20180830191138-d8f796af33cc/go.mod h1:J7Y8YcW2NihsgmVo/mv3lAwl/skON4iLHjSsI+c5H38=
@@ -65,5 +65,5 @@ gopkg.in/yaml.v3 v3.0.1 h1:fxVm/GzAzEWqLHuvctI91KS9hhNmmWOoWu0XTYJS7CA=
 gopkg.in/yaml.v3 v3.0.1/go.mod h1:K4uyk7z7BCEPqu6E+C64Yfv1cQ7kz7rIZviUmN+EgEM=
 lukechampine.com/blake3 v1.4.1 h1:I3Smz7gso8w4/TunLKec6K2fn+kyKtDxr/xcQEN84Wg=
 lukechampine.com/blake3 v1.4.1/go.mod h1:QFosUxmjB8mnrWFSNwKmvxHpfY72bmD2tQ0kBMM3kwo=
-pitr.ca/jsontokenizer v0.3.0 h1:Qr70hk4/wcpFEgu/6aJ+nvYQ6x/xS0WOkC627ceiI/M=
-pitr.ca/jsontokenizer v0.3.0/go.mod h1:3DJdA2QNOU6cI0XkH6pRKZ4Oe8G5SDRUQ6PFAwaQ3YY=
+pitr.ca/jsontokenizer v0.3.2 h1:kzsKwfkWPV5XCmAF//hznh3L9IXbiL8aHbI0FswRkCs=
+pitr.ca/jsontokenizer v0.3.2/go.mod h1:3DJdA2QNOU6cI0XkH6pRKZ4Oe8G5SDRUQ6PFAwaQ3YY=
