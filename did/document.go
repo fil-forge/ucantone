@@ -18,7 +18,7 @@ type Document struct {
 	Context              Context                   `json:"@context"`
 	ID                   DID                       `json:"id"`
 	Controller           OneOrMany[DID]            `json:"controller,omitempty"`
-	AlsoKnownAs          []DID                     `json:"alsoKnownAs,omitempty"`
+	AlsoKnownAs          []URL                     `json:"alsoKnownAs,omitempty"`
 	Service              []Service                 `json:"service,omitempty"`
 	VerificationMethods  *VerificationMethods      `json:"verificationMethod,omitempty"`
 	Authentication       *VerificationRelationship `json:"authentication,omitzero"`
@@ -59,7 +59,7 @@ func (d *Document) UnmarshalJSON(b []byte) error {
 		Context              Context             `json:"@context"`
 		ID                   string              `json:"id"`
 		Controller           OneOrMany[DID]      `json:"controller,omitempty"`
-		AlsoKnownAs          []DID               `json:"alsoKnownAs,omitempty"`
+		AlsoKnownAs          []URL               `json:"alsoKnownAs,omitempty"`
 		Service              []Service           `json:"service,omitempty"`
 		VerificationMethods  VerificationMethods `json:"verificationMethod,omitempty"`
 		Authentication       json.RawMessage     `json:"authentication,omitempty"`
