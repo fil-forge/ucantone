@@ -16,8 +16,6 @@ import (
 
 type DirectoryClient struct {
 	Resolver
-	endpoint url.URL
-	client   *http.Client
 }
 
 // NewDirectoryClient creates a new DirectoryClient that can be used to fetch,
@@ -37,7 +35,7 @@ func NewDirectoryClient(endpoint url.URL, options ...Option) (*DirectoryClient, 
 		Transport: cfg.transport,
 	}
 	resolver := Resolver{endpoint: endpoint, client: &c}
-	return &DirectoryClient{endpoint: endpoint, client: &c, Resolver: resolver}, nil
+	return &DirectoryClient{Resolver: resolver}, nil
 }
 
 // Last fetches the last operation for the given did:plc DID from the configured

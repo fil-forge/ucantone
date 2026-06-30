@@ -16,6 +16,8 @@ const (
 	TombstoneType = "plc_tombstone"
 )
 
+var ErrMissingRotationKeys = fmt.Errorf("at least one rotation key is required")
+
 // Signer is an entity that can sign a payload.
 type Signer interface {
 	// Sign takes a byte encoded message and produces a verifiable signature.
@@ -100,14 +102,14 @@ func WithoutVerificationMethods(methods map[string]did.DID) OperationOption {
 }
 
 // WithRotationKeys adds rotation keys to the PLC operation.
-func WithRotationKeys(keys []did.DID) OperationOption {
+func WithRotationKeys(keys ...did.DID) OperationOption {
 	return func(c *opConfig) {
 		c.rotationKeys = append(c.rotationKeys, keys...)
 	}
 }
 
 // WithoutRotationKeys removes the given rotation keys from the PLC operation.
-func WithoutRotationKeys(keys []did.DID) OperationOption {
+func WithoutRotationKeys(keys ...did.DID) OperationOption {
 	return func(c *opConfig) {
 		c.rotationKeys = slices.DeleteFunc(c.rotationKeys, func(k did.DID) bool {
 			return slices.Contains(keys, k)
@@ -116,7 +118,7 @@ func WithoutRotationKeys(keys []did.DID) OperationOption {
 }
 
 // WithAlsoKnownAs adds also known as entries to the PLC operation.
-func WithAlsoKnownAs(alsoKnownAs []string) OperationOption {
+func WithAlsoKnownAs(alsoKnownAs ...string) OperationOption {
 	return func(c *opConfig) {
 		c.alsoKnownAs = append(c.alsoKnownAs, alsoKnownAs...)
 	}
@@ -124,7 +126,7 @@ func WithAlsoKnownAs(alsoKnownAs []string) OperationOption {
 
 // WithoutAlsoKnownAs removes the given also known as entries from the PLC
 // operation.
-func WithoutAlsoKnownAs(alsoKnownAs []string) OperationOption {
+func WithoutAlsoKnownAs(alsoKnownAs ...string) OperationOption {
 	return func(c *opConfig) {
 		c.alsoKnownAs = slices.DeleteFunc(c.alsoKnownAs, func(a string) bool {
 			return slices.Contains(alsoKnownAs, a)
@@ -153,13 +155,16 @@ func WithoutServices(services map[string]Service) OperationOption {
 
 // NewOperation creates a new PLC operation with the given previous operation
 // CID and options.
-func NewOperation(prev *cid.Cid, options ...OperationOption) *Operation {
+func NewOperation(prev *cid.Cid, options ...OperationOption) (*Operation, error) {
 	cfg := opConfig{
 		verificationMethods: map[string]did.DID{},
 		services:            map[string]Service{},
 	}
 	for _, option := range options {
 		option(&cfg)
+	}
+	if len(cfg.rotationKeys) == 0 {
+		return nil, ErrMissingRotationKeys
 	}
 	var prevStr *string
 	if prev != nil {
@@ -173,7 +178,7 @@ func NewOperation(prev *cid.Cid, options ...OperationOption) *Operation {
 		AlsoKnownAs:         cfg.alsoKnownAs,
 		Services:            cfg.services,
 		Previous:            prevStr,
-	}
+	}, nil
 }
 
 // NewOperationFromPrevious creates a new PLC operation that updates the given
@@ -196,6 +201,10 @@ func NewOperationFromPrevious(prev *SignedOperation, options ...OperationOption)
 
 	for _, option := range options {
 		option(&cfg)
+	}
+
+	if len(cfg.rotationKeys) == 0 {
+		return nil, ErrMissingRotationKeys
 	}
 
 	prevLink, err := SumOperation(prev)

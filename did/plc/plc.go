@@ -19,15 +19,18 @@ const Method = "plc"
 var base32LowerNoPad = base32.NewEncoding("abcdefghijklmnopqrstuvwxyz234567").WithPadding(base32.NoPadding)
 
 func New(signer Signer, options ...OperationOption) (did.DID, *SignedOperation, error) {
-	op := NewOperation(nil, options...)
+	op, err := NewOperation(nil, options...)
+	if err != nil {
+		return did.Undef, nil, fmt.Errorf("creating genesis operation: %w", err)
+	}
 	signedOp, err := SignOperation(signer, op)
 	if err != nil {
-		return did.Undef, nil, fmt.Errorf("failed to sign genesis operation: %w", err)
+		return did.Undef, nil, fmt.Errorf("signing genesis operation: %w", err)
 	}
 
 	var signedOpBytes bytes.Buffer
 	if err := signedOp.MarshalCBOR(&signedOpBytes); err != nil {
-		return did.Undef, nil, err
+		return did.Undef, nil, fmt.Errorf("marshaling signed operation: %w", err)
 	}
 
 	digest := sha256.Sum256(signedOpBytes.Bytes())
@@ -40,7 +43,7 @@ func New(signer Signer, options ...OperationOption) (did.DID, *SignedOperation, 
 func SignOperation(signer Signer, op *Operation) (*SignedOperation, error) {
 	var sigPayload bytes.Buffer
 	if err := op.MarshalCBOR(&sigPayload); err != nil {
-		return nil, err
+		return nil, fmt.Errorf("marshaling operation: %w", err)
 	}
 	sig := signer.Sign(sigPayload.Bytes())
 	var prev *string
@@ -90,7 +93,7 @@ func VerifyOperationSignature(verifier Verifier, signedOp *SignedOperation) erro
 func SignTombstone(signer Signer, op *Tombstone) (*SignedTombstone, error) {
 	var sigPayload bytes.Buffer
 	if err := op.MarshalCBOR(&sigPayload); err != nil {
-		return nil, err
+		return nil, fmt.Errorf("marshaling tombstone: %w", err)
 	}
 	sig := signer.Sign(sigPayload.Bytes())
 	return &SignedTombstone{

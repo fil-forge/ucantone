@@ -87,9 +87,9 @@ func main() {
 
 	d, genesis, err := plc.New(
 		signer,
-		plc.WithRotationKeys([]did.DID{key}),
+		plc.WithRotationKeys(key),
 		plc.WithVerificationMethods(map[string]did.DID{"atproto": key}),
-		plc.WithAlsoKnownAs([]string{"at://alice.example.com"}),
+		plc.WithAlsoKnownAs("at://alice.example.com"),
 		plc.WithServices(map[string]plc.Service{
 			"atproto_pds": {
 				Type:     "AtprotoPersonalDataServer",
@@ -149,7 +149,7 @@ func update(signer secp256k1.Signer, d did.DID) error {
 	// Build an operation that updates the handle, carrying over everything else.
 	op, err := plc.NewOperationFromPrevious(
 		last,
-		plc.WithAlsoKnownAs([]string{"at://alice.new.example.com"}),
+		plc.WithAlsoKnownAs("at://alice.new.example.com"),
 	)
 	if err != nil {
 		return err
@@ -206,8 +206,8 @@ func rotateKey(current secp256k1.Signer, d did.DID) (secp256k1.Signer, error) {
 	// In a single operation, add the new rotation key and remove the old one.
 	op, err := plc.NewOperationFromPrevious(
 		last,
-		plc.WithRotationKeys([]did.DID{next.KeyDID()}),
-		plc.WithoutRotationKeys([]did.DID{current.KeyDID()}),
+		plc.WithRotationKeys(next.KeyDID()),
+		plc.WithoutRotationKeys(current.KeyDID()),
 	)
 	if err != nil {
 		return nil, err
