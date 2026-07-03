@@ -148,4 +148,12 @@ func TestECDH(t *testing.T) {
 		require.NoError(t, err)
 		require.Equal(t, direct, viaDID)
 	})
+
+	t.Run("returns an error for a nil peer instead of panicking", func(t *testing.T) {
+		_, err := alice.ECDH(nil)
+		require.Error(t, err)
+		// A zero-value public key (nil underlying key) is also rejected.
+		_, err = alice.ECDH(&x25519.PublicKey{})
+		require.Error(t, err)
+	})
 }
