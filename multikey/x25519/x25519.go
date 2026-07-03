@@ -113,9 +113,12 @@ func (k *KeyPair) KeyDID() did.DID { return k.Public().KeyDID() }
 
 // ECDH performs X25519 Diffie-Hellman between this private key and the peer's
 // public key, returning the raw shared secret. It returns an error rather than
-// panicking when peer is nil or carries no public key, since peer keys may come
-// from external input.
+// panicking when either the keypair or the peer is nil or carries no key, since
+// peer keys may come from external input.
 func (k *KeyPair) ECDH(peer *PublicKey) ([]byte, error) {
+	if k == nil || k.priv == nil {
+		return nil, fmt.Errorf("nil private key")
+	}
 	if peer == nil || peer.pub == nil {
 		return nil, fmt.Errorf("nil peer public key")
 	}

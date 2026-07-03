@@ -156,4 +156,13 @@ func TestECDH(t *testing.T) {
 		_, err = alice.ECDH(&x25519.PublicKey{})
 		require.Error(t, err)
 	})
+
+	t.Run("returns an error for a nil or empty keypair instead of panicking", func(t *testing.T) {
+		var nilKeyPair *x25519.KeyPair
+		_, err := nilKeyPair.ECDH(alice.Public())
+		require.Error(t, err)
+		// A zero-value keypair (nil underlying key) is also rejected.
+		_, err = (&x25519.KeyPair{}).ECDH(alice.Public())
+		require.Error(t, err)
+	})
 }
