@@ -96,8 +96,9 @@ func (r *ExecResponse) SetFailure(x error) error {
 		errVal = cmx
 	} else {
 		name := "UnknownError"
-		if nx, ok := x.(errors.Named); ok {
-			name = nx.Name()
+		var namedErr errors.Named
+		if errors.As(x, &namedErr) {
+			name = namedErr.Name()
 		}
 		errVal = datamodel.Map{
 			"name":    name,
