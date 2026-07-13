@@ -2,7 +2,9 @@ package validator_test
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
+	"fmt"
 	"os"
 	"testing"
 	"time"
@@ -567,6 +569,126 @@ func TestValidate(t *testing.T) {
 			)
 			require.NoError(t, err)
 		})
+	})
+}
+
+// TestRelationshipFallback covers the optional capability relationships (DID
+// core §5.3): a document that expresses no capabilityInvocation /
+// capabilityDelegation authorizes all of its verification methods, while a
+// document that expresses one restricts verification to the methods listed.
+func TestRelationshipFallback(t *testing.T) {
+	crankWidget := testutil.Must(command.Parse("/widget/crank"))(t)
+
+	// plcShapedResolver serves a document parsed from JSON that carries only
+	// verificationMethod — the shape did:plc directories emit.
+	plcShapedResolver := did.ResolverFunc(func(_ context.Context, d did.DID) (did.Document, error) {
+		docJSON := fmt.Sprintf(`{
+			"id": %q,
+			"verificationMethod": [{
+				"id": "%s#key",
+				"type": %q,
+				"controller": %q,
+				"publicKeyMultibase": %q
+			}]
+		}`, d, d, did.MultikeyVerificationMethodType, d, d.Identifier())
+		var doc did.Document
+		if err := json.Unmarshal([]byte(docJSON), &doc); err != nil {
+			return did.Document{}, err
+		}
+		return doc, nil
+	})
+
+	t.Run("invocation verifies against a document without relationships", func(t *testing.T) {
+		subject := testutil.RandomIssuer(t)
+
+		inv, err := invocation.Invoke(subject, subject.DID(), crankWidget, datamodel.Map{})
+		require.NoError(t, err)
+
+		err = validator.ValidateInvocation(t.Context(), inv,
+			validator.WithDIDResolver(plcShapedResolver))
+		require.NoError(t, err)
+	})
+
+	t.Run("delegation in chain verifies against a document without relationships", func(t *testing.T) {
+		subject := testutil.RandomIssuer(t)
+		bob := testutil.RandomIssuer(t)
+
+		del, err := delegation.Delegate(subject, bob.DID(), subject.DID(), crankWidget)
+		require.NoError(t, err)
+		inv, err := invocation.Invoke(bob, subject.DID(), crankWidget, datamodel.Map{},
+			invocation.WithProofs(del.Link()))
+		require.NoError(t, err)
+
+		err = validator.ValidateInvocation(t.Context(), inv,
+			validator.WithDIDResolver(plcShapedResolver),
+			validator.WithProofResolver(validator.ProofsFromContainer(
+				container.New(container.WithDelegations(del)))),
+		)
+		require.NoError(t, err)
+	})
+
+	t.Run("populated relationship still restricts to its listed methods", func(t *testing.T) {
+		subject := testutil.RandomIssuer(t)
+		other := testutil.RandomIssuer(t) // a key the subject does NOT sign with
+
+		resolver := did.ResolverFunc(func(_ context.Context, d did.DID) (did.Document, error) {
+			doc := did.NewDocument(d)
+			signerVM := did.VerificationMethod{
+				ID:         doc.Fragment("signer"),
+				Controller: d,
+				Type:       did.MultikeyVerificationMethodType,
+				Material:   did.GenericMap{did.MultikeyPublicKeyMultibaseProp: d.Identifier()},
+			}
+			otherVM := did.VerificationMethod{
+				ID:         doc.Fragment("other"),
+				Controller: d,
+				Type:       did.MultikeyVerificationMethodType,
+				Material:   did.GenericMap{did.MultikeyPublicKeyMultibaseProp: other.DID().Identifier()},
+			}
+			if err := doc.VerificationMethods.Add(signerVM); err != nil {
+				return did.Document{}, err
+			}
+			// Only the non-signing key is authorized for capability invocation,
+			// so verification must NOT fall back to the signer's method.
+			if err := doc.CapabilityInvocation.Add(otherVM); err != nil {
+				return did.Document{}, err
+			}
+			return doc, nil
+		})
+
+		inv, err := invocation.Invoke(subject, subject.DID(), crankWidget, datamodel.Map{})
+		require.NoError(t, err)
+
+		err = validator.ValidateInvocation(t.Context(), inv,
+			validator.WithDIDResolver(resolver))
+		require.Error(t, err)
+	})
+
+	t.Run("nil relationships fall back without panicking", func(t *testing.T) {
+		subject := testutil.RandomIssuer(t)
+
+		// A document built without NewDocument: relationship fields are nil.
+		resolver := did.ResolverFunc(func(_ context.Context, d did.DID) (did.Document, error) {
+			vms := did.VerificationMethods{}
+			doc := did.Document{ID: d, VerificationMethods: &vms}
+			vm := did.VerificationMethod{
+				ID:         doc.Fragment("key"),
+				Controller: d,
+				Type:       did.MultikeyVerificationMethodType,
+				Material:   did.GenericMap{did.MultikeyPublicKeyMultibaseProp: d.Identifier()},
+			}
+			if err := vms.Add(vm); err != nil {
+				return did.Document{}, err
+			}
+			return doc, nil
+		})
+
+		inv, err := invocation.Invoke(subject, subject.DID(), crankWidget, datamodel.Map{})
+		require.NoError(t, err)
+
+		err = validator.ValidateInvocation(t.Context(), inv,
+			validator.WithDIDResolver(resolver))
+		require.NoError(t, err)
 	})
 }
 
