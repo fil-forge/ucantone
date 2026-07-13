@@ -664,6 +664,39 @@ func TestRelationshipFallback(t *testing.T) {
 		require.Error(t, err)
 	})
 
+	t.Run("relationship referencing a missing method does not fall back", func(t *testing.T) {
+		subject := testutil.RandomIssuer(t)
+
+		// The document lists the signer under verificationMethod, but
+		// capabilityInvocation references an ID with no matching method. The
+		// relationship is present (not silent), so verification must restrict
+		// to it — not widen to all of verificationMethod.
+		resolver := did.ResolverFunc(func(_ context.Context, d did.DID) (did.Document, error) {
+			docJSON := fmt.Sprintf(`{
+				"id": %q,
+				"verificationMethod": [{
+					"id": "%s#key",
+					"type": %q,
+					"controller": %q,
+					"publicKeyMultibase": %q
+				}],
+				"capabilityInvocation": ["%s#missing"]
+			}`, d, d, did.MultikeyVerificationMethodType, d, d.Identifier(), d)
+			var doc did.Document
+			if err := json.Unmarshal([]byte(docJSON), &doc); err != nil {
+				return did.Document{}, err
+			}
+			return doc, nil
+		})
+
+		inv, err := invocation.Invoke(subject, subject.DID(), crankWidget, datamodel.Map{})
+		require.NoError(t, err)
+
+		err = validator.ValidateInvocation(t.Context(), inv,
+			validator.WithDIDResolver(resolver))
+		require.Error(t, err)
+	})
+
 	t.Run("nil relationships fall back without panicking", func(t *testing.T) {
 		subject := testutil.RandomIssuer(t)
 
