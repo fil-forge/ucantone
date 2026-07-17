@@ -60,6 +60,55 @@ func TestNew(t *testing.T) {
 	})
 }
 
+func TestParse(t *testing.T) {
+	t.Run("accepts a DID produced by New", func(t *testing.T) {
+		d, _, err := plc.New(testutil.RandomMultikeySigner(t), plc.WithRotationKeys(testutil.RandomDID(t)))
+		require.NoError(t, err)
+
+		parsed, err := plc.Parse(d.String())
+		require.NoError(t, err)
+		require.Equal(t, d, parsed)
+	})
+
+	t.Run("accepts a well-known did:plc", func(t *testing.T) {
+		d, err := plc.Parse("did:plc:ewvi7nxzyoun6zhxrhs64oiz")
+		require.NoError(t, err)
+		require.Equal(t, plc.Method, d.Method())
+	})
+
+	t.Run("rejects a missing did prefix", func(t *testing.T) {
+		_, err := plc.Parse("plc:ewvi7nxzyoun6zhxrhs64oiz")
+		require.Error(t, err)
+	})
+
+	t.Run("rejects a non-plc method", func(t *testing.T) {
+		_, err := plc.Parse("did:web:example.com")
+		var umErr did.UnsupportedMethodError
+		require.ErrorAs(t, err, &umErr)
+	})
+
+	t.Run("rejects an identifier that is too short", func(t *testing.T) {
+		_, err := plc.Parse("did:plc:ewvi7nxzyoun6zhxrhs64oi")
+		require.ErrorContains(t, err, "24 characters")
+	})
+
+	t.Run("rejects an identifier that is too long", func(t *testing.T) {
+		_, err := plc.Parse("did:plc:ewvi7nxzyoun6zhxrhs64oizz")
+		require.ErrorContains(t, err, "24 characters")
+	})
+
+	t.Run("rejects characters outside the base32 lower alphabet", func(t *testing.T) {
+		for _, id := range []string{
+			"EWVI7NXZYOUN6ZHXRHS64OIZ", // uppercase
+			"ewvi7nxzyoun6zhxrhs64oi0", // digit outside 2-7
+			"ewvi7nxzyoun6zhxrhs64oi=", // padding
+		} {
+			_, err := plc.Parse("did:plc:" + id)
+			require.ErrorContains(t, err, "not base32", "identifier %q", id)
+		}
+	})
+}
+
 func TestSignOperation(t *testing.T) {
 	t.Run("signs the CBOR-encoded operation and copies all fields", func(t *testing.T) {
 		signer := testutil.RandomMultikeySigner(t)

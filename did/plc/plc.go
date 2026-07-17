@@ -16,7 +16,31 @@ import (
 
 const Method = "plc"
 
+// IdentifierLength is the length in characters of the method-specific
+// identifier of a did:plc DID.
+const IdentifierLength = 24
+
 var base32LowerNoPad = base32.NewEncoding("abcdefghijklmnopqrstuvwxyz234567").WithPadding(base32.NoPadding)
+
+// Parse parses a did:plc DID string, verifying the method is "plc" and the
+// identifier is 24 characters of base32 (lowercase, no padding).
+func Parse(str string) (did.DID, error) {
+	d, err := did.Parse(str)
+	if err != nil {
+		return did.Undef, err
+	}
+	if err := did.ValidateMethod(d, Method); err != nil {
+		return did.Undef, err
+	}
+	id := d.Identifier()
+	if len(id) != IdentifierLength {
+		return did.Undef, fmt.Errorf("identifier must be %d characters, got %d", IdentifierLength, len(id))
+	}
+	if _, err := base32LowerNoPad.DecodeString(id); err != nil {
+		return did.Undef, fmt.Errorf("identifier is not base32 (lowercase, no padding): %w", err)
+	}
+	return d, nil
+}
 
 func New(signer Signer, options ...OperationOption) (did.DID, *SignedOperation, error) {
 	op, err := NewOperation(nil, options...)
@@ -35,7 +59,7 @@ func New(signer Signer, options ...OperationOption) (did.DID, *SignedOperation, 
 
 	digest := sha256.Sum256(signedOpBytes.Bytes())
 	str := base32LowerNoPad.EncodeToString(digest[:])
-	return did.New(Method, str[:24]), signedOp, nil
+	return did.New(Method, str[:IdentifierLength]), signedOp, nil
 }
 
 // SignOperation signs a PLC operation with the given signer and returns a

@@ -121,11 +121,31 @@ func verifyTokenSignature(ctx context.Context, tok ucan.Token, cfg validationCon
 		return fmt.Errorf("unsupported token type: %T", tok)
 	}
 
+	// The capability relationships are optional (DID core §5.3): a document
+	// that expresses one restricts verification to the methods it lists, but
+	// a document that expresses nothing authorizes all of its verification
+	// methods — e.g. did:plc documents carry only verificationMethod.
+	// (Post-parse, an explicitly empty relationship is indistinguishable
+	// from an absent one and gets the same fallback.) A relationship that
+	// lists entries which fail to resolve to verification methods is NOT
+	// silent: it restricts to those (unresolvable) methods and must not
+	// widen to the full verificationMethod set.
+	var vms []did.VerificationMethod
+	if verRel == nil || verRel.IsZero() {
+		if doc.VerificationMethods != nil {
+			for _, vm := range *doc.VerificationMethods {
+				vms = append(vms, vm)
+			}
+		}
+	} else {
+		vms = verRel.All()
+	}
+
 	// Try each verification method, collecting rejection reasons for the error.
 	validationTime := time.Unix(int64(cfg.validationTime), 0)
 	var rejections []verrs.VMRejection
 
-	for _, vm := range verRel.All() {
+	for _, vm := range vms {
 		if vm.ExpiredAt(validationTime) {
 			rejections = append(rejections, verrs.VMRejection{VM: vm, Reason: "expired"})
 			continue
@@ -136,12 +156,10 @@ func verifyTokenSignature(ctx context.Context, tok ucan.Token, cfg validationCon
 		}
 		f, ok := cfg.verifierFactories[vm.Type]
 		if !ok {
-			err = fmt.Errorf("%w for VM type %q", ErrNoVerifierFactory, vm.Type)
+			rejections = append(rejections, verrs.VMRejection{VM: vm, Reason: "unsupported verification method type"})
+			continue
 		}
-		var v ucan.Verifier
-		if err == nil {
-			v, err = f(ctx, vm.Material)
-		}
+		v, err := f(ctx, vm.Material)
 		if errors.Is(err, ErrNoVerifierFactory) {
 			rejections = append(rejections, verrs.VMRejection{VM: vm, Reason: "unsupported verification method type"})
 			continue
