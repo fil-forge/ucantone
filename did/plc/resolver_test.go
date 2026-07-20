@@ -7,6 +7,7 @@ import (
 	"net/url"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/fil-forge/ucantone/did"
 	"github.com/fil-forge/ucantone/did/plc"
@@ -99,5 +100,125 @@ func TestResolve(t *testing.T) {
 
 		_, err = r.Resolve(t.Context(), d)
 		require.ErrorContains(t, err, "parsing DID document JSON")
+	})
+}
+
+// mapCache is a minimal plc.Cache implementation for tests. It records the
+// expiration duration of the most recent Set.
+type mapCache struct {
+	items       map[string]interface{}
+	lastSetDura time.Duration
+}
+
+func newMapCache() *mapCache {
+	return &mapCache{items: map[string]interface{}{}}
+}
+
+func (c *mapCache) Get(k string) (interface{}, bool) {
+	v, ok := c.items[k]
+	return v, ok
+}
+
+func (c *mapCache) Set(k string, x interface{}, d time.Duration) {
+	c.items[k] = x
+	c.lastSetDura = d
+}
+
+func TestResolveWithCache(t *testing.T) {
+	endpoint := mustParseURL(t, "https://plc.example")
+	d, err := did.Parse("did:plc:7iza6de2dwap2sbkpav7c6c6")
+	require.NoError(t, err)
+
+	body, err := json.Marshal(did.Document{ID: d})
+	require.NoError(t, err)
+
+	t.Run("populates cache and revalidates with If-None-Match", func(t *testing.T) {
+		const etag = `"abc123"`
+		var reqs []*http.Request
+		rt := roundTripperFunc(func(req *http.Request) (*http.Response, error) {
+			reqs = append(reqs, req)
+			resp := mockResponse(http.StatusOK, string(body))
+			resp.Header.Set("ETag", etag)
+			return resp, nil
+		})
+		c := newMapCache()
+		r, err := plc.NewResolver(endpoint, plc.WithTransport(rt), plc.WithCache(c))
+		require.NoError(t, err)
+
+		doc, err := r.Resolve(t.Context(), d)
+		require.NoError(t, err)
+		require.Equal(t, d, doc.ID)
+
+		// The document should now be cached.
+		_, found := c.Get(d.String())
+		require.True(t, found, "document should be cached")
+		require.Empty(t, reqs[0].Header.Get("If-None-Match"), "first request must not send If-None-Match")
+
+		// A second resolution should revalidate with the stored ETag.
+		_, err = r.Resolve(t.Context(), d)
+		require.NoError(t, err)
+		require.Len(t, reqs, 2)
+		require.Equal(t, etag, reqs[1].Header.Get("If-None-Match"))
+	})
+
+	t.Run("returns cached document on 304 Not Modified", func(t *testing.T) {
+		const etag = `"abc123"`
+		call := 0
+		rt := roundTripperFunc(func(req *http.Request) (*http.Response, error) {
+			call++
+			if call == 1 {
+				resp := mockResponse(http.StatusOK, string(body))
+				resp.Header.Set("ETag", etag)
+				return resp, nil
+			}
+			return mockResponse(http.StatusNotModified, ""), nil
+		})
+		c := newMapCache()
+		r, err := plc.NewResolver(endpoint, plc.WithTransport(rt), plc.WithCache(c))
+		require.NoError(t, err)
+
+		_, err = r.Resolve(t.Context(), d)
+		require.NoError(t, err)
+
+		doc, err := r.Resolve(t.Context(), d)
+		require.NoError(t, err)
+		require.Equal(t, d, doc.ID, "304 should return the cached document")
+	})
+
+	t.Run("passes the configured expiration to the cache", func(t *testing.T) {
+		const etag = `"abc123"`
+		rt := roundTripperFunc(func(req *http.Request) (*http.Response, error) {
+			resp := mockResponse(http.StatusOK, string(body))
+			resp.Header.Set("ETag", etag)
+			return resp, nil
+		})
+		c := newMapCache()
+		ttl := 5 * time.Minute
+		r, err := plc.NewResolver(endpoint, plc.WithTransport(rt), plc.WithCache(c), plc.WithCacheExpiration(ttl))
+		require.NoError(t, err)
+
+		_, err = r.Resolve(t.Context(), d)
+		require.NoError(t, err)
+		require.Equal(t, ttl, c.lastSetDura)
+	})
+
+	t.Run("does not cache when no ETag is returned", func(t *testing.T) {
+		var reqs []*http.Request
+		rt := roundTripperFunc(func(req *http.Request) (*http.Response, error) {
+			reqs = append(reqs, req)
+			return mockResponse(http.StatusOK, string(body)), nil
+		})
+		c := newMapCache()
+		r, err := plc.NewResolver(endpoint, plc.WithTransport(rt), plc.WithCache(c))
+		require.NoError(t, err)
+
+		_, err = r.Resolve(t.Context(), d)
+		require.NoError(t, err)
+		_, found := c.Get(d.String())
+		require.False(t, found, "document without an ETag should not be cached")
+
+		_, err = r.Resolve(t.Context(), d)
+		require.NoError(t, err)
+		require.Empty(t, reqs[1].Header.Get("If-None-Match"), "no If-None-Match without a cached ETag")
 	})
 }
