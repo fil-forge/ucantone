@@ -233,11 +233,13 @@ func Decode(input []byte) (*Container, error) {
 	// Textual encodings tolerate surrounding whitespace (e.g. a trailing
 	// newline in a file); a raw CBOR container may legitimately start or end
 	// with whitespace-valued bytes, so trim only for the base64 codecs.
-	if trimmed := bytes.TrimSpace(input); len(trimmed) > 0 {
-		switch trimmed[0] {
-		case Base64, Base64url, Base64Gzip, Base64urlGzip:
-			input = trimmed
-		}
+	trimmed := bytes.TrimSpace(input)
+	if len(trimmed) == 0 {
+		return nil, errors.New("empty container bytes")
+	}
+	switch trimmed[0] {
+	case Base64, Base64url, Base64Gzip, Base64urlGzip:
+		input = trimmed
 	}
 	codec := input[0]
 	var compressed []byte
