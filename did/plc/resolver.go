@@ -13,18 +13,19 @@ import (
 	"github.com/fil-forge/ucantone/did"
 )
 
-// Cache is the subset of github.com/patrickmn/go-cache's API used by the
-// resolver to cache DID documents. A *cache.Cache satisfies this interface.
+// Cache is a TTL cache interface used by the Resolver to store resolved
+// documents and their ETags for conditional revalidation. The cache is keyed by
+// the DID string.
 type Cache interface {
-	Get(k string) (interface{}, bool)
-	Set(k string, x interface{}, d time.Duration)
+	Get(key string) (interface{}, bool)
+	Set(key string, value interface{}, ttl time.Duration)
 }
 
 type config struct {
-	timeout         time.Duration
-	transport       http.RoundTripper
-	cache           Cache
-	cacheExpiration time.Duration
+	timeout   time.Duration
+	transport http.RoundTripper
+	cache     Cache
+	cacheTTL  time.Duration
 }
 
 type Option func(*config)
@@ -51,13 +52,13 @@ func WithCache(cache Cache) Option {
 	}
 }
 
-// WithCacheExpiration sets the expiration duration passed to the cache's Set
+// WithCacheTTL sets the time to live duration passed to the cache's Set
 // when storing a resolved document. It only has an effect alongside WithCache.
 // The value is passed through to the configured Cache implementation; consult
 // your Cache's documentation for the meaning of 0 or negative durations.
-func WithCacheExpiration(expiration time.Duration) Option {
+func WithCacheTTL(ttl time.Duration) Option {
 	return func(c *config) {
-		c.cacheExpiration = expiration
+		c.cacheTTL = ttl
 	}
 }
 
@@ -73,10 +74,10 @@ var _ did.Resolver = (*Resolver)(nil)
 // Resolver resolves a did:plc DID to a DID Document by fetching the document
 // from the configured directory.
 type Resolver struct {
-	endpoint        url.URL
-	client          *http.Client
-	cache           Cache
-	cacheExpiration time.Duration
+	endpoint url.URL
+	client   *http.Client
+	cache    Cache
+	cacheTTL time.Duration
 }
 
 func NewResolver(endpoint url.URL, options ...Option) (*Resolver, error) {
@@ -92,7 +93,7 @@ func NewResolver(endpoint url.URL, options ...Option) (*Resolver, error) {
 		Timeout:   cfg.timeout,
 		Transport: cfg.transport,
 	}
-	return &Resolver{endpoint: endpoint, client: &c, cache: cfg.cache, cacheExpiration: cfg.cacheExpiration}, nil
+	return &Resolver{endpoint: endpoint, client: &c, cache: cfg.cache, cacheTTL: cfg.cacheTTL}, nil
 }
 
 func (r *Resolver) Resolve(ctx context.Context, d did.DID) (did.Document, error) {
@@ -141,14 +142,14 @@ func (r *Resolver) Resolve(ctx context.Context, d did.DID) (did.Document, error)
 		return did.Document{}, fmt.Errorf("parsing DID document JSON: %w", err)
 	}
 
-// Cache the document keyed by DID, along with its ETag for future
-// revalidation. Only cache when an ETag is present so every subsequent hit
-// revalidates rather than risk serving a stale document.
-// The expiration is configurable via WithCacheExpiration and is passed through
-// to the configured Cache implementation.
+	// Cache the document keyed by DID, along with its ETag for future
+	// revalidation. Only cache when an ETag is present so every subsequent hit
+	// revalidates rather than risk serving a stale document.
+	// The expiration is configurable via WithCacheTTL and is passed through
+	// to the configured Cache implementation.
 	if r.cache != nil {
 		if etag := resp.Header.Get("ETag"); etag != "" {
-			r.cache.Set(d.String(), cachedDocument{etag: etag, doc: doc}, r.cacheExpiration)
+			r.cache.Set(d.String(), cachedDocument{etag: etag, doc: doc}, r.cacheTTL)
 		}
 	}
 

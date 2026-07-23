@@ -106,8 +106,8 @@ func TestResolve(t *testing.T) {
 // mapCache is a minimal plc.Cache implementation for tests. It records the
 // expiration duration of the most recent Set.
 type mapCache struct {
-	items       map[string]interface{}
-	lastSetDura time.Duration
+	items      map[string]interface{}
+	lastSetTTL time.Duration
 }
 
 func newMapCache() *mapCache {
@@ -119,9 +119,9 @@ func (c *mapCache) Get(k string) (interface{}, bool) {
 	return v, ok
 }
 
-func (c *mapCache) Set(k string, x interface{}, d time.Duration) {
-	c.items[k] = x
-	c.lastSetDura = d
+func (c *mapCache) Set(k string, v interface{}, ttl time.Duration) {
+	c.items[k] = v
+	c.lastSetTTL = ttl
 }
 
 func TestResolveWithCache(t *testing.T) {
@@ -194,12 +194,12 @@ func TestResolveWithCache(t *testing.T) {
 		})
 		c := newMapCache()
 		ttl := 5 * time.Minute
-		r, err := plc.NewResolver(endpoint, plc.WithTransport(rt), plc.WithCache(c), plc.WithCacheExpiration(ttl))
+		r, err := plc.NewResolver(endpoint, plc.WithTransport(rt), plc.WithCache(c), plc.WithCacheTTL(ttl))
 		require.NoError(t, err)
 
 		_, err = r.Resolve(t.Context(), d)
 		require.NoError(t, err)
-		require.Equal(t, ttl, c.lastSetDura)
+		require.Equal(t, ttl, c.lastSetTTL)
 	})
 
 	t.Run("does not cache when no ETag is returned", func(t *testing.T) {
