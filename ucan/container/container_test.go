@@ -45,6 +45,49 @@ func TestContainer(t *testing.T) {
 	}
 }
 
+func TestContainerDecodeWhitespaceTolerance(t *testing.T) {
+	testCases := []struct {
+		code     byte
+		tolerate bool
+	}{
+		// Textual (base64) encodings may pick up surrounding whitespace, e.g. a
+		// trailing newline when written to or read from a file.
+		{container.Base64, true},
+		{container.Base64url, true},
+		{container.Base64Gzip, true},
+		{container.Base64urlGzip, true},
+		// Do not tolerate whitespace for binary encodings.
+		{container.Raw, false},
+		{container.RawGzip, false},
+	}
+	for _, tc := range testCases {
+		t.Run(container.FormatCodec(tc.code), func(t *testing.T) {
+			issuer := testutil.RandomIssuer(t)
+			subject := testutil.RandomDID(t)
+			cmd := testutil.Must(command.Parse("/test/invoke"))(t)
+			arguments := testutil.RandomArgs(t)
+
+			inv, err := invocation.Invoke(issuer, subject, cmd, arguments)
+			require.NoError(t, err)
+
+			encoded, err := container.Encode(tc.code, container.New(container.WithInvocations(inv)))
+			require.NoError(t, err)
+
+			// Wrap with leading and trailing whitespace of various kinds.
+			padded := append([]byte("\n\t  "), encoded...)
+			padded = append(padded, []byte("  \n")...)
+
+			decoded, err := container.Decode(padded)
+			if tc.tolerate {
+				require.NoError(t, err)
+				require.Len(t, decoded.Invocations(), 1)
+			} else {
+				require.Error(t, err)
+			}
+		})
+	}
+}
+
 func TestContainerDeduplicates(t *testing.T) {
 	issuer := testutil.RandomIssuer(t)
 	audience := testutil.RandomDID(t)
