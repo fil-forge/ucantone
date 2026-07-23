@@ -45,18 +45,23 @@ func TestContainer(t *testing.T) {
 	}
 }
 
-func TestContainerDecodeToleratesWhitespace(t *testing.T) {
-	// Textual (base64) encodings may pick up surrounding whitespace, e.g. a
-	// trailing newline when written to or read from a file. Decode should
-	// tolerate it for those codecs.
-	codecs := []byte{
-		container.Base64,
-		container.Base64url,
-		container.Base64Gzip,
-		container.Base64urlGzip,
+func TestContainerDecodeWhitespaceTolerance(t *testing.T) {
+	testCases := []struct {
+		code     byte
+		tolerate bool
+	}{
+		// Textual (base64) encodings may pick up surrounding whitespace, e.g. a
+		// trailing newline when written to or read from a file.
+		{container.Base64, true},
+		{container.Base64url, true},
+		{container.Base64Gzip, true},
+		{container.Base64urlGzip, true},
+		// Do not tolerate whitespace for binary encodings.
+		{container.Raw, false},
+		{container.RawGzip, false},
 	}
-	for _, code := range codecs {
-		t.Run(container.FormatCodec(code), func(t *testing.T) {
+	for _, tc := range testCases {
+		t.Run(container.FormatCodec(tc.code), func(t *testing.T) {
 			issuer := testutil.RandomIssuer(t)
 			subject := testutil.RandomDID(t)
 			cmd := testutil.Must(command.Parse("/test/invoke"))(t)
@@ -65,7 +70,7 @@ func TestContainerDecodeToleratesWhitespace(t *testing.T) {
 			inv, err := invocation.Invoke(issuer, subject, cmd, arguments)
 			require.NoError(t, err)
 
-			encoded, err := container.Encode(code, container.New(container.WithInvocations(inv)))
+			encoded, err := container.Encode(tc.code, container.New(container.WithInvocations(inv)))
 			require.NoError(t, err)
 
 			// Wrap with leading and trailing whitespace of various kinds.
@@ -73,8 +78,12 @@ func TestContainerDecodeToleratesWhitespace(t *testing.T) {
 			padded = append(padded, []byte("  \n")...)
 
 			decoded, err := container.Decode(padded)
-			require.NoError(t, err)
-			require.Len(t, decoded.Invocations(), 1)
+			if tc.tolerate {
+				require.NoError(t, err)
+				require.Len(t, decoded.Invocations(), 1)
+			} else {
+				require.Error(t, err)
+			}
 		})
 	}
 }
