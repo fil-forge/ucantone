@@ -53,9 +53,8 @@ func WithCache(cache Cache) Option {
 
 // WithCacheExpiration sets the expiration duration passed to the cache's Set
 // when storing a resolved document. It only has an effect alongside WithCache.
-// The zero value is go-cache's DefaultExpiration, meaning the cache's own
-// configured default is used; pass a negative duration for go-cache's
-// NoExpiration.
+// The value is passed through to the configured Cache implementation; consult
+// your Cache's documentation for the meaning of 0 or negative durations.
 func WithCacheExpiration(expiration time.Duration) Option {
 	return func(c *config) {
 		c.cacheExpiration = expiration
@@ -142,11 +141,11 @@ func (r *Resolver) Resolve(ctx context.Context, d did.DID) (did.Document, error)
 		return did.Document{}, fmt.Errorf("parsing DID document JSON: %w", err)
 	}
 
-	// Cache the document keyed by DID, along with its ETag for future
-	// revalidation. Only cache when an ETag is present so every subsequent hit
-	// revalidates rather than risk serving a stale document. The expiration is
-	// configurable via WithCacheExpiration; its zero value is go-cache's
-	// DefaultExpiration, letting the caller's cache config govern TTL.
+// Cache the document keyed by DID, along with its ETag for future
+// revalidation. Only cache when an ETag is present so every subsequent hit
+// revalidates rather than risk serving a stale document.
+// The expiration is configurable via WithCacheExpiration and is passed through
+// to the configured Cache implementation.
 	if r.cache != nil {
 		if etag := resp.Header.Get("ETag"); etag != "" {
 			r.cache.Set(d.String(), cachedDocument{etag: etag, doc: doc}, r.cacheExpiration)

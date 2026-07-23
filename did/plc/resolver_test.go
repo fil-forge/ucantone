@@ -152,8 +152,8 @@ func TestResolveWithCache(t *testing.T) {
 		// The document should now be cached.
 		_, found := c.Get(d.String())
 		require.True(t, found, "document should be cached")
+		require.Len(t, reqs, 1)
 		require.Empty(t, reqs[0].Header.Get("If-None-Match"), "first request must not send If-None-Match")
-
 		// A second resolution should revalidate with the stored ETag.
 		_, err = r.Resolve(t.Context(), d)
 		require.NoError(t, err)
@@ -219,6 +219,7 @@ func TestResolveWithCache(t *testing.T) {
 
 		_, err = r.Resolve(t.Context(), d)
 		require.NoError(t, err)
+		require.Len(t, reqs, 2)
 		require.Empty(t, reqs[1].Header.Get("If-None-Match"), "no If-None-Match without a cached ETag")
 	})
 }
