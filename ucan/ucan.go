@@ -43,6 +43,11 @@ type Signer interface {
 
 	// Verifier returns a Verifier that can verify signatures from this Signer.
 	Verifier() Verifier
+
+	// String returns a human readable string representation of the signer, for
+	// use in logging and error messages. Implementations MUST NOT include
+	// private key material.
+	String() string
 }
 
 // Signature encapsulates the bytes that comprise the signature as well as the

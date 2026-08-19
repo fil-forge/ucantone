@@ -5,16 +5,17 @@ import (
 	"crypto/sha256"
 	"fmt"
 
+	"github.com/multiformats/go-multibase"
+	"github.com/multiformats/go-multicodec"
+	"github.com/multiformats/go-varint"
+	"gitlab.com/yawning/secp256k1-voi/secec"
+
 	"github.com/fil-forge/ucantone/did"
 	"github.com/fil-forge/ucantone/multikey"
 	"github.com/fil-forge/ucantone/multikey/secp256k1/verifier"
 	"github.com/fil-forge/ucantone/ucan"
 	"github.com/fil-forge/ucantone/varsig"
 	"github.com/fil-forge/ucantone/varsig/algorithm/ecdsa"
-	"github.com/multiformats/go-multibase"
-	"github.com/multiformats/go-multicodec"
-	"github.com/multiformats/go-varint"
-	"gitlab.com/yawning/secp256k1-voi/secec"
 )
 
 const Code = multicodec.Secp256k1Priv
@@ -28,12 +29,9 @@ var size = tagSize + keySize
 func Generate() (Signer, error) {
 	sk, err := secec.GenerateKey()
 	if err != nil {
-		return nil, fmt.Errorf("generating secp256k1 key: %w", err)
+		return Signer{}, fmt.Errorf("generating secp256k1 key: %w", err)
 	}
-	s := make(Signer, size)
-	varint.PutUvarint(s, uint64(Code))
-	copy(s[tagSize:], sk.Bytes())
-	return s, nil
+	return Signer{key: sk}, nil
 }
 
 func GenerateIssuer() (multikey.Issuer, error) {
@@ -49,7 +47,7 @@ func GenerateIssuer() (multikey.Issuer, error) {
 func Parse(str string) (Signer, error) {
 	_, bytes, err := multibase.Decode(str)
 	if err != nil {
-		return nil, fmt.Errorf("decoding multibase string: %w", err)
+		return Signer{}, fmt.Errorf("decoding multibase string: %w", err)
 	}
 	return Decode(bytes)
 }
@@ -63,43 +61,66 @@ func Format(signer multikey.Signer) string {
 // 32 byte secp256k1 raw scalar value.
 func Decode(b []byte) (Signer, error) {
 	if len(b) != size {
-		return nil, fmt.Errorf("invalid length: %d wanted: %d", len(b), size)
+		return Signer{}, fmt.Errorf("invalid length: %d wanted: %d", len(b), size)
 	}
 	skc, _, err := varint.FromUvarint(b)
 	if err != nil {
-		return nil, fmt.Errorf("reading private key uvarint: %w", err)
+		return Signer{}, fmt.Errorf("reading private key uvarint: %w", err)
 	}
 	if skc != uint64(Code) {
-		return nil, fmt.Errorf("invalid private key codec: %s [0x%02x], expected: %s [0x%02x]", multicodec.Code(skc), skc, Code, uint64(Code))
+		return Signer{}, fmt.Errorf("invalid private key codec: %s [0x%02x], expected: %s [0x%02x]", multicodec.Code(skc), skc, Code, uint64(Code))
 	}
-	_, err = secec.NewPrivateKey(b[tagSize:])
+	sk, err := secec.NewPrivateKey(b[tagSize:])
 	if err != nil {
-		return nil, fmt.Errorf("creating private key: %w", err)
+		return Signer{}, fmt.Errorf("creating private key: %w", err)
 	}
-	s := make(Signer, size)
-	copy(s, b)
-	return s, nil
+	return Signer{key: sk}, nil
 }
 
 func Encode(signer Signer) []byte {
-	return signer
+	return signer.Bytes()
 }
 
 // FromRaw takes raw 32 byte scalar value and tags with the secp256k1
 // signer multiformat code, returning a secp256k1 signer.
 func FromRaw(b []byte) (Signer, error) {
 	if len(b) != keySize {
-		return nil, fmt.Errorf("invalid length: %d wanted: %d", len(b), keySize)
+		return Signer{}, fmt.Errorf("invalid length: %d wanted: %d", len(b), keySize)
 	}
-	s := make(Signer, size)
-	varint.PutUvarint(s, uint64(Code))
-	copy(s[tagSize:], b)
-	return s, nil
+	sk, err := secec.NewPrivateKey(b)
+	if err != nil {
+		return Signer{}, fmt.Errorf("creating private key: %w", err)
+	}
+	return Signer{key: sk}, nil
 }
 
-type Signer []byte
+// Signer is a secp256k1 private key. The key is held in an unexported field so
+// that reflection based formatting and serialization (e.g. json.Marshal)
+// cannot leak it. Use [Signer.Bytes] or [Signer.Raw] for explicit access to
+// the key material.
+type Signer struct {
+	key *secec.PrivateKey
+}
 
-var _ multikey.Signer = (Signer)(nil)
+var _ multikey.Signer = Signer{}
+var _ fmt.Formatter = Signer{}
+
+// String returns the signer's key DID. It deliberately never exposes the
+// private key bytes, so that passing a Signer to fmt.* cannot leak them.
+// A zero-value Signer formats as a placeholder instead of panicking.
+func (s Signer) String() string {
+	if s.key == nil {
+		return "<invalid secp256k1 signer>"
+	}
+	return s.KeyDID().String()
+}
+
+// Format implements [fmt.Formatter] so that every fmt verb, including %#v and
+// %d which bypass [fmt.Stringer] and print unexported fields via reflection,
+// renders the [Signer.String] value instead of the private key bytes.
+func (s Signer) Format(f fmt.State, verb rune) {
+	fmt.Fprint(f, s.String())
+}
 
 func (s Signer) SignatureAlgorithm() varsig.Algorithm {
 	return ecdsa.Secp256k1
@@ -110,8 +131,7 @@ func (s Signer) Code() multicodec.Code {
 }
 
 func (s Signer) PrivateKey() any {
-	sk, _ := secec.NewPrivateKey(s[tagSize:])
-	return sk
+	return s.key
 }
 
 func (s Signer) PublicKey() any {
@@ -123,28 +143,30 @@ func (s Signer) Verifier() ucan.Verifier {
 }
 
 func (s Signer) verifier() multikey.Verifier {
-	sk, _ := secec.NewPrivateKey(s[tagSize:])
-	v, _ := verifier.FromRaw(sk.PublicKey().CompressedBytes())
+	v, err := verifier.FromRaw(s.key.PublicKey().CompressedBytes())
+	if err != nil {
+		panic(fmt.Errorf("deriving verifier from secp256k1 signer: %w", err))
+	}
 	return v
 }
 
 // Bytes returns the private key bytes with multiformat prefix varint.
 func (s Signer) Bytes() []byte {
-	return s
+	b := make([]byte, size)
+	varint.PutUvarint(b, uint64(Code))
+	copy(b[tagSize:], s.key.Bytes())
+	return b
 }
 
 // Raw encodes the bytes of the private key without multiformats tags.
 func (s Signer) Raw() []byte {
-	pk := make([]byte, keySize)
-	copy(pk, s[tagSize:size])
-	return pk
+	return s.key.Bytes()
 }
 
 func (s Signer) Sign(msg []byte) []byte {
-	sk, _ := secec.NewPrivateKey(s[tagSize:])
 	hash := sha256.New()
 	hash.Write(msg)
-	sig, _ := sk.Sign(
+	sig, err := s.key.Sign(
 		secec.RFC6979SHA256(), // for deterministic signatures, per RFC6979
 		hash.Sum(nil),
 		&secec.ECDSAOptions{
@@ -153,6 +175,9 @@ func (s Signer) Sign(msg []byte) []byte {
 			SelfVerify: false,
 		},
 	)
+	if err != nil {
+		panic(fmt.Errorf("signing with secp256k1 signer: %w", err))
+	}
 	return sig
 }
 

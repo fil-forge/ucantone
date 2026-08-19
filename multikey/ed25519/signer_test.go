@@ -2,6 +2,7 @@ package ed25519_test
 
 import (
 	"crypto/ed25519"
+	"fmt"
 	"testing"
 
 	"github.com/fil-forge/ucantone/multikey"
@@ -38,6 +39,30 @@ func TestGenerateFormatParse(t *testing.T) {
 	t.Log(multikey.FormatVerifier(s1.Verifier().(multikey.Verifier)))
 	require.Equal(t, s0, s1, "private key mismatch")
 	require.Equal(t, s0.Verifier(), s1.Verifier(), "public key mismatch")
+}
+
+func TestSignerString(t *testing.T) {
+	s, err := ed.Generate()
+	require.NoError(t, err)
+
+	require.Equal(t, s.KeyDID().String(), fmt.Sprint(s))
+}
+
+func TestSignerStringZeroValue(t *testing.T) {
+	require.Equal(t, "<invalid ed25519 signer>", fmt.Sprint(ed.Signer{}))
+}
+
+func TestSignerFormatDoesNotLeakKey(t *testing.T) {
+	s, err := ed.Generate()
+	require.NoError(t, err)
+
+	for _, verb := range []string{"%v", "%+v", "%#v", "%s", "%q", "%x", "%X", "%d"} {
+		t.Run(verb, func(t *testing.T) {
+			out := fmt.Sprintf(verb, s)
+			require.NotContains(t, out, fmt.Sprintf("%x", s.Raw()))
+			require.NotContains(t, out, fmt.Sprintf("%d", s.Raw()))
+		})
+	}
 }
 
 func TestVerify(t *testing.T) {
