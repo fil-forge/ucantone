@@ -95,13 +95,24 @@ func (h *HTTPOutboundCodec) Encode(c ucan.Container) (*http.Request, error) {
 	return req, nil
 }
 
+// Decode reads a container from the response body. On success the returned
+// [HTTPResponseContainer] owns the body and the caller closes it; on failure
+// the body is closed here, since the caller never receives anything to close.
 func (h *HTTPOutboundCodec) Decode(r *http.Response) (ucan.Container, error) {
 	if r.Header.Get("Content-Type") != dagcbor.ContentType {
+		closeBody(r)
 		return nil, fmt.Errorf("invalid content type %q, expected %q", r.Header.Get("Content-Type"), dagcbor.ContentType)
 	}
 	ct := container.Container{}
 	if err := ct.UnmarshalCBOR(r.Body); err != nil {
+		closeBody(r)
 		return nil, fmt.Errorf("unmarshaling response container: %w", err)
 	}
 	return &HTTPResponseContainer{Container: &ct, Response: r}, nil
+}
+
+func closeBody(r *http.Response) {
+	if r.Body != nil {
+		_ = r.Body.Close()
+	}
 }

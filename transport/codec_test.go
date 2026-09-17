@@ -182,38 +182,55 @@ func TestHTTPOutboundCodec(t *testing.T) {
 		ctBytes, err := container.Encode(container.Raw, ct)
 		require.NoError(t, err)
 
+		body := &closeRecorder{Reader: bytes.NewReader(ctBytes)}
 		r := http.Response{
 			Header: http.Header{},
-			Body:   io.NopCloser(bytes.NewReader(ctBytes)),
+			Body:   body,
 		}
 		r.Header.Set("Content-Type", "application/json")
 
 		_, err = transport.DefaultHTTPOutboundCodec.Decode(&r)
 		require.Error(t, err)
 		require.ErrorContains(t, err, "invalid content type")
+		require.True(t, body.closed, "body must be closed when decoding fails")
 	})
 
 	t.Run("decode body read error", func(t *testing.T) {
+		body := &closeRecorder{Reader: iotest.ErrReader(errors.New("read error"))}
 		r := http.Response{
 			Header: http.Header{},
-			Body:   io.NopCloser(iotest.ErrReader(errors.New("read error"))),
+			Body:   body,
 		}
 		r.Header.Set("Content-Type", dagcbor.ContentType)
 
 		_, err = transport.DefaultHTTPOutboundCodec.Decode(&r)
 		require.Error(t, err)
 		require.ErrorContains(t, err, "unmarshaling response")
+		require.True(t, body.closed, "body must be closed when decoding fails")
 	})
 
 	t.Run("decode invalid body", func(t *testing.T) {
+		body := &closeRecorder{Reader: bytes.NewReader([]byte{})}
 		r := http.Response{
 			Header: http.Header{},
-			Body:   io.NopCloser(bytes.NewReader([]byte{})),
+			Body:   body,
 		}
 		r.Header.Set("Content-Type", dagcbor.ContentType)
 
 		_, err = transport.DefaultHTTPOutboundCodec.Decode(&r)
 		require.Error(t, err)
 		require.ErrorContains(t, err, "unmarshaling response")
+		require.True(t, body.closed, "body must be closed when decoding fails")
 	})
+}
+
+// closeRecorder is a response body that remembers whether it was closed.
+type closeRecorder struct {
+	io.Reader
+	closed bool
+}
+
+func (c *closeRecorder) Close() error {
+	c.closed = true
+	return nil
 }
