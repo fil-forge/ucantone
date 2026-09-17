@@ -45,7 +45,7 @@ func (c *HTTPClient) ExecuteBatch(req *batch.Request) (*batch.Response, error) {
 	if !ok {
 		return nil, fmt.Errorf("expected HTTPResponseContainer, got %T", res.Metadata())
 	}
-	err = httpMeta.Response.Body.Close()
+	err = httpMeta.Close()
 	if err != nil {
 		return nil, fmt.Errorf("closing body: %w", err)
 	}

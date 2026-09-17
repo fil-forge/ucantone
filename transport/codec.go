@@ -58,6 +58,16 @@ type HTTPResponseContainer struct {
 	Response *http.Response
 }
 
+// Close releases the response body the container was decoded from, and with
+// it the underlying connection. The body is fully consumed by decoding, so
+// this is the only thing left to do with it.
+func (c *HTTPResponseContainer) Close() error {
+	if c.Response == nil || c.Response.Body == nil {
+		return nil
+	}
+	return c.Response.Body.Close()
+}
+
 type HTTPOutboundCodec struct{}
 
 var _ OutboundCodec[*http.Request, *http.Response] = (*HTTPOutboundCodec)(nil)

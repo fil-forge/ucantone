@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"io"
 
 	"github.com/fil-forge/ucantone/execution"
 	"github.com/fil-forge/ucantone/execution/batch"
@@ -54,7 +55,7 @@ func (c *Client[Req, Res]) Execute(execRequest execution.Request) (execution.Res
 // ExecuteBatch sends every invocation in the request in one round trip and
 // returns their receipts. The response is an error if the executor did not
 // answer one of the invocations.
-func (c *Client[Req, Res]) ExecuteBatch(req *batch.Request) (*batch.Response, error) {
+func (c *Client[Req, Res]) ExecuteBatch(req *batch.Request) (_ *batch.Response, err error) {
 	if len(req.Invocations()) == 0 {
 		return nil, errors.New("no invocations to execute")
 	}
@@ -71,7 +72,7 @@ func (c *Client[Req, Res]) ExecuteBatch(req *batch.Request) (*batch.Response, er
 		container.WithDelegations(delegations...),
 		container.WithReceipts(receipts...),
 	)
-	err := c.emitRequestEncode(req.Context(), reqContainer)
+	err = c.emitRequestEncode(req.Context(), reqContainer)
 	if err != nil {
 		return nil, fmt.Errorf("emitting request encode event: %w", err)
 	}
@@ -87,14 +88,30 @@ func (c *Client[Req, Res]) ExecuteBatch(req *batch.Request) (*batch.Response, er
 	if err != nil {
 		return nil, fmt.Errorf("decoding response: %w", err)
 	}
+	// The decoded container owns a live response body until something closes
+	// it. On the way out with an error the caller never sees the container and
+	// so cannot close it — and a batch carrying an invocation addressed
+	// elsewhere reaches exactly that path by design — so release it here.
+	// A successful return hands the container to the caller to close.
+	defer func() {
+		if err != nil {
+			if closer, ok := resContainer.(io.Closer); ok {
+				_ = closer.Close()
+			}
+		}
+	}()
+
 	err = c.emitResponseDecode(req.Context(), resContainer)
 	if err != nil {
 		return nil, fmt.Errorf("emitting response decode event: %w", err)
 	}
+	// Indexed once rather than scanned per invocation: the container's own
+	// lookup is linear, which would make a batch quadratic in its own size.
+	answered := batch.NewResponse(resContainer.Receipts())
 	rcpts := make([]ucan.Receipt, 0, len(req.Invocations()))
 	for _, inv := range req.Invocations() {
 		task := inv.Task().Link()
-		rcpt, ok := resContainer.Receipt(task)
+		rcpt, ok := answered.Receipt(task)
 		if !ok {
 			return nil, fmt.Errorf("missing receipt for task: %s", task)
 		}

@@ -2,8 +2,11 @@ package client_test
 
 import (
 	"bytes"
+	"io"
 	"net/http"
 	"net/url"
+	"sync"
+	"sync/atomic"
 	"testing"
 
 	"github.com/fil-forge/ucantone/client"
@@ -151,4 +154,86 @@ func TestHTTPClientBatch(t *testing.T) {
 		require.Contains(t, links, cause.Link().String())
 		require.Contains(t, links, inv.Link().String())
 	})
+}
+
+// countingBody reports whether it was closed, so a test can prove a response
+// body is released rather than leaked.
+type countingBody struct {
+	io.Reader
+	closed atomic.Bool
+}
+
+func (b *countingBody) Close() error {
+	b.closed.Store(true)
+	return nil
+}
+
+// bodyWatcher wraps a round tripper and records every response body it hands
+// back, so the test can assert on them after the call returns.
+type bodyWatcher struct {
+	inner  http.RoundTripper
+	mu     sync.Mutex
+	bodies []*countingBody
+}
+
+func (w *bodyWatcher) RoundTrip(r *http.Request) (*http.Response, error) {
+	res, err := w.inner.RoundTrip(r)
+	if err != nil {
+		return nil, err
+	}
+	body := &countingBody{Reader: res.Body}
+	w.mu.Lock()
+	w.bodies = append(w.bodies, body)
+	w.mu.Unlock()
+	res.Body = body
+	return res, nil
+}
+
+func (w *bodyWatcher) allClosed() bool {
+	w.mu.Lock()
+	defer w.mu.Unlock()
+	for _, b := range w.bodies {
+		if !b.closed.Load() {
+			return false
+		}
+	}
+	return len(w.bodies) > 0
+}
+
+// TestHTTPClientBatchClosesBodyOnError pins that a failed batch still releases
+// its response body. A batch whose invocation is addressed elsewhere gets no
+// receipt and so fails by design, which makes this the routine path rather
+// than an exotic one — leaking there leaks a connection per call.
+func TestHTTPClientBatchClosesBodyOnError(t *testing.T) {
+	service := testutil.RandomIssuer(t)
+	elsewhere := testutil.RandomIssuer(t)
+	alice := testutil.RandomIssuer(t)
+
+	srv := server.NewHTTP(service)
+	srv.Handle(testutil.TestEchoCommand, func(req execution.Request, res execution.Response) error {
+		return res.SetSuccess(testutil.ArgsMap(t, req.Invocation()))
+	})
+
+	watcher := &bodyWatcher{inner: srv}
+	c, err := client.NewHTTP(
+		testutil.Must(url.Parse("http://localhost"))(t),
+		client.WithHTTPClient(&http.Client{Transport: watcher}),
+	)
+	require.NoError(t, err)
+
+	// Addressed to another service, so this server skips it and answers with
+	// no receipt for the task.
+	inv, err := invocation.Invoke(
+		alice,
+		alice.DID(),
+		testutil.TestEchoCommand,
+		datamodel.Map{"message": "for someone else"},
+		invocation.WithAudience(elsewhere.DID()),
+	)
+	require.NoError(t, err)
+
+	_, err = c.ExecuteBatch(batch.NewRequest(t.Context(), []ucan.Invocation{inv}))
+	require.Error(t, err)
+	require.Contains(t, err.Error(), "missing receipt")
+	require.True(t, watcher.allClosed(), "a failed batch must not leak its response body")
 }
