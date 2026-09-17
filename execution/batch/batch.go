@@ -48,9 +48,15 @@ func WithReceipts(receipts ...ucan.Receipt) RequestOption {
 }
 
 // WithInvocations adds invocations that travel with the request as context
-// (a cause, a claim) rather than as part of the batch. Note that an executor
-// still executes any of them addressed to it; list an invocation in the batch
-// itself when its receipt is wanted.
+// (a cause, a claim) rather than as part of the batch: they reach handlers as
+// request metadata, and an executor does not run them.
+//
+// The distinction does not survive an HTTP round trip. The client packs the
+// batch and its context into one container, and the far side has no way to
+// tell them apart: every invocation in the container addressed to the server
+// is executed and answered with a receipt. So send an invocation as context
+// only when executing it is harmless, and list it in the batch itself when
+// its receipt is what you are after.
 func WithInvocations(invocations ...ucan.Invocation) RequestOption {
 	return func(cfg *requestConfig) {
 		cfg.invocations = append(cfg.invocations, invocations...)
