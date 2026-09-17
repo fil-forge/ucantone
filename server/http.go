@@ -78,8 +78,8 @@ func (s *HTTPServer) Execute(req execution.Request) (execution.Response, error) 
 }
 
 // ExecuteBatch executes every invocation in the request that is addressed to
-// this server, in order, and returns their receipts. Invocations addressed
-// elsewhere are skipped and get no receipt. Each handler sees every token of
+// this server and returns their receipts. Invocations addressed elsewhere are
+// skipped and get no receipt. Each handler sees every token of
 // the request as its metadata, and the tokens handlers attach to their
 // responses are gathered into the metadata of the returned response.
 func (s *HTTPServer) ExecuteBatch(req *batch.Request) (*batch.Response, error) {
@@ -176,7 +176,13 @@ func (s *HTTPServer) RoundTrip(r *http.Request) (*http.Response, error) {
 		return nil, err
 	}
 
-	options := []container.Option{container.WithReceipts(res.Receipts()...)}
+	var receipts []ucan.Receipt
+	for _, inv := range reqContainer.Invocations() {
+		if rcpt, ok := res.Receipt(inv.Task().Link()); ok {
+			receipts = append(receipts, rcpt)
+		}
+	}
+	options := []container.Option{container.WithReceipts(receipts...)}
 	if res.Metadata() != nil {
 		options = append(options,
 			container.WithInvocations(res.Metadata().Invocations()...),

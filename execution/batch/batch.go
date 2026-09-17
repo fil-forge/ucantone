@@ -1,10 +1,16 @@
 // Package batch executes many UCAN invocations in one round trip.
 //
-// A request container carries any number of invocations, and an executor runs
-// every one that is addressed to it, answering each with its own receipt. A
-// [Request] lists the invocations the caller wants executed together with the
-// tokens that travel alongside them (proofs, receipts, context invocations),
-// and a [Response] holds the receipts keyed by the task they ran.
+// A request container carries many invocations, and an executor runs every one
+// that is addressed to it, answering each with its own receipt. A [Request]
+// lists the invocations the caller wants executed together with the tokens
+// that travel alongside them (proofs, receipts, context invocations), and a
+// [Response] holds the receipts keyed by the task they ran.
+//
+// Container encoding sorts tokens bytewise, so an executor sees no particular
+// order: a batch must not depend on one invocation running before another, and
+// receipts are addressed by task rather than by position. A container also
+// holds at most 8192 tokens, counting the invocations, their proofs and any
+// receipts together, so a batch and its metadata must fit within that.
 //
 // The single-invocation API in the execution package is a special case of
 // this one: a batch of one.
@@ -108,9 +114,8 @@ func (r *Request) Metadata() ucan.Container {
 	return r.metadata
 }
 
-// Response holds one receipt per executed task.
+// Response holds one receipt per executed task, addressed by task.
 type Response struct {
-	receipts []ucan.Receipt
 	byTask   map[cid.Cid]ucan.Receipt
 	metadata ucan.Container
 }
@@ -125,9 +130,8 @@ func WithMetadata(m ucan.Container) ResponseOption {
 	}
 }
 
-// NewResponse creates a response holding the given receipts, in the order the
-// tasks were executed. When two receipts share a task, the first one is the
-// one [Response.Receipt] returns.
+// NewResponse creates a response holding the given receipts. When two receipts
+// share a task, the first one is the one [Response.Receipt] returns.
 func NewResponse(receipts []ucan.Receipt, options ...ResponseOption) *Response {
 	byTask := make(map[cid.Cid]ucan.Receipt, len(receipts))
 	for _, rcpt := range receipts {
@@ -135,7 +139,7 @@ func NewResponse(receipts []ucan.Receipt, options ...ResponseOption) *Response {
 			byTask[rcpt.Ran()] = rcpt
 		}
 	}
-	r := &Response{receipts: receipts, byTask: byTask}
+	r := &Response{byTask: byTask}
 	for _, opt := range options {
 		opt(r)
 	}
@@ -146,11 +150,6 @@ func NewResponse(receipts []ucan.Receipt, options ...ResponseOption) *Response {
 func (r *Response) Receipt(task cid.Cid) (ucan.Receipt, bool) {
 	rcpt, ok := r.byTask[task]
 	return rcpt, ok
-}
-
-// Receipts for every executed task, in the order the tasks were executed.
-func (r *Response) Receipts() []ucan.Receipt {
-	return r.receipts
 }
 
 // Metadata provides additional tokens the executor returned, or nil when

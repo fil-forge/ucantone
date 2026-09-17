@@ -60,14 +60,9 @@ func TestResponse(t *testing.T) {
 		rcpts = append(rcpts, rcpt)
 	}
 
-	t.Run("receipts keep their order", func(t *testing.T) {
-		res := batch.NewResponse(rcpts)
-		require.Equal(t, rcpts, res.Receipts())
-		require.Nil(t, res.Metadata())
-	})
-
 	t.Run("receipt lookup by task", func(t *testing.T) {
 		res := batch.NewResponse(rcpts)
+		require.Nil(t, res.Metadata())
 		for _, want := range rcpts {
 			got, ok := res.Receipt(want.Ran())
 			require.True(t, ok)

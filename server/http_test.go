@@ -157,7 +157,6 @@ func TestHTTPServerBatch(t *testing.T) {
 		res, err := server.ExecuteBatch(batch.NewRequest(t.Context(), []ucan.Invocation{elsewhere, addressed}))
 		require.NoError(t, err)
 
-		require.Len(t, res.Receipts(), 1)
 		rcpt, ok := res.Receipt(addressed.Task().Link())
 		require.True(t, ok)
 		o, x := rcpt.Out().Unpack()
@@ -176,7 +175,6 @@ func TestHTTPServerBatch(t *testing.T) {
 		server := server.NewHTTP(service)
 		res, err := server.ExecuteBatch(batch.NewRequest(t.Context(), nil))
 		require.NoError(t, err)
-		require.Empty(t, res.Receipts())
 		require.Nil(t, res.Metadata())
 	})
 }

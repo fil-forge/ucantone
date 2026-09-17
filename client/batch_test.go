@@ -65,11 +65,6 @@ func TestHTTPClientBatch(t *testing.T) {
 		res, err := c.ExecuteBatch(batch.NewRequest(t.Context(), []ucan.Invocation{first, second, unhandled}))
 		require.NoError(t, err)
 
-		require.Len(t, res.Receipts(), 3)
-		for i, inv := range []ucan.Invocation{first, second, unhandled} {
-			require.Equal(t, inv.Task().Link(), res.Receipts()[i].Ran())
-		}
-
 		for inv, want := range map[ucan.Invocation]string{first: "one", second: "two"} {
 			rcpt, ok := res.Receipt(inv.Task().Link())
 			require.True(t, ok)
@@ -98,9 +93,11 @@ func TestHTTPClientBatch(t *testing.T) {
 
 		res, err := c.ExecuteBatch(batch.NewRequest(t.Context(), []ucan.Invocation{inv}, batch.WithInvocations(cause)))
 		require.NoError(t, err)
-		require.Len(t, res.Receipts(), 1)
-		_, ok := res.Receipt(cause.Task().Link())
+		_, ok := res.Receipt(inv.Task().Link())
+		require.True(t, ok)
+		_, ok = res.Receipt(cause.Task().Link())
 		require.False(t, ok)
+		require.Len(t, res.Metadata().Receipts(), 1)
 	})
 
 	t.Run("missing receipt is an error", func(t *testing.T) {

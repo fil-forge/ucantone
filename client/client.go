@@ -136,9 +136,14 @@ func executeOne(executor batch.Executor, execRequest execution.Request) (executi
 	if err != nil {
 		return nil, err
 	}
+	task := inv.Task().Link()
+	rcpt, ok := res.Receipt(task)
+	if !ok {
+		return nil, fmt.Errorf("missing receipt for task: %s", task)
+	}
 	return execution.NewResponse(
-		inv.Task().Link(),
-		execution.WithReceipt(res.Receipts()[0]),
+		task,
+		execution.WithReceipt(rcpt),
 		execution.WithMetadata(res.Metadata()),
 	)
 }
