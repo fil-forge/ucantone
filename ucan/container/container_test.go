@@ -2,6 +2,7 @@ package container_test
 
 import (
 	"bytes"
+	"io"
 	"slices"
 	"testing"
 
@@ -221,4 +222,44 @@ func TestDecodeTransportErrors(t *testing.T) {
 			require.EqualError(t, err, tc.expectedMessage)
 		})
 	}
+}
+
+func TestContainerMaxTokens(t *testing.T) {
+	t.Run("encodes and decodes exactly MaxTokens", func(t *testing.T) {
+		model := datamodel.ContainerModel{Ctn1: make([][]byte, container.MaxTokens)}
+
+		var cborBuf bytes.Buffer
+		require.NoError(t, model.MarshalCBOR(&cborBuf))
+		var jsonBuf bytes.Buffer
+		require.NoError(t, model.MarshalDagJSON(&jsonBuf))
+
+		var decoded datamodel.ContainerModel
+		require.NoError(t, decoded.UnmarshalCBOR(&cborBuf))
+		require.Len(t, decoded.Ctn1, container.MaxTokens)
+		decoded = datamodel.ContainerModel{}
+		require.NoError(t, decoded.UnmarshalDagJSON(&jsonBuf))
+		require.Len(t, decoded.Ctn1, container.MaxTokens)
+	})
+
+	t.Run("refuses to encode MaxTokens+1", func(t *testing.T) {
+		model := datamodel.ContainerModel{Ctn1: make([][]byte, container.MaxTokens+1)}
+		require.Error(t, model.MarshalCBOR(io.Discard))
+		require.Error(t, model.MarshalDagJSON(io.Discard))
+	})
+
+	t.Run("refuses to decode MaxTokens+1", func(t *testing.T) {
+		// {"ctn-v1": [ ...MaxTokens+1 items ]}: only the headers are needed,
+		// the decoder rejects the array length before reading any element.
+		var buf bytes.Buffer
+		cw := cbg.NewCborWriter(&buf)
+		require.NoError(t, cw.WriteMajorTypeHeader(cbg.MajMap, 1))
+		require.NoError(t, cw.WriteMajorTypeHeader(cbg.MajTextString, uint64(len(datamodel.Tag))))
+		_, err := cw.WriteString(datamodel.Tag)
+		require.NoError(t, err)
+		require.NoError(t, cw.WriteMajorTypeHeader(cbg.MajArray, container.MaxTokens+1))
+
+		var decoded datamodel.ContainerModel
+		err = decoded.UnmarshalCBOR(&buf)
+		require.ErrorContains(t, err, "array too large")
+	})
 }

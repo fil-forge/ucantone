@@ -70,6 +70,8 @@ holds the wire structs and their generated codecs.
   - `promise/` — `AwaitOK`/`AwaitError`/`AwaitAny` for pipelining.
   - `container/` — bundles tokens; `Encode(codec, ct)` with the
     `Raw`/`Base64`/`Base64url` (+`Gzip`) codecs; `Decode` sniffs the codec.
+    `MaxTokens` caps the token count; encode and decode fail beyond it, so
+    callers building large containers budget against it up front.
   - `envelope/`, `token/`, `nonce/`, `crypto/` — shared envelope model and
     helpers.
 - `validator/` — `ValidateInvocation`/`ValidateToken`: signature
