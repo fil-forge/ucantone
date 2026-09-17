@@ -20,4 +20,5 @@
     * Signer moved from `principal/<type>/signer` to `principal/<type>` for ease of use.
     * Renamed `Encode()` method on `Signer` and `Verifier` to `Bytes()`, since it just returns the (multibase prefixed) bytes.
     * Ed25519 signer byte representation is now just the multiformats tagged private key bytes. Go internally uses 64 bytes for the private key which redundantly includes the public key.
+* Containers hold at most `container.MaxTokens` (8192) tokens. The container spec sets no limit; this is the cbor-gen/dag-json-gen array limit, pinned with a `maxlen` struct tag on `ContainerModel.Ctn1` so a generator upgrade cannot move it silently. The exported constant lets callers budget before encoding.
 * Server is a HTTP `RoundTripper`

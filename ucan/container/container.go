@@ -26,6 +26,13 @@ const (
 	Base64urlGzip = byte(0x46) // base64 url (no padding), gzip
 )
 
+// MaxTokens is the most tokens a container can carry on the wire. The CBOR and
+// DAG-JSON codecs refuse to encode or decode a container with more.
+// Invocations, delegations and receipts all count toward it; [New] and the
+// With… options deduplicate by link, so it bounds the number of distinct
+// tokens.
+const MaxTokens = 8192
+
 // FormatCodec converts a container codec code into a human readable string.
 func FormatCodec(codec byte) string {
 	switch codec {
