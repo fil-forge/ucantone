@@ -179,6 +179,19 @@ if out := resp.Receipt().Out(); out.IsOK() {
 }
 ```
 
+Many invocations can be sent in one request. The service executes every
+invocation addressed to it and answers each with its own receipt:
+
+```go
+res, err := c.ExecuteBatch(batch.NewRequest(context.Background(), invs, batch.WithDelegations(dlg)))
+
+for _, inv := range invs {
+  rcpt, _ := res.Receipt(inv.Task().Link())
+  ok, err := echo.Unpack(rcpt)
+  fmt.Printf("Echo response: %+v\n", ok)
+}
+```
+
 ## Contributing
 
 Feel free to join in. All welcome. Please [open an issue](https://github.com/fil-forge/ucantone/issues)!

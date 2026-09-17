@@ -77,13 +77,17 @@ holds the wire structs and their generated codecs.
   checks, time bounds. Options: `WithProofResolver`, `WithDIDResolver`,
   `WithVerifierFactories`, `WithValidationTime`,
   `WithNonStandardSignatureVerifier`. Typed failures in `validator/errors`.
-- `execution/` — `Request`/`Response`/`Executor`/`HandlerFunc`;
-  `dispatcher/` routes a validated invocation to the handler for its command
-  and issues the receipt.
+- `execution/` — `Request`/`Response`/`Executor`/`HandlerFunc` for a single
+  invocation; `dispatcher/` routes a validated invocation to the handler for
+  its command and issues the receipt; `batch/` — `Request`/`Response`/
+  `Executor` (`ExecuteBatch`) for many invocations in one round trip, with
+  receipts looked up by task CID.
 - `server/` — `NewHTTP(issuer)` is an `http.Handler` (and `RoundTripper`, for
-  in-process tests) over a dispatcher. `client/` — `NewHTTP(url)`;
-  `client.New(transport, codec)` for other transports. `transport/` — the
-  inbound/outbound codec interfaces; HTTP bodies are DAG-CBOR containers.
+  in-process tests) over a dispatcher; its `ExecuteBatch` runs every
+  invocation addressed to it. `client/` — `NewHTTP(url)`; `ExecuteBatch` is
+  the primitive and `Execute` a batch of one; `client.New(transport, codec)`
+  for other transports. `transport/` — the inbound/outbound codec interfaces;
+  HTTP bodies are DAG-CBOR containers.
 - `binding/` — `Bind[Args, OK](cmd)`: one typed definition of a command that
   gives you `Invoke`, `Delegate`, `Route`/`Handler` and `Unpack`. Downstream
   libraries define their commands with it.

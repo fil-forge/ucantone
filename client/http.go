@@ -6,12 +6,18 @@ import (
 	"net/url"
 
 	"github.com/fil-forge/ucantone/execution"
+	"github.com/fil-forge/ucantone/execution/batch"
 	"github.com/fil-forge/ucantone/transport"
 )
 
 type HTTPClient struct {
 	*Client[*http.Request, *http.Response]
 }
+
+var (
+	_ execution.Executor = (*HTTPClient)(nil)
+	_ batch.Executor     = (*HTTPClient)(nil)
+)
 
 func NewHTTP(serviceURL *url.URL, options ...HTTPOption) (*HTTPClient, error) {
 	cfg := httpClientConfig{
@@ -27,7 +33,11 @@ func NewHTTP(serviceURL *url.URL, options ...HTTPOption) (*HTTPClient, error) {
 }
 
 func (c *HTTPClient) Execute(execRequest execution.Request) (execution.Response, error) {
-	res, err := c.Client.Execute(execRequest)
+	return executeOne(c, execRequest)
+}
+
+func (c *HTTPClient) ExecuteBatch(req *batch.Request) (*batch.Response, error) {
+	res, err := c.Client.ExecuteBatch(req)
 	if err != nil {
 		return nil, fmt.Errorf("executing request: %w", err)
 	}

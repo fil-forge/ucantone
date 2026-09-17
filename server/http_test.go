@@ -7,11 +7,13 @@ import (
 	"time"
 
 	"github.com/fil-forge/ucantone/execution"
+	"github.com/fil-forge/ucantone/execution/batch"
 	"github.com/fil-forge/ucantone/ipld"
 	"github.com/fil-forge/ucantone/ipld/codec/dagcbor"
 	"github.com/fil-forge/ucantone/ipld/datamodel"
 	"github.com/fil-forge/ucantone/server"
 	"github.com/fil-forge/ucantone/testutil"
+	"github.com/fil-forge/ucantone/ucan"
 	"github.com/fil-forge/ucantone/ucan/container"
 	"github.com/fil-forge/ucantone/ucan/invocation"
 	"github.com/stretchr/testify/require"
@@ -111,5 +113,70 @@ func TestHTTPServer(t *testing.T) {
 
 		require.Len(t, messages, 1) // should not have changed
 		require.Equal(t, "echo!", testutil.ResultMap(t, o)["message"])
+	})
+}
+
+func TestHTTPServerBatch(t *testing.T) {
+	service := testutil.RandomIssuer(t)
+	alice := testutil.RandomIssuer(t)
+
+	t.Run("batch execution", func(t *testing.T) {
+		server := server.NewHTTP(service)
+
+		var attached ucan.Invocation
+		server.Handle(testutil.TestEchoCommand, func(req execution.Request, res execution.Response) error {
+			// attach a token to the response, as a handler issuing a claim would
+			claim, err := invocation.Invoke(service, service.DID(), testutil.ConsoleLogCommand, datamodel.Map{})
+			if err != nil {
+				return err
+			}
+			attached = claim
+			if err := res.SetMetadata(container.New(container.WithInvocations(claim))); err != nil {
+				return err
+			}
+			return res.SetSuccess(testutil.ArgsMap(t, req.Invocation()))
+		})
+
+		addressed, err := invocation.Invoke(
+			alice,
+			alice.DID(),
+			testutil.TestEchoCommand,
+			datamodel.Map{"message": "echo!"},
+			invocation.WithAudience(service.DID()),
+		)
+		require.NoError(t, err)
+		elsewhere, err := invocation.Invoke(
+			alice,
+			alice.DID(),
+			testutil.TestEchoCommand,
+			datamodel.Map{"message": "not for you"},
+			invocation.WithAudience(testutil.RandomDID(t)),
+		)
+		require.NoError(t, err)
+
+		res, err := server.ExecuteBatch(batch.NewRequest(t.Context(), []ucan.Invocation{elsewhere, addressed}))
+		require.NoError(t, err)
+
+		require.Len(t, res.Receipts(), 1)
+		rcpt, ok := res.Receipt(addressed.Task().Link())
+		require.True(t, ok)
+		o, x := rcpt.Out().Unpack()
+		require.Nil(t, x)
+		require.Equal(t, "echo!", testutil.ResultMap(t, o)["message"])
+
+		_, ok = res.Receipt(elsewhere.Task().Link())
+		require.False(t, ok)
+
+		require.NotNil(t, res.Metadata())
+		require.Len(t, res.Metadata().Invocations(), 1)
+		require.Equal(t, attached.Link(), res.Metadata().Invocations()[0].Link())
+	})
+
+	t.Run("empty batch", func(t *testing.T) {
+		server := server.NewHTTP(service)
+		res, err := server.ExecuteBatch(batch.NewRequest(t.Context(), nil))
+		require.NoError(t, err)
+		require.Empty(t, res.Receipts())
+		require.Nil(t, res.Metadata())
 	})
 }
