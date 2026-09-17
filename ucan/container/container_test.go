@@ -239,6 +239,7 @@ func TestContainerMaxTokens(t *testing.T) {
 		decoded = datamodel.ContainerModel{}
 		require.NoError(t, decoded.UnmarshalDagJSON(&jsonBuf))
 		require.Len(t, decoded.Ctn1, container.MaxTokens)
+	})
 
 	t.Run("refuses to encode MaxTokens+1", func(t *testing.T) {
 		model := datamodel.ContainerModel{Ctn1: make([][]byte, container.MaxTokens+1)}
