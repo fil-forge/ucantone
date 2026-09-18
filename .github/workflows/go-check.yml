@@ -15,4 +15,4 @@ concurrency:
 
 jobs:
   go-check:
-    uses: ipdxco/unified-github-workflows/.github/workflows/go-check.yml@1822b44541e3ad073b8f9109e346ba0ddd4ce96e # v1.0
+    uses: ipdxco/unified-github-workflows/.github/workflows/go-check.yml@9f5f9a1d74ef7b0b2b843545aa8a2c675fe52eb1 # v1.0
