@@ -4,7 +4,7 @@ go 1.27.0
 
 require (
 	github.com/alanshaw/dag-json-gen v0.0.9
-	github.com/gobwas/glob v0.2.3
+	github.com/gobwas/glob v1.0.0
 	github.com/ipfs/go-cid v0.6.2
 	github.com/multiformats/go-multibase v0.3.0
 	github.com/multiformats/go-multicodec v0.10.0
