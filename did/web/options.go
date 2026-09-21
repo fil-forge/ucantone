@@ -11,7 +11,7 @@ import (
 type config struct {
 	timeout   time.Duration
 	insecure  bool
-	globs     map[string]glob.Glob
+	globs     map[string]*glob.Pattern
 	transport http.RoundTripper
 }
 
@@ -45,7 +45,7 @@ func WithPatterns(patterns ...string) Option {
 				return fmt.Errorf("compiling pattern %q: %w", p, err)
 			}
 			if c.globs == nil {
-				c.globs = map[string]glob.Glob{}
+				c.globs = map[string]*glob.Pattern{}
 			}
 			c.globs[p] = g
 		}
