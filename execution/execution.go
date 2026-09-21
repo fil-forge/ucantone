@@ -26,7 +26,9 @@ type Response interface {
 	// produce.
 	SetSuccess(ok cbg.CBORMarshaler) error
 	// SetFailure issues a receipt with a failure result for the executed task
-	// and sets it on the response.
+	// and sets it on the response. An error that marshals its own CBOR, itself
+	// or through the errors it wraps, is marshaled by itself; any other error
+	// travels as its name and message.
 	SetFailure(error) error
 	// Metadata provides additional information about the response.
 	Metadata() ucan.Container

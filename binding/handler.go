@@ -171,7 +171,9 @@ func (r *Response[OK]) Receipt() ucan.Receipt {
 	return r.res.Receipt()
 }
 
-// SetFailure issues and sets a receipt reporting that the task failed with x.
+// SetFailure issues and sets a receipt reporting that the task failed with x. A
+// failure that encodes its own CBOR keeps the fields it carries, whether it is x
+// or an error x wraps; any other error travels as its name and message.
 func (r *Response[OK]) SetFailure(x error) error {
 	return r.res.SetFailure(x)
 }

@@ -98,13 +98,32 @@ func (r *ExecResponse) Receipt() ucan.Receipt {
 	return r.receipt
 }
 
+// selfEncodingFailure is an error that encodes its own failure model: a named
+// error carrying fields beyond the name and message a handler's caller needs to
+// act on (say the region a request must be re-sent to). [ExecResponse.SetFailure]
+// marshals one with its own encoder, so those fields reach the wire.
+type selfEncodingFailure interface {
+	errors.Named
+	cbg.CBORMarshaler
+}
+
+// SetFailure issues and sets a receipt reporting that the task failed with x.
+//
+// An error that encodes its own CBOR is marshaled by itself, whether it is x or
+// an error x wraps, so a failure carrying fields of its own keeps them. Any other
+// error is reported as a name and a message: the name of the first [errors.Named]
+// in the chain ("UnknownError" if there is none) and x's full message, wrapping
+// context included.
 func (r *ExecResponse) SetFailure(x error) error {
 	if r.issuer == nil {
 		return fmt.Errorf("cannot issue receipt: missing signer")
 	}
 	var errVal cbg.CBORMarshaler
+	var selfEncoding selfEncodingFailure
 	if cmx, ok := x.(cbg.CBORMarshaler); ok {
 		errVal = cmx
+	} else if errors.As(x, &selfEncoding) {
+		errVal = selfEncoding
 	} else {
 		name := "UnknownError"
 		var namedErr errors.Named
