@@ -39,8 +39,8 @@ func NewHTTP(id ucan.Issuer, options ...HTTPOption) *HTTPServer {
 		dispatcher.WithValidationOptions(cfg.validationOpts...),
 		dispatcher.WithReceiptTimestamps(cfg.receiptTimestamps),
 	}
-	if cfg.logger != nil {
-		dispatcherOpts = append(dispatcherOpts, dispatcher.WithLogger(cfg.logger))
+	if cfg.panicLogger != nil {
+		dispatcherOpts = append(dispatcherOpts, dispatcher.WithPanicLogger(cfg.panicLogger))
 	}
 	executor := dispatcher.New(id, dispatcherOpts...)
 	return &HTTPServer{

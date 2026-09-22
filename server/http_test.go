@@ -1,9 +1,7 @@
 package server_test
 
 import (
-	"bytes"
 	"io"
-	"log/slog"
 	"net/http"
 	"testing"
 	"time"
@@ -197,9 +195,11 @@ func TestHTTPServerBatch(t *testing.T) {
 		require.Same(t, seen[0], seen[2])
 	})
 
-	t.Run("handler panics are logged to the configured logger", func(t *testing.T) {
-		var buf bytes.Buffer
-		server := server.NewHTTP(service, server.WithLogger(slog.New(slog.NewTextHandler(&buf, nil))))
+	t.Run("handler panics reach the configured panic logger", func(t *testing.T) {
+		var logged []any
+		server := server.NewHTTP(service, server.WithPanicLogger(func(req execution.Request, value any) {
+			logged = append(logged, value)
+		}))
 		server.Handle(testutil.TestEchoCommand, func(req execution.Request, res execution.Response) error {
 			panic("boom")
 		})
@@ -213,12 +213,12 @@ func TestHTTPServerBatch(t *testing.T) {
 		require.True(t, ok)
 		_, x := rcpt.Out().Unpack()
 		require.Equal(t, execution.HandlerExecutionErrorName, testutil.ResultMap(t, x)["name"])
-		require.Contains(t, buf.String(), `msg="handler panicked"`)
+		require.Equal(t, []any{"boom"}, logged)
 	})
 
-	t.Run("WithLogger(nil) panics", func(t *testing.T) {
-		require.PanicsWithValue(t, "server.WithLogger: logger must not be nil", func() {
-			server.WithLogger(nil)
+	t.Run("WithPanicLogger(nil) panics", func(t *testing.T) {
+		require.PanicsWithValue(t, "server.WithPanicLogger: logger must not be nil", func() {
+			server.WithPanicLogger(nil)
 		})
 	})
 

@@ -1,9 +1,10 @@
 package dispatcher
 
 import (
+	"errors"
 	"fmt"
-	"log/slog"
-	"runtime/debug"
+	"log"
+	"runtime"
 	"time"
 
 	"github.com/fil-forge/ucantone/execution"
@@ -19,7 +20,7 @@ type Dispatcher struct {
 	validationOpts         []validator.Option
 	receiptTimestamps      bool
 	handlerErrorReceiptTTL time.Duration
-	logger                 *slog.Logger
+	panicLogger            PanicLogger
 }
 
 // New creates an invocation executor that executes UCAN invocations by
@@ -30,7 +31,7 @@ type Dispatcher struct {
 func New(authority ucan.Issuer, options ...Option) *Dispatcher {
 	cfg := execConfig{
 		handlerErrorReceiptTTL: DefaultHandlerErrorReceiptTTL,
-		logger:                 slog.Default(),
+		panicLogger:            logPanic,
 	}
 	for _, opt := range options {
 		opt(&cfg)
@@ -41,7 +42,7 @@ func New(authority ucan.Issuer, options ...Option) *Dispatcher {
 		validationOpts:         cfg.validationOpts,
 		receiptTimestamps:      cfg.receiptTimestamps,
 		handlerErrorReceiptTTL: cfg.handlerErrorReceiptTTL,
-		logger:                 cfg.logger,
+		panicLogger:            cfg.panicLogger,
 	}
 }
 
@@ -125,8 +126,8 @@ func (d *Dispatcher) Execute(req execution.Request) (execution.Response, error) 
 
 // runHandler calls the handler and turns a panic into a returned error, so a
 // misbehaving handler fails its own task instead of taking down the process.
-// The panic and its stack are logged; only the panic value reaches the client,
-// cut to [MaxPanicMessageLength] bytes so the receipt stays encodable.
+// The panic value goes to the configured [PanicLogger]. The receipt tells the
+// client that the handler panicked and nothing more.
 func (d *Dispatcher) runHandler(req execution.Request, res execution.Response, handler execution.HandlerFunc) (err error) {
 	// recover() alone cannot tell a normal return from panic(nil), which is
 	// recovered as nil under GODEBUG=panicnil=1, so the flag is what says
@@ -137,28 +138,25 @@ func (d *Dispatcher) runHandler(req execution.Request, res execution.Response, h
 			return
 		}
 		value := recover()
-		d.logger.LogAttrs(req.Context(), slog.LevelError, "handler panicked",
-			slog.String("command", req.Invocation().Command().String()),
-			slog.String("task", req.Invocation().Task().Link().String()),
-			slog.Any("panic", value),
-			slog.String("stack", string(debug.Stack())),
-		)
-		err = fmt.Errorf("handler panicked: %s", truncate(fmt.Sprint(value), MaxPanicMessageLength))
+		d.panicLogger(req, value)
+		err = errHandlerPanicked
 	}()
 	err = handler(req, res)
 	returned = true
 	return err
 }
 
-// MaxPanicMessageLength bounds how much of a panic value's text goes into the
-// error receipt. The wire format caps an error message at 8192 bytes, and a
-// handler can panic with text of any size, such as a payload it failed to
-// parse. The full value is in the log.
-const MaxPanicMessageLength = 1024
+var errHandlerPanicked = errors.New("handler panicked")
 
-func truncate(s string, n int) string {
-	if len(s) <= n {
-		return s
-	}
-	return s[:n] + "…[truncated]"
+// logPanic is the default [PanicLogger]. It prints the panic and the stack
+// through the standard log package, the way net/http reports the panics it
+// recovers, so it adds no dependency to a binary that serves HTTP.
+func logPanic(req execution.Request, value any) {
+	buf := make([]byte, panicStackSize)
+	buf = buf[:runtime.Stack(buf, false)]
+	log.Printf("ucantone: panic executing %s task %s: %v\n%s",
+		req.Invocation().Command(), req.Invocation().Task().Link(), value, buf)
 }
+
+// panicStackSize matches the buffer net/http uses for the same purpose.
+const panicStackSize = 64 << 10
