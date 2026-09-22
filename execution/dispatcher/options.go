@@ -48,15 +48,18 @@ func WithHandlerErrorReceiptTTL(ttl time.Duration) Option {
 	}
 }
 
-// PanicLogger is called with the request and the recovered value when a
-// handler panics. The dispatcher has already decided the outcome by then: the
-// task fails with the receipt [execution.NewHandlerExecutionError] builds,
-// whose message says only that the handler panicked. The logger runs on the panicking
+// PanicLogger is called with the request and the recovered value when
+// executing an invocation panics, whether in the handler or in validation code
+// such as a DID resolver or verifier factory. The dispatcher has already
+// decided the outcome by then: a handler panic fails the task with the receipt
+// [execution.NewHandlerExecutionError] builds, whose message says only that the
+// handler panicked, and any other panic with the one
+// [execution.NewExecutionPanicError] builds. The logger runs on the panicking
 // goroutine inside the deferred recover, so [runtime.Stack] or
 // [runtime/debug.Stack] called from it returns the stack of the panic.
 type PanicLogger func(req execution.Request, value any)
 
-// WithPanicLogger sets the function that reports recovered handler panics.
+// WithPanicLogger sets the function that reports recovered panics.
 // The default prints the command, task, panic value and stack through the
 // standard log package. Set it to route panics to another logger or an error
 // tracker. A nil logger panics.

@@ -40,8 +40,9 @@ func WithReceiptTimestamps(enabled bool) HTTPOption {
 }
 
 // WithPanicLogger sets the function the server's dispatcher reports recovered
-// handler panics to. See [dispatcher.WithPanicLogger] for the default and the
-// contract. A nil logger panics.
+// panics to, from handlers and from validation code alike. See
+// [dispatcher.WithPanicLogger] for the default and the contract. A nil logger
+// panics.
 func WithPanicLogger(logger dispatcher.PanicLogger) HTTPOption {
 	if logger == nil {
 		panic("server.WithPanicLogger: logger must not be nil")

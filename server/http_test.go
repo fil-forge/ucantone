@@ -1,11 +1,14 @@
 package server_test
 
 import (
+	"context"
 	"io"
 	"net/http"
 	"testing"
 	"time"
 
+	"github.com/fil-forge/ucantone/did"
+	"github.com/fil-forge/ucantone/did/key"
 	"github.com/fil-forge/ucantone/execution"
 	"github.com/fil-forge/ucantone/execution/batch"
 	"github.com/fil-forge/ucantone/ipld"
@@ -16,6 +19,7 @@ import (
 	"github.com/fil-forge/ucantone/ucan"
 	"github.com/fil-forge/ucantone/ucan/container"
 	"github.com/fil-forge/ucantone/ucan/invocation"
+	"github.com/fil-forge/ucantone/validator"
 	"github.com/stretchr/testify/require"
 )
 
@@ -214,6 +218,42 @@ func TestHTTPServerBatch(t *testing.T) {
 		_, x := rcpt.Out().Unpack()
 		require.Equal(t, execution.HandlerExecutionErrorName, testutil.ResultMap(t, x)["name"])
 		require.Equal(t, []any{"boom"}, logged)
+	})
+
+	t.Run("a panic in validation fails its own task only", func(t *testing.T) {
+		bob := testutil.RandomIssuer(t)
+		// Resolves every DID the usual way except Alice's, so validation of
+		// her invocation panics and Bob's goes through.
+		resolver := did.ResolverFunc(func(ctx context.Context, d did.DID) (did.Document, error) {
+			if d == alice.DID() {
+				panic("boom")
+			}
+			return key.Resolver.Resolve(ctx, d)
+		})
+		server := server.NewHTTP(service,
+			server.WithPanicLogger(func(execution.Request, any) {}),
+			server.WithValidationOptions(validator.WithDIDResolver(resolver)),
+		)
+		server.Handle(testutil.TestEchoCommand, func(req execution.Request, res execution.Response) error {
+			return res.SetSuccess(testutil.ArgsMap(t, req.Invocation()))
+		})
+		fromAlice, err := invocation.Invoke(alice, alice.DID(), testutil.TestEchoCommand, datamodel.Map{"message": "alice"}, invocation.WithAudience(service.DID()))
+		require.NoError(t, err)
+		fromBob, err := invocation.Invoke(bob, bob.DID(), testutil.TestEchoCommand, datamodel.Map{"message": "bob"}, invocation.WithAudience(service.DID()))
+		require.NoError(t, err)
+
+		res, err := server.ExecuteBatch(batch.NewRequest(t.Context(), []ucan.Invocation{fromAlice, fromBob}))
+		require.NoError(t, err)
+
+		aliceRcpt, ok := res.Receipt(fromAlice.Task().Link())
+		require.True(t, ok)
+		_, x := aliceRcpt.Out().Unpack()
+		require.Equal(t, execution.ExecutionPanicErrorName, testutil.ResultMap(t, x)["name"])
+
+		bobRcpt, ok := res.Receipt(fromBob.Task().Link())
+		require.True(t, ok)
+		o, _ := bobRcpt.Out().Unpack()
+		require.Equal(t, "bob", testutil.ResultMap(t, o)["message"])
 	})
 
 	t.Run("WithPanicLogger(nil) panics", func(t *testing.T) {

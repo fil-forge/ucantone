@@ -50,7 +50,30 @@ func (d *Dispatcher) Handle(command ucan.Command, fn execution.HandlerFunc) {
 	d.handlers[command] = fn
 }
 
-func (d *Dispatcher) Execute(req execution.Request) (execution.Response, error) {
+// Execute validates the invocation and runs the handler registered for its
+// command. A panic anywhere along the way, in a handler or in validation code
+// such as a DID resolver or verifier factory, fails that task with a receipt
+// instead of escaping to the caller, so one misbehaving invocation cannot take
+// down a server that executes many at once.
+func (d *Dispatcher) Execute(req execution.Request) (res execution.Response, err error) {
+	// recover() alone cannot tell a normal return from panic(nil), which is
+	// recovered as nil under GODEBUG=panicnil=1, so the flag is what says
+	// whether execute returned.
+	returned := false
+	defer func() {
+		if returned {
+			return
+		}
+		d.panicLogger(req, recover())
+		res, err = d.transientFailure(req, execution.NewExecutionPanicError(req.Invocation().Command()))
+	}()
+	res, err = d.execute(req)
+	returned = true
+	return res, err
+}
+
+// execute is [Dispatcher.Execute] without the recovery boundary.
+func (d *Dispatcher) execute(req execution.Request) (execution.Response, error) {
 	aud := req.Invocation().Audience()
 	if !aud.Defined() {
 		aud = req.Invocation().Subject()
@@ -106,32 +129,35 @@ func (d *Dispatcher) Execute(req execution.Request) (execution.Response, error) 
 
 	err = d.runHandler(req, res, handler)
 	if err != nil {
-		respOpts := []execution.ResponseOption{
-			execution.WithIssuer(d.authority),
-			execution.WithReceiptTimestamp(d.receiptTimestamps),
-		}
-		// Errors returned from handlers and panics recovered from them are
-		// unexpected and likely transient, so the receipt asserting the
-		// failure is short-lived. Permanent errors are set as error results
-		// on the response by the handler.
-		if d.handlerErrorReceiptTTL > 0 {
-			exp := ucan.Now() + ucan.UnixTimestamp(d.handlerErrorReceiptTTL.Seconds())
-			respOpts = append(respOpts, execution.WithReceiptExpiration(exp))
-		}
-		respOpts = append(respOpts, execution.WithFailure(execution.NewHandlerExecutionError(cmd, err)))
-		return execution.NewResponse(req.Invocation().Task().Link(), respOpts...)
+		return d.transientFailure(req, execution.NewHandlerExecutionError(cmd, err))
 	}
 	return res, nil
 }
 
+// transientFailure builds the response for a failure that is unexpected and
+// likely transient: an error returned from a handler or a recovered panic. The
+// receipt asserting it is short-lived, so clients retry rather than cache it.
+// Permanent errors are set as error results on the response by the handler.
+func (d *Dispatcher) transientFailure(req execution.Request, failure error) (execution.Response, error) {
+	respOpts := []execution.ResponseOption{
+		execution.WithIssuer(d.authority),
+		execution.WithReceiptTimestamp(d.receiptTimestamps),
+	}
+	if d.handlerErrorReceiptTTL > 0 {
+		exp := ucan.Now() + ucan.UnixTimestamp(d.handlerErrorReceiptTTL.Seconds())
+		respOpts = append(respOpts, execution.WithReceiptExpiration(exp))
+	}
+	respOpts = append(respOpts, execution.WithFailure(failure))
+	return execution.NewResponse(req.Invocation().Task().Link(), respOpts...)
+}
+
 // runHandler calls the handler and turns a panic into a returned error, so a
-// misbehaving handler fails its own task instead of taking down the process.
-// The panic value goes to the configured [PanicLogger]. The receipt tells the
-// client that the handler panicked and nothing more.
+// misbehaving handler fails its own task the way a returned error does. The
+// panic value goes to the configured [PanicLogger]. The receipt tells the
+// client that the handler panicked and nothing more. Panics from anywhere else
+// in execution are caught by the boundary in [Dispatcher.Execute].
 func (d *Dispatcher) runHandler(req execution.Request, res execution.Response, handler execution.HandlerFunc) (err error) {
-	// recover() alone cannot tell a normal return from panic(nil), which is
-	// recovered as nil under GODEBUG=panicnil=1, so the flag is what says
-	// whether the handler returned.
+	// See Execute for why a flag is needed alongside recover().
 	returned := false
 	defer func() {
 		if returned {
