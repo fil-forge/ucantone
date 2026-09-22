@@ -91,9 +91,10 @@ func (s *HTTPServer) Execute(req execution.Request) (execution.Response, error) 
 // responses are gathered into the metadata of the returned response.
 //
 // Invocations execute concurrently, each on its own goroutine, with at most
-// [WithMaxConcurrency] of them running at once. That cap applies to this
-// request alone: concurrent requests each get their own, so the server as a
-// whole runs up to the cap times the number of requests in flight. Handlers
+// [DefaultMaxConcurrency] of them running at once unless [WithMaxConcurrency]
+// sets another cap. The cap applies to this request alone: concurrent
+// requests each get their own, so the server as a whole runs up to the cap
+// times the number of requests in flight. Handlers
 // must therefore be safe to call concurrently within one request, as they
 // already must be across requests. Receipts and metadata are gathered in
 // request order once every invocation has finished, so the response does not
@@ -128,16 +129,14 @@ func (s *HTTPServer) ExecuteBatch(req *batch.Request) (*batch.Response, error) {
 		if slots != nil {
 			slots <- struct{}{}
 		}
-		wg.Add(1)
-		go func() {
-			defer wg.Done()
+		wg.Go(func() {
 			if slots != nil {
 				defer func() { <-slots }()
 			}
 			execReq := execution.NewRequest(req.Context(), inv, execution.WithRequestMetadata(execMeta))
 			res, err := s.executor.Execute(execReq)
 			results[i] = batchResult{executed: true, response: res, err: err}
-		}()
+		})
 	}
 	wg.Wait()
 
