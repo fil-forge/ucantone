@@ -1,7 +1,9 @@
 package server_test
 
 import (
+	"bytes"
 	"io"
+	"log/slog"
 	"net/http"
 	"testing"
 	"time"
@@ -193,6 +195,31 @@ func TestHTTPServerBatch(t *testing.T) {
 		require.Len(t, seen, 3)
 		require.Same(t, seen[0], seen[1])
 		require.Same(t, seen[0], seen[2])
+	})
+
+	t.Run("handler panics are logged to the configured logger", func(t *testing.T) {
+		var buf bytes.Buffer
+		server := server.NewHTTP(service, server.WithLogger(slog.New(slog.NewTextHandler(&buf, nil))))
+		server.Handle(testutil.TestEchoCommand, func(req execution.Request, res execution.Response) error {
+			panic("boom")
+		})
+		inv, err := invocation.Invoke(alice, alice.DID(), testutil.TestEchoCommand, datamodel.Map{}, invocation.WithAudience(service.DID()))
+		require.NoError(t, err)
+
+		res, err := server.ExecuteBatch(batch.NewRequest(t.Context(), []ucan.Invocation{inv}))
+		require.NoError(t, err)
+
+		rcpt, ok := res.Receipt(inv.Task().Link())
+		require.True(t, ok)
+		_, x := rcpt.Out().Unpack()
+		require.Equal(t, execution.HandlerExecutionErrorName, testutil.ResultMap(t, x)["name"])
+		require.Contains(t, buf.String(), `msg="handler panicked"`)
+	})
+
+	t.Run("WithLogger(nil) panics", func(t *testing.T) {
+		require.PanicsWithValue(t, "server.WithLogger: logger must not be nil", func() {
+			server.WithLogger(nil)
+		})
 	})
 
 	t.Run("batch addressed entirely elsewhere runs no handler", func(t *testing.T) {

@@ -1,6 +1,7 @@
 package dispatcher
 
 import (
+	"log/slog"
 	"time"
 
 	"github.com/fil-forge/ucantone/validator"
@@ -19,6 +20,7 @@ type execConfig struct {
 	validationOpts         []validator.Option
 	receiptTimestamps      bool
 	handlerErrorReceiptTTL time.Duration
+	logger                 *slog.Logger
 }
 
 func WithValidationOptions(options ...validator.Option) Option {
@@ -42,5 +44,18 @@ func WithReceiptTimestamps(enabled bool) Option {
 func WithHandlerErrorReceiptTTL(ttl time.Duration) Option {
 	return func(cfg *execConfig) {
 		cfg.handlerErrorReceiptTTL = ttl
+	}
+}
+
+// WithLogger sets the logger the dispatcher reports recovered handler panics
+// to, with the command, task, panic value and stack. Defaults to
+// [slog.Default], which writes through the standard log package like net/http
+// does for panics it recovers. A nil logger panics.
+func WithLogger(logger *slog.Logger) Option {
+	if logger == nil {
+		panic("dispatcher.WithLogger: logger must not be nil")
+	}
+	return func(cfg *execConfig) {
+		cfg.logger = logger
 	}
 }

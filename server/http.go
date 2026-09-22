@@ -35,11 +35,14 @@ func NewHTTP(id ucan.Issuer, options ...HTTPOption) *HTTPServer {
 	for _, opt := range options {
 		opt(&cfg)
 	}
-	executor := dispatcher.New(
-		id,
+	dispatcherOpts := []dispatcher.Option{
 		dispatcher.WithValidationOptions(cfg.validationOpts...),
 		dispatcher.WithReceiptTimestamps(cfg.receiptTimestamps),
-	)
+	}
+	if cfg.logger != nil {
+		dispatcherOpts = append(dispatcherOpts, dispatcher.WithLogger(cfg.logger))
+	}
+	executor := dispatcher.New(id, dispatcherOpts...)
 	return &HTTPServer{
 		id:        id,
 		codec:     cfg.codec,

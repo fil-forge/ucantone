@@ -1,6 +1,7 @@
 package server
 
 import (
+	"log/slog"
 	"net/http"
 
 	"github.com/fil-forge/ucantone/transport"
@@ -15,6 +16,7 @@ type httpServerConfig struct {
 	validationOpts    []validator.Option
 	receiptTimestamps bool
 	listeners         []EventListener
+	logger            *slog.Logger
 }
 
 func WithHTTPCodec(codec transport.InboundCodec[*http.Request, *http.Response]) HTTPOption {
@@ -34,6 +36,17 @@ func WithValidationOptions(options ...validator.Option) HTTPOption {
 func WithReceiptTimestamps(enabled bool) HTTPOption {
 	return func(cfg *httpServerConfig) {
 		cfg.receiptTimestamps = enabled
+	}
+}
+
+// WithLogger sets the logger the server reports recovered handler panics to.
+// Defaults to [slog.Default]. A nil logger panics.
+func WithLogger(logger *slog.Logger) HTTPOption {
+	if logger == nil {
+		panic("server.WithLogger: logger must not be nil")
+	}
+	return func(cfg *httpServerConfig) {
+		cfg.logger = logger
 	}
 }
 
