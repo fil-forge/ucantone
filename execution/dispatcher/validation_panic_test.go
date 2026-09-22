@@ -35,18 +35,18 @@ func TestDispatcherValidationPanic(t *testing.T) {
 		panic("boom")
 	}))
 
-	newExecutor := func(options ...dispatcher.Option) *dispatcher.Dispatcher {
+	newExecutor := func(t *testing.T, options ...dispatcher.Option) *dispatcher.Dispatcher {
 		options = append(options, dispatcher.WithValidationOptions(panickingResolver))
 		executor := dispatcher.New(service, options...)
 		executor.Handle(testutil.ConsoleLogCommand, func(req execution.Request, res execution.Response) error {
-			t.Fatal("handler must not run when validation panics")
+			t.Error("handler must not run when validation panics")
 			return nil
 		})
 		return executor
 	}
 
 	t.Run("issues an execution panic error receipt", func(t *testing.T) {
-		executor := newExecutor(dispatcher.WithPanicLogger(discardPanics))
+		executor := newExecutor(t, dispatcher.WithPanicLogger(discardPanics))
 
 		resp, err := executor.Execute(execution.NewRequest(t.Context(), inv))
 		require.NoError(t, err)
@@ -59,7 +59,7 @@ func TestDispatcherValidationPanic(t *testing.T) {
 	})
 
 	t.Run("the receipt expires like one for a handler error", func(t *testing.T) {
-		executor := newExecutor(dispatcher.WithPanicLogger(discardPanics))
+		executor := newExecutor(t, dispatcher.WithPanicLogger(discardPanics))
 
 		before := ucan.Now()
 		resp, err := executor.Execute(execution.NewRequest(t.Context(), inv))
@@ -78,7 +78,7 @@ func TestDispatcherValidationPanic(t *testing.T) {
 			value any
 		}
 		var calls []call
-		executor := newExecutor(dispatcher.WithPanicLogger(func(req execution.Request, value any) {
+		executor := newExecutor(t, dispatcher.WithPanicLogger(func(req execution.Request, value any) {
 			calls = append(calls, call{req.Invocation().Task().Link().String(), value})
 		}))
 
