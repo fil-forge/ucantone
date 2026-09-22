@@ -83,26 +83,10 @@ func (s *HTTPServer) Execute(req execution.Request) (execution.Response, error) 
 // the request as its metadata, and the tokens handlers attach to their
 // responses are gathered into the metadata of the returned response.
 func (s *HTTPServer) ExecuteBatch(req *batch.Request) (*batch.Response, error) {
-	var metaInvocations []ucan.Invocation
-	var metaDelegations []ucan.Delegation
-	var metaReceipts []ucan.Receipt
-	if req.Metadata() != nil {
-		metaInvocations = req.Metadata().Invocations()
-		metaDelegations = req.Metadata().Delegations()
-		metaReceipts = req.Metadata().Receipts()
-	}
-
-	// Every handler sees the same tokens, so the container is built once for
-	// the whole batch rather than once per invocation.
+	// Every handler sees the same tokens, so the container is built once, on
+	// the first invocation addressed to this server, and shared by every
+	// handler in the batch.
 	var execMeta ucan.Container
-	if len(req.Invocations()) > 0 || len(metaInvocations) > 0 || len(metaDelegations) > 0 || len(metaReceipts) > 0 {
-		execMeta = container.New(
-			container.WithInvocations(req.Invocations()...),
-			container.WithInvocations(metaInvocations...),
-			container.WithDelegations(metaDelegations...),
-			container.WithReceipts(metaReceipts...),
-		)
-	}
 
 	var receipts []ucan.Receipt
 	var invocations []ucan.Invocation
@@ -116,7 +100,10 @@ func (s *HTTPServer) ExecuteBatch(req *batch.Request) (*batch.Response, error) {
 		if aud != s.id.DID() {
 			continue
 		}
-		execReq := execution.NewRequest(req.Context(), inv, execution.WithMetadataContainer(execMeta))
+		if execMeta == nil {
+			execMeta = batchMetadata(req)
+		}
+		execReq := execution.NewRequest(req.Context(), inv, execution.WithRequestMetadata(execMeta))
 
 		res, err := s.executor.Execute(execReq)
 		if err != nil {
@@ -142,6 +129,19 @@ func (s *HTTPServer) ExecuteBatch(req *batch.Request) (*batch.Response, error) {
 		)))
 	}
 	return batch.NewResponse(receipts, options...), nil
+}
+
+// batchMetadata gathers every token of the batch request into one container.
+func batchMetadata(req *batch.Request) ucan.Container {
+	options := []container.Option{container.WithInvocations(req.Invocations()...)}
+	if req.Metadata() != nil {
+		options = append(options,
+			container.WithInvocations(req.Metadata().Invocations()...),
+			container.WithDelegations(req.Metadata().Delegations()...),
+			container.WithReceipts(req.Metadata().Receipts()...),
+		)
+	}
+	return container.New(options...)
 }
 
 func (s *HTTPServer) ServeHTTP(w http.ResponseWriter, r *http.Request) {

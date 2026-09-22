@@ -195,6 +195,34 @@ func TestHTTPServerBatch(t *testing.T) {
 		require.Same(t, seen[0], seen[2])
 	})
 
+	t.Run("batch addressed entirely elsewhere runs no handler", func(t *testing.T) {
+		server := server.NewHTTP(service)
+
+		calls := 0
+		server.Handle(testutil.TestEchoCommand, func(req execution.Request, res execution.Response) error {
+			calls++
+			return res.SetSuccess(datamodel.Map{})
+		})
+
+		var invs []ucan.Invocation
+		for range 2 {
+			inv, err := invocation.Invoke(alice, alice.DID(), testutil.TestEchoCommand, datamodel.Map{}, invocation.WithAudience(testutil.RandomDID(t)))
+			require.NoError(t, err)
+			invs = append(invs, inv)
+		}
+
+		res, err := server.ExecuteBatch(batch.NewRequest(t.Context(), invs))
+		require.NoError(t, err)
+
+		var receipts []ucan.Receipt
+		for _, inv := range invs {
+			if rcpt, ok := res.Receipt(inv.Task().Link()); ok {
+				receipts = append(receipts, rcpt)
+			}
+		}
+		require.Equal(t, []any{0, []ucan.Receipt(nil), ucan.Container(nil)}, []any{calls, receipts, res.Metadata()})
+	})
+
 	t.Run("empty batch", func(t *testing.T) {
 		server := server.NewHTTP(service)
 		res, err := server.ExecuteBatch(batch.NewRequest(t.Context(), nil))

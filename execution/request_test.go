@@ -43,34 +43,80 @@ func TestNewRequest(t *testing.T) {
 		require.Equal(t, []ucan.Receipt{rcpt}, req.Metadata().Receipts())
 	})
 
-	t.Run("WithMetadataContainer sets the container as is", func(t *testing.T) {
+	t.Run("WithRequestMetadata sets the container as is", func(t *testing.T) {
 		meta := container.New(container.WithDelegations(dlg))
-		req := execution.NewRequest(t.Context(), inv, execution.WithMetadataContainer(meta))
+		req := execution.NewRequest(t.Context(), inv, execution.WithRequestMetadata(meta))
 		require.Same(t, meta, req.Metadata())
 	})
 
-	t.Run("WithMetadataContainer(nil) leaves the metadata nil", func(t *testing.T) {
-		req := execution.NewRequest(t.Context(), inv, execution.WithMetadataContainer(nil))
+	t.Run("WithRequestMetadata(nil) leaves the metadata nil", func(t *testing.T) {
+		req := execution.NewRequest(t.Context(), inv, execution.WithRequestMetadata(nil))
 		require.Nil(t, req.Metadata())
 	})
 
-	conflicting := map[string]execution.RequestOption{
-		"WithInvocations": execution.WithInvocations(cause),
-		"WithDelegations": execution.WithDelegations(dlg),
-		"WithReceipts":    execution.WithReceipts(rcpt),
-	}
-	containers := map[string]ucan.Container{
-		"a container": container.New(container.WithDelegations(dlg)),
-		"nil":         nil,
-	}
-	for optName, opt := range conflicting {
-		for metaName, meta := range containers {
-			t.Run("panics when WithMetadataContainer("+metaName+") is combined with "+optName, func(t *testing.T) {
-				require.PanicsWithValue(t,
-					"execution.NewRequest: WithMetadataContainer cannot be combined with WithInvocations, WithDelegations or WithReceipts",
-					func() { execution.NewRequest(t.Context(), inv, execution.WithMetadataContainer(meta), opt) },
-				)
-			})
+	t.Run("merged with token options", func(t *testing.T) {
+		// A second token of every kind, so the container and the options each
+		// contribute one and the order of the merge is observable.
+		metaDlg, err := delegation.Delegate(alice, service.DID(), alice.DID(), testutil.ConsoleLogCommand)
+		require.NoError(t, err)
+		metaInv, err := invocation.Invoke(service, service.DID(), testutil.ConsoleLogCommand, datamodel.Map{})
+		require.NoError(t, err)
+		metaRcpt, err := receipt.IssueOK(alice, metaInv.Task().Link(), datamodel.Map{})
+		require.NoError(t, err)
+		meta := container.New(
+			container.WithInvocations(metaInv),
+			container.WithDelegations(metaDlg),
+			container.WithReceipts(metaRcpt),
+		)
+		merged := func(options ...execution.RequestOption) ucan.Container {
+			options = append([]execution.RequestOption{execution.WithRequestMetadata(meta)}, options...)
+			return execution.NewRequest(t.Context(), inv, options...).Metadata()
 		}
-	}
+
+		t.Run("container invocations come before WithInvocations", func(t *testing.T) {
+			require.Equal(t, []ucan.Invocation{metaInv, cause}, merged(execution.WithInvocations(cause)).Invocations())
+		})
+
+		t.Run("container delegations come before WithDelegations", func(t *testing.T) {
+			require.Equal(t, []ucan.Delegation{metaDlg, dlg}, merged(execution.WithDelegations(dlg)).Delegations())
+		})
+
+		t.Run("container receipts come before WithReceipts", func(t *testing.T) {
+			require.Equal(t, []ucan.Receipt{metaRcpt, rcpt}, merged(execution.WithReceipts(rcpt)).Receipts())
+		})
+
+		t.Run("a token present in both appears once, in the container's position", func(t *testing.T) {
+			require.Equal(t, []ucan.Delegation{metaDlg, dlg}, merged(execution.WithDelegations(dlg, metaDlg)).Delegations())
+		})
+
+		t.Run("Delegation(cid) finds tokens from both sources", func(t *testing.T) {
+			ct := merged(execution.WithDelegations(dlg))
+			fromMeta, okMeta := ct.Delegation(metaDlg.Link())
+			fromOption, okOption := ct.Delegation(dlg.Link())
+			require.Equal(t,
+				[]any{metaDlg, true, dlg, true},
+				[]any{fromMeta, okMeta, fromOption, okOption},
+			)
+		})
+
+		t.Run("Receipt(cid) finds tokens from both sources", func(t *testing.T) {
+			ct := merged(execution.WithReceipts(rcpt))
+			fromMeta, okMeta := ct.Receipt(metaRcpt.Ran())
+			fromOption, okOption := ct.Receipt(rcpt.Ran())
+			require.Equal(t,
+				[]any{metaRcpt, true, rcpt, true},
+				[]any{fromMeta, okMeta, fromOption, okOption},
+			)
+		})
+
+		t.Run("the merged container is a new instance", func(t *testing.T) {
+			require.NotSame(t, meta, merged(execution.WithDelegations(dlg)))
+		})
+	})
+
+	t.Run("WithRequestMetadata(nil) with token options equals the options alone", func(t *testing.T) {
+		withNil := execution.NewRequest(t.Context(), inv, execution.WithRequestMetadata(nil), execution.WithDelegations(dlg))
+		alone := execution.NewRequest(t.Context(), inv, execution.WithDelegations(dlg))
+		require.Equal(t, alone.Metadata(), withNil.Metadata())
+	})
 }
