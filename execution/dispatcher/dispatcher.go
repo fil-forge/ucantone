@@ -154,7 +154,7 @@ var errHandlerPanicked = errors.New("handler panicked")
 func logPanic(req execution.Request, value any) {
 	buf := make([]byte, panicStackSize)
 	buf = buf[:runtime.Stack(buf, false)]
-	log.Printf("ucantone: panic executing %s task %s: %v\n%s",
+	log.Printf("panic executing %s task %s: %v\n%s",
 		req.Invocation().Command(), req.Invocation().Task().Link(), value, buf)
 }
 
