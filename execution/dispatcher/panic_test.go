@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"errors"
 	"log/slog"
+	"strings"
 	"testing"
 
 	"github.com/fil-forge/ucantone/execution"
@@ -50,6 +51,48 @@ func TestDispatcherHandlerPanic(t *testing.T) {
 			}, testutil.ResultMap(t, x))
 		})
 	}
+
+	t.Run("panic(nil) recovered as nil still fails the task", func(t *testing.T) {
+		// Under this setting the runtime hands recover() a nil for panic(nil),
+		// which is indistinguishable from no panic by value alone.
+		t.Setenv("GODEBUG", "panicnil=1")
+		var recovered any = "unset"
+		func() {
+			defer func() { recovered = recover() }()
+			panic(nil)
+		}()
+		require.Nil(t, recovered, "GODEBUG=panicnil=1 did not take effect at runtime")
+
+		executor := dispatcher.New(service, dispatcher.WithLogger(slog.New(slog.DiscardHandler)))
+		executor.Handle(testutil.ConsoleLogCommand, func(req execution.Request, res execution.Response) error {
+			panic(nil)
+		})
+
+		resp, err := executor.Execute(execution.NewRequest(t.Context(), inv))
+		require.NoError(t, err)
+
+		_, x := resp.Receipt().Out().Unpack()
+		require.Equal(t, map[string]any{
+			"name":    execution.HandlerExecutionErrorName,
+			"message": `"/console/log" handler execution error: handler panicked: <nil>`,
+		}, testutil.ResultMap(t, x))
+	})
+
+	t.Run("a huge panic value is truncated so the receipt still encodes", func(t *testing.T) {
+		executor := dispatcher.New(service, dispatcher.WithLogger(slog.New(slog.DiscardHandler)))
+		huge := strings.Repeat("x", 3*dispatcher.MaxPanicMessageLength)
+		executor.Handle(testutil.ConsoleLogCommand, func(req execution.Request, res execution.Response) error {
+			panic(huge)
+		})
+
+		resp, err := executor.Execute(execution.NewRequest(t.Context(), inv))
+		require.NoError(t, err)
+
+		_, x := resp.Receipt().Out().Unpack()
+		require.Equal(t,
+			`"/console/log" handler execution error: handler panicked: `+huge[:dispatcher.MaxPanicMessageLength]+"…[truncated]",
+			testutil.ResultMap(t, x)["message"])
+	})
 
 	t.Run("the receipt expires like one for a returned error", func(t *testing.T) {
 		executor := dispatcher.New(service, dispatcher.WithLogger(slog.New(slog.DiscardHandler)))
