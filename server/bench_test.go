@@ -2,6 +2,7 @@ package server_test
 
 import (
 	"crypto/sha256"
+	"fmt"
 	"sync"
 	"testing"
 	"time"
@@ -67,7 +68,7 @@ func BenchmarkBatch(b *testing.B) {
 		sequential := server.NewHTTP(service, server.WithMaxConcurrency(1))
 		sequential.Handle(testutil.TestEchoCommand, handler)
 
-		b.Run(name+"/1x100/sequential", func(b *testing.B) {
+		b.Run(fmt.Sprintf("%s/1x%d/sequential", name, n), func(b *testing.B) {
 			for b.Loop() {
 				if _, err := sequential.ExecuteBatch(batch.NewRequest(b.Context(), invs)); err != nil {
 					b.Fatal(err)
@@ -75,7 +76,7 @@ func BenchmarkBatch(b *testing.B) {
 			}
 		})
 
-		b.Run(name+"/1x100", func(b *testing.B) {
+		b.Run(fmt.Sprintf("%s/1x%d", name, n), func(b *testing.B) {
 			for b.Loop() {
 				if _, err := srv.ExecuteBatch(batch.NewRequest(b.Context(), invs)); err != nil {
 					b.Fatal(err)
@@ -83,7 +84,7 @@ func BenchmarkBatch(b *testing.B) {
 			}
 		})
 
-		b.Run(name+"/100x1", func(b *testing.B) {
+		b.Run(fmt.Sprintf("%s/%dx1", name, n), func(b *testing.B) {
 			for b.Loop() {
 				var wg sync.WaitGroup
 				for _, inv := range invs {
