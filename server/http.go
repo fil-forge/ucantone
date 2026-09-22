@@ -92,6 +92,18 @@ func (s *HTTPServer) ExecuteBatch(req *batch.Request) (*batch.Response, error) {
 		metaReceipts = req.Metadata().Receipts()
 	}
 
+	// Every handler sees the same tokens, so the container is built once for
+	// the whole batch rather than once per invocation.
+	var execMeta ucan.Container
+	if len(req.Invocations()) > 0 || len(metaInvocations) > 0 || len(metaDelegations) > 0 || len(metaReceipts) > 0 {
+		execMeta = container.New(
+			container.WithInvocations(req.Invocations()...),
+			container.WithInvocations(metaInvocations...),
+			container.WithDelegations(metaDelegations...),
+			container.WithReceipts(metaReceipts...),
+		)
+	}
+
 	var receipts []ucan.Receipt
 	var invocations []ucan.Invocation
 	var delegations []ucan.Delegation
@@ -104,14 +116,7 @@ func (s *HTTPServer) ExecuteBatch(req *batch.Request) (*batch.Response, error) {
 		if aud != s.id.DID() {
 			continue
 		}
-		execReq := execution.NewRequest(
-			req.Context(),
-			inv,
-			execution.WithInvocations(req.Invocations()...),
-			execution.WithInvocations(metaInvocations...),
-			execution.WithDelegations(metaDelegations...),
-			execution.WithReceipts(metaReceipts...),
-		)
+		execReq := execution.NewRequest(req.Context(), inv, execution.WithMetadataContainer(execMeta))
 
 		res, err := s.executor.Execute(execReq)
 		if err != nil {

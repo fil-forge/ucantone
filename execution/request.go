@@ -11,6 +11,8 @@ type requestConfig struct {
 	invocations []ucan.Invocation
 	delegations []ucan.Delegation
 	receipts    []ucan.Receipt
+	metadata    ucan.Container
+	metadataSet bool
 }
 
 type RequestOption = func(cfg *requestConfig)
@@ -37,6 +39,17 @@ func WithInvocations(invocations ...ucan.Invocation) RequestOption {
 	}
 }
 
+// WithMetadataContainer sets a ready-made container as the request metadata,
+// so an executor running many invocations against the same tokens builds the
+// container once and shares it. It cannot be combined with [WithInvocations],
+// [WithDelegations] or [WithReceipts]: [NewRequest] panics when both are given.
+func WithMetadataContainer(metadata ucan.Container) RequestOption {
+	return func(cfg *requestConfig) {
+		cfg.metadata = metadata
+		cfg.metadataSet = true
+	}
+}
+
 type ExecRequest struct {
 	ctx        context.Context
 	invocation ucan.Invocation
@@ -48,20 +61,23 @@ func NewRequest(ctx context.Context, inv ucan.Invocation, options ...RequestOpti
 	for _, opt := range options {
 		opt(&cfg)
 	}
-	var meta ucan.Container
-	if len(cfg.invocations) > 0 || len(cfg.delegations) > 0 || len(cfg.receipts) > 0 {
+	meta := cfg.metadata
+	hasTokens := len(cfg.invocations) > 0 || len(cfg.delegations) > 0 || len(cfg.receipts) > 0
+	if cfg.metadataSet && hasTokens {
+		panic("execution.NewRequest: WithMetadataContainer cannot be combined with WithInvocations, WithDelegations or WithReceipts")
+	}
+	if !cfg.metadataSet && hasTokens {
 		meta = container.New(
 			container.WithInvocations(cfg.invocations...),
 			container.WithDelegations(cfg.delegations...),
 			container.WithReceipts(cfg.receipts...),
 		)
 	}
-	req := &ExecRequest{
+	return &ExecRequest{
 		ctx:        ctx,
 		invocation: inv,
 		metadata:   meta,
 	}
-	return req
 }
 
 func (r *ExecRequest) Context() context.Context {

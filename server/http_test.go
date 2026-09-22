@@ -171,6 +171,30 @@ func TestHTTPServerBatch(t *testing.T) {
 		require.Equal(t, attached.Link(), res.Metadata().Invocations()[0].Link())
 	})
 
+	t.Run("batch handlers share one metadata container", func(t *testing.T) {
+		server := server.NewHTTP(service)
+
+		var seen []ucan.Container
+		server.Handle(testutil.TestEchoCommand, func(req execution.Request, res execution.Response) error {
+			seen = append(seen, req.Metadata())
+			return res.SetSuccess(datamodel.Map{})
+		})
+
+		var invs []ucan.Invocation
+		for range 3 {
+			inv, err := invocation.Invoke(alice, alice.DID(), testutil.TestEchoCommand, datamodel.Map{}, invocation.WithAudience(service.DID()))
+			require.NoError(t, err)
+			invs = append(invs, inv)
+		}
+
+		_, err := server.ExecuteBatch(batch.NewRequest(t.Context(), invs))
+		require.NoError(t, err)
+
+		require.Len(t, seen, 3)
+		require.Same(t, seen[0], seen[1])
+		require.Same(t, seen[0], seen[2])
+	})
+
 	t.Run("empty batch", func(t *testing.T) {
 		server := server.NewHTTP(service)
 		res, err := server.ExecuteBatch(batch.NewRequest(t.Context(), nil))
