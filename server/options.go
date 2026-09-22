@@ -52,10 +52,11 @@ func WithReceiptTimestamps(enabled bool) HTTPOption {
 // HTTP/2 or QUIC server caps concurrent streams per connection. It does not
 // limit the server as a whole: each request in flight gets its own cap.
 //
-// One runs the invocations of a request one after another, for handlers that
-// are not safe to call concurrently within a request. Zero removes the cap,
-// for deployments that bound concurrency at the listener instead. A negative
-// value panics. Defaults to [DefaultMaxConcurrency].
+// - WithMaxConcurrency(1) runs the invocations of a request serially, one after another.
+// - WithMaxConcurrency(0) removes the cap.
+// - A negative value panics.
+//
+// Defaults to [DefaultMaxConcurrency].
 func WithMaxConcurrency(n int) HTTPOption {
 	if n < 0 {
 		panic("server.WithMaxConcurrency: n must not be negative")
