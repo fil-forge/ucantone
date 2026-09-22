@@ -180,7 +180,8 @@ if out := resp.Receipt().Out(); out.IsOK() {
 ```
 
 Many invocations can be sent in one request. The service executes every
-invocation addressed to it and answers each with its own receipt:
+invocation addressed to it concurrently, up to `server.WithMaxConcurrency`
+at a time (100 by default), and answers each with its own receipt:
 
 ```go
 res, err := c.ExecuteBatch(batch.NewRequest(context.Background(), invs, batch.WithDelegations(dlg)))

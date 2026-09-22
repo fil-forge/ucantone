@@ -42,4 +42,9 @@ type Executor interface {
 }
 
 // HandlerFunc is a function that can handle a specific UCAN invocation.
+//
+// A server calls handlers concurrently: across requests, as any HTTP handler,
+// and within one request, since the invocations of a batch execute at the
+// same time. A handler must not rely on another invocation of the same request
+// having run before it, and any state it shares needs its own locking.
 type HandlerFunc = func(Request, Response) error

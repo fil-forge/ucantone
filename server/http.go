@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"io"
 	"net/http"
+	"sync"
 
 	"github.com/fil-forge/ucantone/execution"
 	"github.com/fil-forge/ucantone/execution/batch"
@@ -16,10 +17,11 @@ import (
 )
 
 type HTTPServer struct {
-	id        ucan.Issuer
-	executor  *dispatcher.Dispatcher
-	codec     transport.InboundCodec[*http.Request, *http.Response]
-	listeners []EventListener
+	id             ucan.Issuer
+	executor       *dispatcher.Dispatcher
+	codec          transport.InboundCodec[*http.Request, *http.Response]
+	listeners      []EventListener
+	maxConcurrency int
 }
 
 var (
@@ -30,7 +32,8 @@ var (
 // NewHTTP creates a new server capable of handling UCAN invocations over HTTP.
 func NewHTTP(id ucan.Issuer, options ...HTTPOption) *HTTPServer {
 	cfg := httpServerConfig{
-		codec: transport.DefaultHTTPInboundCodec,
+		codec:          transport.DefaultHTTPInboundCodec,
+		maxConcurrency: DefaultMaxConcurrency,
 	}
 	for _, opt := range options {
 		opt(&cfg)
@@ -44,10 +47,11 @@ func NewHTTP(id ucan.Issuer, options ...HTTPOption) *HTTPServer {
 	}
 	executor := dispatcher.New(id, dispatcherOpts...)
 	return &HTTPServer{
-		id:        id,
-		codec:     cfg.codec,
-		executor:  executor,
-		listeners: cfg.listeners,
+		id:             id,
+		codec:          cfg.codec,
+		executor:       executor,
+		listeners:      cfg.listeners,
+		maxConcurrency: cfg.maxConcurrency,
 	}
 }
 
@@ -85,17 +89,28 @@ func (s *HTTPServer) Execute(req execution.Request) (execution.Response, error) 
 // skipped and get no receipt. Each handler sees every token of
 // the request as its metadata, and the tokens handlers attach to their
 // responses are gathered into the metadata of the returned response.
+//
+// Invocations execute concurrently, each on its own goroutine, with at most
+// [WithMaxConcurrency] of them running at once. Handlers must therefore be
+// safe to call concurrently within one request, as they already must be across
+// requests. Receipts and metadata are gathered in request order once every
+// invocation has finished, so the response does not depend on which handler
+// finished first.
 func (s *HTTPServer) ExecuteBatch(req *batch.Request) (*batch.Response, error) {
 	// Every handler sees the same tokens, so the container is built once, on
 	// the first invocation addressed to this server, and shared by every
 	// handler in the batch.
 	var execMeta ucan.Container
 
-	var receipts []ucan.Receipt
-	var invocations []ucan.Invocation
-	var delegations []ucan.Delegation
-	var extraReceipts []ucan.Receipt
-	for _, inv := range req.Invocations() {
+	// Each goroutine writes only its own slot, so the slice needs no lock and
+	// the merge below runs in request order.
+	results := make([]batchResult, len(req.Invocations()))
+	var wg sync.WaitGroup
+	var slots chan struct{}
+	if s.maxConcurrency > 0 {
+		slots = make(chan struct{}, s.maxConcurrency)
+	}
+	for i, inv := range req.Invocations() {
 		aud := inv.Audience()
 		if !aud.Defined() {
 			aud = inv.Subject()
@@ -106,21 +121,49 @@ func (s *HTTPServer) ExecuteBatch(req *batch.Request) (*batch.Response, error) {
 		if execMeta == nil {
 			execMeta = batchMetadata(req)
 		}
-		execReq := execution.NewRequest(req.Context(), inv, execution.WithRequestMetadata(execMeta))
+		// Acquire before spawning, so a request larger than the cap waits in
+		// this loop instead of as a pile of blocked goroutines.
+		if slots != nil {
+			slots <- struct{}{}
+		}
+		wg.Add(1)
+		go func() {
+			defer wg.Done()
+			if slots != nil {
+				defer func() { <-slots }()
+			}
+			execReq := execution.NewRequest(req.Context(), inv, execution.WithRequestMetadata(execMeta))
+			res, err := s.executor.Execute(execReq)
+			results[i] = batchResult{executed: true, response: res, err: err}
+		}()
+	}
+	wg.Wait()
 
-		res, err := s.executor.Execute(execReq)
-		if err != nil {
+	var errs error
+	var receipts []ucan.Receipt
+	var invocations []ucan.Invocation
+	var delegations []ucan.Delegation
+	var extraReceipts []ucan.Receipt
+	for i, inv := range req.Invocations() {
+		result := results[i]
+		if !result.executed {
+			continue
+		}
+		if result.err != nil {
 			// This shouldn't really happen, executor only returns an error when
 			// result or metadata cannot be set, which is likely a developer error.
-			return nil, fmt.Errorf("executing task %s: %w", inv.Task().Link(), err)
+			errs = errors.Join(errs, fmt.Errorf("executing task %s: %w", inv.Task().Link(), result.err))
+			continue
 		}
-
-		receipts = append(receipts, res.Receipt())
-		if res.Metadata() != nil {
-			invocations = append(invocations, res.Metadata().Invocations()...)
-			delegations = append(delegations, res.Metadata().Delegations()...)
-			extraReceipts = append(extraReceipts, res.Metadata().Receipts()...)
+		receipts = append(receipts, result.response.Receipt())
+		if result.response.Metadata() != nil {
+			invocations = append(invocations, result.response.Metadata().Invocations()...)
+			delegations = append(delegations, result.response.Metadata().Delegations()...)
+			extraReceipts = append(extraReceipts, result.response.Metadata().Receipts()...)
 		}
+	}
+	if errs != nil {
+		return nil, errs
 	}
 
 	var options []batch.ResponseOption
@@ -145,6 +188,14 @@ func batchMetadata(req *batch.Request) ucan.Container {
 		)
 	}
 	return container.New(options...)
+}
+
+// batchResult is the outcome of executing one invocation of a batch. executed
+// is false for invocations addressed elsewhere, which get no receipt.
+type batchResult struct {
+	executed bool
+	response execution.Response
+	err      error
 }
 
 func (s *HTTPServer) ServeHTTP(w http.ResponseWriter, r *http.Request) {

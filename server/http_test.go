@@ -4,6 +4,7 @@ import (
 	"context"
 	"io"
 	"net/http"
+	"sync"
 	"testing"
 	"time"
 
@@ -178,9 +179,12 @@ func TestHTTPServerBatch(t *testing.T) {
 	t.Run("batch handlers share one metadata container", func(t *testing.T) {
 		server := server.NewHTTP(service)
 
+		var mu sync.Mutex
 		var seen []ucan.Container
 		server.Handle(testutil.TestEchoCommand, func(req execution.Request, res execution.Response) error {
+			mu.Lock()
 			seen = append(seen, req.Metadata())
+			mu.Unlock()
 			return res.SetSuccess(datamodel.Map{})
 		})
 

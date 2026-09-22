@@ -6,11 +6,12 @@
 // that travel alongside them (proofs, receipts, context invocations), and a
 // [Response] holds the receipts keyed by the task they ran.
 //
-// Container encoding sorts tokens bytewise, so an executor sees no particular
-// order: a batch must not depend on one invocation running before another, and
-// receipts are addressed by task rather than by position. A container also
-// holds at most 8192 tokens, counting the invocations, their proofs and any
-// receipts together, so a batch and its metadata must fit within that.
+// Container encoding sorts tokens bytewise, and the server executes the
+// invocations of a request concurrently, so a batch must not depend on one
+// invocation running before another, and receipts are addressed by task
+// rather than by position. A container also holds at most 8192 tokens,
+// counting the invocations, their proofs and any receipts together, so a batch
+// and its metadata must fit within that.
 //
 // The single-invocation API in the execution package is a special case of
 // this one: a batch of one.
