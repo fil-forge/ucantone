@@ -49,10 +49,10 @@ func TestHTTPServer(t *testing.T) {
 		ct := container.New(container.WithInvocations(logInv))
 
 		r, w := io.Pipe()
-		go func() {
+		go func(ct *container.Container, w *io.PipeWriter) {
 			err := ct.MarshalCBOR(w)
 			w.CloseWithError(err)
-		}()
+		}(ct, w)
 
 		req := http.Request{Header: http.Header{}, Body: r}
 		req.Header.Set("Content-Type", dagcbor.ContentType)
@@ -84,10 +84,10 @@ func TestHTTPServer(t *testing.T) {
 		ct = container.New(container.WithInvocations(echoInv))
 
 		r, w = io.Pipe()
-		go func() {
+		go func(ct *container.Container, w *io.PipeWriter) {
 			err := ct.MarshalCBOR(w)
 			w.CloseWithError(err)
-		}()
+		}(ct, w)
 
 		req = http.Request{Header: http.Header{}, Body: r}
 		req.Header.Set("Content-Type", dagcbor.ContentType)
