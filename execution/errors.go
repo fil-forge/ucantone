@@ -17,15 +17,16 @@ func NewHandlerExecutionError(cmd ucan.Command, cause error) error {
 	}
 }
 
-const ExecutionPanicErrorName = "ExecutionPanicError"
+const ExecutionFailureErrorName = "ExecutionFailure"
 
-// NewExecutionPanicError is the failure a receipt carries when executing the
-// invocation panicked outside the handler, in validation code such as a DID
-// resolver or verifier factory. The panic value stays on the server.
-func NewExecutionPanicError(cmd ucan.Command) error {
+// NewExecutionFailureError is the failure a receipt carries when executing the
+// invocation panicked, in the handler or in validation code such as a DID
+// resolver or verifier factory. The receipt says only that execution failed;
+// the panic value and the fact that it was a panic stay on the server.
+func NewExecutionFailureError(cmd ucan.Command) error {
 	return edm.ErrorModel{
-		ErrorName: ExecutionPanicErrorName,
-		Message:   fmt.Sprintf("%q execution panicked", cmd),
+		ErrorName: ExecutionFailureErrorName,
+		Message:   fmt.Sprintf("%q execution failed", cmd),
 	}
 }
 

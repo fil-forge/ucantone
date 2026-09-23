@@ -45,7 +45,7 @@ func TestDispatcherValidationPanic(t *testing.T) {
 		return executor
 	}
 
-	t.Run("issues an execution panic error receipt", func(t *testing.T) {
+	t.Run("issues an execution failure receipt", func(t *testing.T) {
 		executor := newExecutor(t, dispatcher.WithPanicLogger(discardPanics))
 
 		resp, err := executor.Execute(execution.NewRequest(t.Context(), inv))
@@ -53,8 +53,8 @@ func TestDispatcherValidationPanic(t *testing.T) {
 
 		_, x := resp.Receipt().Out().Unpack()
 		require.Equal(t, map[string]any{
-			"name":    execution.ExecutionPanicErrorName,
-			"message": `"/console/log" execution panicked`,
+			"name":    execution.ExecutionFailureErrorName,
+			"message": `"/console/log" execution failed`,
 		}, testutil.ResultMap(t, x))
 	})
 

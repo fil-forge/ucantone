@@ -1,7 +1,6 @@
 package dispatcher
 
 import (
-	"errors"
 	"fmt"
 	"log"
 	"runtime"
@@ -51,10 +50,12 @@ func (d *Dispatcher) Handle(command ucan.Command, fn execution.HandlerFunc) {
 }
 
 // Execute validates the invocation and runs the handler registered for its
-// command. A panic anywhere along the way, in a handler or in validation code
-// such as a DID resolver or verifier factory, fails that task with a receipt
-// instead of escaping to the caller, so one misbehaving invocation cannot take
-// down a server that executes many at once.
+// command. A panic anywhere along the way, in the handler or in validation
+// code such as a DID resolver or verifier factory, fails that task with a
+// short-lived [execution.ExecutionFailureErrorName] receipt instead of
+// escaping to the caller, so one misbehaving invocation cannot take down a
+// server that executes many at once. The receipt does not say that the
+// failure was a panic; the panic value goes to the configured [PanicLogger].
 func (d *Dispatcher) Execute(req execution.Request) (res execution.Response, err error) {
 	// recover() alone cannot tell a normal return from panic(nil), which is
 	// recovered as nil under GODEBUG=panicnil=1, so the flag is what says
@@ -65,7 +66,7 @@ func (d *Dispatcher) Execute(req execution.Request) (res execution.Response, err
 			return
 		}
 		d.panicLogger(req, recover())
-		res, err = d.transientFailure(req, execution.NewExecutionPanicError(req.Invocation().Command()))
+		res, err = d.transientFailure(req, execution.NewExecutionFailureError(req.Invocation().Command()))
 	}()
 	res, err = d.execute(req)
 	returned = true
@@ -127,7 +128,7 @@ func (d *Dispatcher) execute(req execution.Request) (execution.Response, error) 
 		return nil, fmt.Errorf("failed to create response: %w", err)
 	}
 
-	err = d.runHandler(req, res, handler)
+	err = handler(req, res)
 	if err != nil {
 		return d.transientFailure(req, execution.NewHandlerExecutionError(cmd, err))
 	}
@@ -150,29 +151,6 @@ func (d *Dispatcher) transientFailure(req execution.Request, failure error) (exe
 	respOpts = append(respOpts, execution.WithFailure(failure))
 	return execution.NewResponse(req.Invocation().Task().Link(), respOpts...)
 }
-
-// runHandler calls the handler and turns a panic into a returned error, so a
-// misbehaving handler fails its own task the way a returned error does. The
-// panic value goes to the configured [PanicLogger]. The receipt tells the
-// client that the handler panicked and nothing more. Panics from anywhere else
-// in execution are caught by the boundary in [Dispatcher.Execute].
-func (d *Dispatcher) runHandler(req execution.Request, res execution.Response, handler execution.HandlerFunc) (err error) {
-	// See Execute for why a flag is needed alongside recover().
-	returned := false
-	defer func() {
-		if returned {
-			return
-		}
-		value := recover()
-		d.panicLogger(req, value)
-		err = errHandlerPanicked
-	}()
-	err = handler(req, res)
-	returned = true
-	return err
-}
-
-var errHandlerPanicked = errors.New("handler panicked")
 
 // logPanic is the default [PanicLogger]. It prints the panic and the stack
 // through the standard log package, the way net/http reports the panics it

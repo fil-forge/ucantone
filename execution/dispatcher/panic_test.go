@@ -32,7 +32,7 @@ func TestDispatcherHandlerPanic(t *testing.T) {
 	}
 
 	for desc, value := range panicValues {
-		t.Run("issues a handler execution error receipt when the handler panics with "+desc, func(t *testing.T) {
+		t.Run("issues an execution failure receipt when the handler panics with "+desc, func(t *testing.T) {
 			executor := dispatcher.New(service, dispatcher.WithPanicLogger(discardPanics))
 			executor.Handle(testutil.ConsoleLogCommand, func(req execution.Request, res execution.Response) error {
 				panic(value)
@@ -43,8 +43,8 @@ func TestDispatcherHandlerPanic(t *testing.T) {
 
 			_, x := resp.Receipt().Out().Unpack()
 			require.Equal(t, map[string]any{
-				"name":    execution.HandlerExecutionErrorName,
-				"message": `"/console/log" handler execution error: handler panicked`,
+				"name":    execution.ExecutionFailureErrorName,
+				"message": `"/console/log" execution failed`,
 			}, testutil.ResultMap(t, x))
 		})
 	}
@@ -70,8 +70,8 @@ func TestDispatcherHandlerPanic(t *testing.T) {
 
 		_, x := resp.Receipt().Out().Unpack()
 		require.Equal(t, map[string]any{
-			"name":    execution.HandlerExecutionErrorName,
-			"message": `"/console/log" handler execution error: handler panicked`,
+			"name":    execution.ExecutionFailureErrorName,
+			"message": `"/console/log" execution failed`,
 		}, testutil.ResultMap(t, x))
 	})
 

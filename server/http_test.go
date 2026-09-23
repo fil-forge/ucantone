@@ -216,7 +216,7 @@ func TestHTTPServerBatch(t *testing.T) {
 		rcpt, ok := res.Receipt(inv.Task().Link())
 		require.True(t, ok)
 		_, x := rcpt.Out().Unpack()
-		require.Equal(t, execution.HandlerExecutionErrorName, testutil.ResultMap(t, x)["name"])
+		require.Equal(t, execution.ExecutionFailureErrorName, testutil.ResultMap(t, x)["name"])
 		require.Equal(t, []any{"boom"}, logged)
 	})
 
@@ -248,7 +248,7 @@ func TestHTTPServerBatch(t *testing.T) {
 		aliceRcpt, ok := res.Receipt(fromAlice.Task().Link())
 		require.True(t, ok)
 		_, x := aliceRcpt.Out().Unpack()
-		require.Equal(t, execution.ExecutionPanicErrorName, testutil.ResultMap(t, x)["name"])
+		require.Equal(t, execution.ExecutionFailureErrorName, testutil.ResultMap(t, x)["name"])
 
 		bobRcpt, ok := res.Receipt(fromBob.Task().Link())
 		require.True(t, ok)
