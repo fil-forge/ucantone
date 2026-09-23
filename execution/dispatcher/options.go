@@ -59,7 +59,7 @@ func WithHandlerErrorReceiptTTL(ttl time.Duration) Option {
 // [runtime/debug.Stack] called from it returns the stack of the panic.
 type PanicLogger func(req execution.Request, value any)
 
-// WithPanicLogger sets the function that reports recovered panics.
+// WithPanicLogger sets the function that records recovered panics.
 // The default prints the command, task, panic value and stack through the
 // standard log package. Set it to route panics to another logger or an error
 // tracker. A nil logger panics.
