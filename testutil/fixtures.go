@@ -29,10 +29,10 @@ var (
 	service, _ = ed25519.Parse("MgCZyxtpD6SFBcXCXUKPTkLrc2+RlmaBjL/tMgWCT3+MUlw==")
 	Service    = multikey.KeyIssuer(service)
 
-	// did:web:test.storacha.network
-	webServiceDID, _ = did.Parse("did:web:test.storacha.network")
+	// did:web:example.com
+	webServiceDID, _ = did.Parse("did:web:example.com")
 	WebService       = multikey.NewIssuer(webServiceDID, service)
 	WebServiceSigner = service
 
-	TestURL, _ = url.Parse("https://test.storacha.network")
+	TestURL, _ = url.Parse("https://example.com")
 )
