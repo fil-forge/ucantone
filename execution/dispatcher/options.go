@@ -3,6 +3,8 @@ package dispatcher
 import (
 	"time"
 
+	"github.com/fil-forge/ucantone/execution"
+
 	"github.com/fil-forge/ucantone/validator"
 )
 
@@ -19,6 +21,7 @@ type execConfig struct {
 	validationOpts         []validator.Option
 	receiptTimestamps      bool
 	handlerErrorReceiptTTL time.Duration
+	panicLogger            PanicLogger
 }
 
 func WithValidationOptions(options ...validator.Option) Option {
@@ -42,5 +45,28 @@ func WithReceiptTimestamps(enabled bool) Option {
 func WithHandlerErrorReceiptTTL(ttl time.Duration) Option {
 	return func(cfg *execConfig) {
 		cfg.handlerErrorReceiptTTL = ttl
+	}
+}
+
+// PanicLogger is called with the request and the recovered value when
+// executing an invocation panics, whether in the handler or in validation code
+// such as a DID resolver or verifier factory. The dispatcher has already
+// decided the outcome by then: the task fails with the receipt
+// [execution.NewExecutionFailureError] builds, which does not reveal the panic.
+// The logger runs on the panicking goroutine inside the deferred recover, so
+// [runtime.Stack] or [runtime/debug.Stack] called from it returns the stack of
+// the panic.
+type PanicLogger func(req execution.Request, value any)
+
+// WithPanicLogger sets the function that records recovered panics.
+// The default prints the command, task, panic value and stack through the
+// standard log package. Set it to route panics to another logger or an error
+// tracker. A nil logger panics.
+func WithPanicLogger(logger PanicLogger) Option {
+	if logger == nil {
+		panic("dispatcher.WithPanicLogger: logger must not be nil")
+	}
+	return func(cfg *execConfig) {
+		cfg.panicLogger = logger
 	}
 }

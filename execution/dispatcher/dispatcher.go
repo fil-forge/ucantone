@@ -2,6 +2,8 @@ package dispatcher
 
 import (
 	"fmt"
+	"log"
+	"runtime"
 	"time"
 
 	"github.com/fil-forge/ucantone/execution"
@@ -17,6 +19,7 @@ type Dispatcher struct {
 	validationOpts         []validator.Option
 	receiptTimestamps      bool
 	handlerErrorReceiptTTL time.Duration
+	panicLogger            PanicLogger
 }
 
 // New creates an invocation executor that executes UCAN invocations by
@@ -25,7 +28,10 @@ type Dispatcher struct {
 // The authority is the identity of the local authority, used to verify
 // signatures of delegations signed by it and sign receipts for executed tasks.
 func New(authority ucan.Issuer, options ...Option) *Dispatcher {
-	cfg := execConfig{handlerErrorReceiptTTL: DefaultHandlerErrorReceiptTTL}
+	cfg := execConfig{
+		handlerErrorReceiptTTL: DefaultHandlerErrorReceiptTTL,
+		panicLogger:            logPanic,
+	}
 	for _, opt := range options {
 		opt(&cfg)
 	}
@@ -35,6 +41,7 @@ func New(authority ucan.Issuer, options ...Option) *Dispatcher {
 		validationOpts:         cfg.validationOpts,
 		receiptTimestamps:      cfg.receiptTimestamps,
 		handlerErrorReceiptTTL: cfg.handlerErrorReceiptTTL,
+		panicLogger:            cfg.panicLogger,
 	}
 }
 
@@ -42,7 +49,32 @@ func (d *Dispatcher) Handle(command ucan.Command, fn execution.HandlerFunc) {
 	d.handlers[command] = fn
 }
 
-func (d *Dispatcher) Execute(req execution.Request) (execution.Response, error) {
+// Execute validates the invocation and runs the handler registered for its
+// command. A panic anywhere along the way, in the handler or in validation
+// code such as a DID resolver or verifier factory, fails that task with a
+// short-lived [execution.ExecutionFailureErrorName] receipt instead of
+// escaping to the caller, so one misbehaving invocation cannot take down a
+// server that executes many at once. The receipt does not say that the
+// failure was a panic; the panic value goes to the configured [PanicLogger].
+func (d *Dispatcher) Execute(req execution.Request) (res execution.Response, err error) {
+	// recover() alone cannot tell a normal return from panic(nil), which is
+	// recovered as nil under GODEBUG=panicnil=1, so the flag is what says
+	// whether execute returned.
+	returned := false
+	defer func() {
+		if returned {
+			return
+		}
+		d.panicLogger(req, recover())
+		res, err = d.transientFailure(req, execution.NewExecutionFailureError(req.Invocation().Command()))
+	}()
+	res, err = d.execute(req)
+	returned = true
+	return res, err
+}
+
+// execute is [Dispatcher.Execute] without the recovery boundary.
+func (d *Dispatcher) execute(req execution.Request) (execution.Response, error) {
 	aud := req.Invocation().Audience()
 	if !aud.Defined() {
 		aud = req.Invocation().Subject()
@@ -98,19 +130,37 @@ func (d *Dispatcher) Execute(req execution.Request) (execution.Response, error) 
 
 	err = handler(req, res)
 	if err != nil {
-		respOpts := []execution.ResponseOption{
-			execution.WithIssuer(d.authority),
-			execution.WithReceiptTimestamp(d.receiptTimestamps),
-		}
-		// Errors returned from handlers are unexpected and likely transient,
-		// so the receipt asserting the failure is short-lived. Permanent
-		// errors are set as error results on the response by the handler.
-		if d.handlerErrorReceiptTTL > 0 {
-			exp := ucan.Now() + ucan.UnixTimestamp(d.handlerErrorReceiptTTL.Seconds())
-			respOpts = append(respOpts, execution.WithReceiptExpiration(exp))
-		}
-		respOpts = append(respOpts, execution.WithFailure(execution.NewHandlerExecutionError(cmd, err)))
-		return execution.NewResponse(req.Invocation().Task().Link(), respOpts...)
+		return d.transientFailure(req, execution.NewHandlerExecutionError(cmd, err))
 	}
 	return res, nil
 }
+
+// transientFailure builds the response for a failure that is unexpected and
+// likely transient: an error returned from a handler or a recovered panic. The
+// receipt asserting it is short-lived, so clients retry rather than cache it.
+// Permanent errors are set as error results on the response by the handler.
+func (d *Dispatcher) transientFailure(req execution.Request, failure error) (execution.Response, error) {
+	respOpts := []execution.ResponseOption{
+		execution.WithIssuer(d.authority),
+		execution.WithReceiptTimestamp(d.receiptTimestamps),
+	}
+	if d.handlerErrorReceiptTTL > 0 {
+		exp := ucan.Now() + ucan.UnixTimestamp(d.handlerErrorReceiptTTL.Seconds())
+		respOpts = append(respOpts, execution.WithReceiptExpiration(exp))
+	}
+	respOpts = append(respOpts, execution.WithFailure(failure))
+	return execution.NewResponse(req.Invocation().Task().Link(), respOpts...)
+}
+
+// logPanic is the default [PanicLogger]. It prints the panic and the stack
+// through the standard log package, the way net/http reports the panics it
+// recovers, so it adds no dependency to a binary that serves HTTP.
+func logPanic(req execution.Request, value any) {
+	buf := make([]byte, panicStackSize)
+	buf = buf[:runtime.Stack(buf, false)]
+	log.Printf("panic executing %s task %s: %v\n%s",
+		req.Invocation().Command(), req.Invocation().Task().Link(), value, buf)
+}
+
+// panicStackSize matches the buffer net/http uses for the same purpose.
+const panicStackSize = 64 << 10
