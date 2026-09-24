@@ -86,7 +86,11 @@ holds the wire structs and their generated codecs.
   receipts looked up by task CID.
 - `server/` — `NewHTTP(issuer)` is an `http.Handler` (and `RoundTripper`, for
   in-process tests) over a dispatcher; its `ExecuteBatch` runs every
-  invocation addressed to it. `client/` — `NewHTTP(url)`; `ExecuteBatch` is
+  invocation addressed to it. `middleware/` — `Apply(routes, mw...)` wraps a
+  route's handler with checks made after validation and before the command:
+  `NotSelfSigned`, `OnlySubject(did)`, `OnlyIssuer(did)`. They are silent; a
+  service that wants the rejections logged adds its own middleware outermost.
+  `client/` — `NewHTTP(url)`; `ExecuteBatch` is
   the primitive and `Execute` a batch of one; `client.New(transport, codec)`
   for other transports. `transport/` — the inbound/outbound codec interfaces;
   HTTP bodies are DAG-CBOR containers.
