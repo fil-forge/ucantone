@@ -2,6 +2,7 @@ package transport_test
 
 import (
 	"bytes"
+	"context"
 	"errors"
 	"io"
 	"net/http"
@@ -144,8 +145,11 @@ func TestHTTPOutboundCodec(t *testing.T) {
 	t.Run("encode", func(t *testing.T) {
 		ct := container.New(container.WithDelegations(del), container.WithInvocations(inv))
 
-		r, err := transport.DefaultHTTPOutboundCodec.Encode(ct)
+		type key struct{}
+		ctx := context.WithValue(t.Context(), key{}, "caller")
+		r, err := transport.DefaultHTTPOutboundCodec.Encode(ctx, ct)
 		require.NoError(t, err)
+		require.Equal(t, "caller", r.Context().Value(key{}))
 
 		dct := container.Container{}
 		err = dct.UnmarshalCBOR(r.Body)
