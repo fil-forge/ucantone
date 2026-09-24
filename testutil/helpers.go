@@ -105,3 +105,13 @@ func RandomDID(t *testing.T) did.DID {
 	t.Helper()
 	return RandomMultikeyIssuer(t).DID()
 }
+
+// Must2 is Must for functions that return two values and an error: it fails
+// the test if err is non-nil and otherwise returns both values.
+func Must2[T, U any](val1 T, val2 U, err error) func(t *testing.T) (T, U) {
+	return func(t *testing.T) (T, U) {
+		t.Helper()
+		require.NoError(t, err)
+		return val1, val2
+	}
+}
