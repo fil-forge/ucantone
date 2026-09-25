@@ -82,7 +82,7 @@ type Statement struct {
 	statement  *Statement
 	statements []*Statement
 	selector   selector.Selector
-	glob       glob.Glob
+	glob       *glob.Pattern
 }
 
 func newStatement(m pdm.StatementModel) (Statement, error) {
