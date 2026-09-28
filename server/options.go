@@ -5,6 +5,7 @@ import (
 
 	"github.com/fil-forge/ucantone/execution/dispatcher"
 	"github.com/fil-forge/ucantone/transport"
+	"github.com/fil-forge/ucantone/ucan"
 	"github.com/fil-forge/ucantone/validator"
 )
 
@@ -15,8 +16,9 @@ type httpServerConfig struct {
 	codec             transport.InboundCodec[*http.Request, *http.Response]
 	validationOpts    []validator.Option
 	receiptTimestamps bool
-	listeners         []EventListener
+	listeners         []listenerEntry
 	panicLogger       dispatcher.PanicLogger
+	listenerPanics    ListenerPanicLogger
 	maxConcurrency    int
 }
 
@@ -68,8 +70,9 @@ func WithMaxConcurrency(n int) HTTPOption {
 
 // WithPanicLogger sets the function the server's dispatcher records recovered
 // panics with, from handlers and from validation code alike. See
-// [dispatcher.WithPanicLogger] for the default and the contract. A nil logger
-// panics.
+// [dispatcher.WithPanicLogger] for the default and the contract. A panic in a
+// concurrent event listener is recorded by [WithListenerPanicLogger] instead.
+// A nil logger panics.
 func WithPanicLogger(logger dispatcher.PanicLogger) HTTPOption {
 	if logger == nil {
 		panic("server.WithPanicLogger: logger must not be nil")
@@ -80,9 +83,57 @@ func WithPanicLogger(logger dispatcher.PanicLogger) HTTPOption {
 }
 
 // WithEventListener registers an [EventListener] to observe the server's
-// requests and responses as they are decoded and encoded.
+// requests and responses as they are decoded and encoded. Its OnRequestDecode
+// runs before any handler does, so an error from it fails the request before
+// anything executes: the place for a listener that gates execution.
 func WithEventListener(listener EventListener) HTTPOption {
 	return func(cfg *httpServerConfig) {
-		cfg.listeners = append(cfg.listeners, listener)
+		cfg.listeners = append(cfg.listeners, listenerEntry{EventListener: listener})
 	}
+}
+
+// WithConcurrentEventListener registers an [EventListener] whose
+// OnRequestDecode runs on its own goroutine while the request's handlers
+// execute, instead of before them. The server waits for it before any
+// OnResponseEncode runs, so whatever it records is in place by the time the
+// response leaves, and an error from it still fails the request, after the
+// handlers have run. Its OnResponseEncode runs as it does for
+// [WithEventListener]. The place for a listener that only observes the
+// request, such as one that stores it, and whose work would otherwise delay
+// every handler by its own duration.
+func WithConcurrentEventListener(listener EventListener) HTTPOption {
+	return func(cfg *httpServerConfig) {
+		cfg.listeners = append(cfg.listeners, listenerEntry{EventListener: listener, concurrent: true})
+	}
+}
+
+// ListenerPanicLogger is called with the request and the recovered value when
+// a listener registered with [WithConcurrentEventListener] panics. The server
+// has already decided the outcome by then: the request fails with an error
+// that does not reveal the panic, since the error reaches the HTTP caller.
+// The logger runs on the panicking goroutine inside the deferred recover, so
+// [runtime.Stack] or [runtime/debug.Stack] called from it returns the stack of
+// the panic.
+type ListenerPanicLogger func(request ucan.Container, value any)
+
+// WithListenerPanicLogger sets the function that records a concurrent event
+// listener's recovered panic. The default prints the panic value and stack
+// through the standard log package, as [dispatcher.WithPanicLogger]'s does.
+// Set it to route these panics wherever handler panics go. A nil logger
+// panics.
+func WithListenerPanicLogger(logger ListenerPanicLogger) HTTPOption {
+	if logger == nil {
+		panic("server.WithListenerPanicLogger: logger must not be nil")
+	}
+	return func(cfg *httpServerConfig) {
+		cfg.listenerPanics = logger
+	}
+}
+
+// listenerEntry is a registered listener and how its OnRequestDecode runs.
+// One list keeps registration order for OnResponseEncode, which runs the same
+// way for every listener.
+type listenerEntry struct {
+	EventListener
+	concurrent bool
 }
