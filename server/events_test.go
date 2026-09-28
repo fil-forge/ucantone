@@ -165,16 +165,26 @@ func TestHTTPServerConcurrentEventListener(t *testing.T) {
 		require.True(t, handled)
 	})
 
-	t.Run("a panic fails the request", func(t *testing.T) {
-		srv := server.NewHTTP(service, server.WithConcurrentEventListener(listenerFuncs{
-			decode: func(ctx context.Context, ct ucan.Container) error { panic("boom") },
-		}))
+	t.Run("a panic fails the request without revealing the value", func(t *testing.T) {
+		// The error reaches the HTTP caller, so the panic value goes to the
+		// logger alone.
+		var logged any
+		srv := server.NewHTTP(service,
+			server.WithConcurrentEventListener(listenerFuncs{
+				decode: func(ctx context.Context, ct ucan.Container) error { panic("secret") },
+			}),
+			server.WithListenerPanicLogger(func(request ucan.Container, value any) {
+				logged = value
+			}),
+		)
 		srv.Handle(testutil.TestEchoCommand, func(req execution.Request, res execution.Response) error {
 			return res.SetSuccess(datamodel.Map{})
 		})
 
 		_, err := roundTrip(t, srv, alice, service)
-		require.ErrorContains(t, err, "listener panicked: boom")
+		require.ErrorContains(t, err, "event listener panicked")
+		require.NotContains(t, err.Error(), "secret")
+		require.Equal(t, "secret", logged)
 	})
 
 	t.Run("a synchronous listener still runs before the handlers", func(t *testing.T) {

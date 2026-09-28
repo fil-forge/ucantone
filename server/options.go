@@ -5,6 +5,7 @@ import (
 
 	"github.com/fil-forge/ucantone/execution/dispatcher"
 	"github.com/fil-forge/ucantone/transport"
+	"github.com/fil-forge/ucantone/ucan"
 	"github.com/fil-forge/ucantone/validator"
 )
 
@@ -17,6 +18,7 @@ type httpServerConfig struct {
 	receiptTimestamps bool
 	listeners         []listenerEntry
 	panicLogger       dispatcher.PanicLogger
+	listenerPanics    ListenerPanicLogger
 	maxConcurrency    int
 }
 
@@ -68,8 +70,9 @@ func WithMaxConcurrency(n int) HTTPOption {
 
 // WithPanicLogger sets the function the server's dispatcher records recovered
 // panics with, from handlers and from validation code alike. See
-// [dispatcher.WithPanicLogger] for the default and the contract. A nil logger
-// panics.
+// [dispatcher.WithPanicLogger] for the default and the contract. A panic in a
+// concurrent event listener is recorded by [WithListenerPanicLogger] instead.
+// A nil logger panics.
 func WithPanicLogger(logger dispatcher.PanicLogger) HTTPOption {
 	if logger == nil {
 		panic("server.WithPanicLogger: logger must not be nil")
@@ -101,6 +104,29 @@ func WithEventListener(listener EventListener) HTTPOption {
 func WithConcurrentEventListener(listener EventListener) HTTPOption {
 	return func(cfg *httpServerConfig) {
 		cfg.listeners = append(cfg.listeners, listenerEntry{EventListener: listener, concurrent: true})
+	}
+}
+
+// ListenerPanicLogger is called with the request and the recovered value when
+// a listener registered with [WithConcurrentEventListener] panics. The server
+// has already decided the outcome by then: the request fails with an error
+// that does not reveal the panic, since the error reaches the HTTP caller.
+// The logger runs on the panicking goroutine inside the deferred recover, so
+// [runtime.Stack] or [runtime/debug.Stack] called from it returns the stack of
+// the panic.
+type ListenerPanicLogger func(request ucan.Container, value any)
+
+// WithListenerPanicLogger sets the function that records a concurrent event
+// listener's recovered panic. The default prints the panic value and stack
+// through the standard log package, as [dispatcher.WithPanicLogger]'s does.
+// Set it to route these panics wherever handler panics go. A nil logger
+// panics.
+func WithListenerPanicLogger(logger ListenerPanicLogger) HTTPOption {
+	if logger == nil {
+		panic("server.WithListenerPanicLogger: logger must not be nil")
+	}
+	return func(cfg *httpServerConfig) {
+		cfg.listenerPanics = logger
 	}
 }
 

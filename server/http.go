@@ -5,7 +5,9 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"log"
 	"net/http"
+	"runtime"
 	"sync"
 
 	"github.com/fil-forge/ucantone/execution"
@@ -21,6 +23,7 @@ type HTTPServer struct {
 	executor       *dispatcher.Dispatcher
 	codec          transport.InboundCodec[*http.Request, *http.Response]
 	listeners      []listenerEntry
+	listenerPanics ListenerPanicLogger
 	maxConcurrency int
 }
 
@@ -33,6 +36,7 @@ var (
 func NewHTTP(id ucan.Issuer, options ...HTTPOption) *HTTPServer {
 	cfg := httpServerConfig{
 		codec:          transport.DefaultHTTPInboundCodec,
+		listenerPanics: logListenerPanic,
 		maxConcurrency: DefaultMaxConcurrency,
 	}
 	for _, opt := range options {
@@ -51,6 +55,7 @@ func NewHTTP(id ucan.Issuer, options ...HTTPOption) *HTTPServer {
 		codec:          cfg.codec,
 		executor:       executor,
 		listeners:      cfg.listeners,
+		listenerPanics: cfg.listenerPanics,
 		maxConcurrency: cfg.maxConcurrency,
 	}
 }
@@ -84,7 +89,7 @@ func (s *HTTPServer) startRequestDecode(ctx context.Context, ct ucan.Container) 
 			continue
 		}
 		wg.Go(func() {
-			errs[i] = requestDecode(ctx, listener, ct)
+			errs[i] = s.requestDecode(ctx, listener, ct)
 		})
 	}
 	return func() error {
@@ -93,8 +98,14 @@ func (s *HTTPServer) startRequestDecode(ctx context.Context, ct ucan.Container) 
 	}
 }
 
-// requestDecode calls the listener, turning a panic into an error.
-func requestDecode(ctx context.Context, listener RequestDecodeListener, ct ucan.Container) (err error) {
+// errListenerPanic is what a panicking listener fails the request with. It
+// says nothing about the panic itself: the error reaches the HTTP caller, and
+// the value goes to the [ListenerPanicLogger] alone.
+var errListenerPanic = errors.New("event listener panicked")
+
+// requestDecode calls the listener, turning a panic into [errListenerPanic]
+// after recording it.
+func (s *HTTPServer) requestDecode(ctx context.Context, listener RequestDecodeListener, ct ucan.Container) (err error) {
 	// recover() alone cannot tell a normal return from panic(nil), so the
 	// flag is what says whether the listener returned.
 	returned := false
@@ -102,12 +113,25 @@ func requestDecode(ctx context.Context, listener RequestDecodeListener, ct ucan.
 		if returned {
 			return
 		}
-		err = fmt.Errorf("listener panicked: %v", recover())
+		s.listenerPanics(ct, recover())
+		err = errListenerPanic
 	}()
 	err = listener.OnRequestDecode(ctx, ct)
 	returned = true
 	return err
 }
+
+// logListenerPanic is the default [ListenerPanicLogger]. It prints the panic
+// and the stack through the standard log package, as the dispatcher's default
+// does for handler panics.
+func logListenerPanic(_ ucan.Container, value any) {
+	buf := make([]byte, panicStackSize)
+	buf = buf[:runtime.Stack(buf, false)]
+	log.Printf("panic in event listener: %v\n%s", value, buf)
+}
+
+// panicStackSize matches the buffer net/http uses for the same purpose.
+const panicStackSize = 64 << 10
 
 // emitResponseEncode calls OnResponseEncode of every listener, however it was
 // registered, in registration order.
@@ -285,7 +309,8 @@ func (s *HTTPServer) RoundTrip(r *http.Request) (*http.Response, error) {
 		batch.WithReceipts(reqContainer.Receipts()...),
 	))
 	if err != nil {
-		return nil, err
+		// The listeners' errors are reported too, not just waited for.
+		return nil, errors.Join(err, awaitRequestDecode())
 	}
 
 	var receipts []ucan.Receipt
