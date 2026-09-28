@@ -20,7 +20,7 @@ type HTTPServer struct {
 	id             ucan.Issuer
 	executor       *dispatcher.Dispatcher
 	codec          transport.InboundCodec[*http.Request, *http.Response]
-	listeners      []EventListener
+	listeners      []listenerEntry
 	maxConcurrency int
 }
 
@@ -55,9 +55,14 @@ func NewHTTP(id ucan.Issuer, options ...HTTPOption) *HTTPServer {
 	}
 }
 
+// emitRequestDecode calls OnRequestDecode of every listener registered with
+// [WithEventListener], before any handler runs.
 func (s *HTTPServer) emitRequestDecode(ctx context.Context, ct ucan.Container) error {
 	var errs error
 	for _, listener := range s.listeners {
+		if listener.concurrent {
+			continue
+		}
 		if err := listener.OnRequestDecode(ctx, ct); err != nil {
 			errs = errors.Join(errs, err)
 		}
@@ -65,6 +70,47 @@ func (s *HTTPServer) emitRequestDecode(ctx context.Context, ct ucan.Container) e
 	return errs
 }
 
+// startRequestDecode calls OnRequestDecode of every listener registered with
+// [WithConcurrentEventListener], each on its own goroutine, and returns a
+// function that waits for them all and reports their errors. The function is
+// safe to call more than once. A panic in a listener becomes an error: unlike
+// a listener called from ServeHTTP, a goroutine has no net/http recovery
+// boundary above it.
+func (s *HTTPServer) startRequestDecode(ctx context.Context, ct ucan.Container) func() error {
+	var wg sync.WaitGroup
+	errs := make([]error, len(s.listeners))
+	for i, listener := range s.listeners {
+		if !listener.concurrent {
+			continue
+		}
+		wg.Go(func() {
+			errs[i] = requestDecode(ctx, listener, ct)
+		})
+	}
+	return func() error {
+		wg.Wait()
+		return errors.Join(errs...)
+	}
+}
+
+// requestDecode calls the listener, turning a panic into an error.
+func requestDecode(ctx context.Context, listener RequestDecodeListener, ct ucan.Container) (err error) {
+	// recover() alone cannot tell a normal return from panic(nil), so the
+	// flag is what says whether the listener returned.
+	returned := false
+	defer func() {
+		if returned {
+			return
+		}
+		err = fmt.Errorf("listener panicked: %v", recover())
+	}()
+	err = listener.OnRequestDecode(ctx, ct)
+	returned = true
+	return err
+}
+
+// emitResponseEncode calls OnResponseEncode of every listener, however it was
+// registered, in registration order.
 func (s *HTTPServer) emitResponseEncode(ctx context.Context, ct ucan.Container) error {
 	var errs error
 	for _, listener := range s.listeners {
@@ -225,6 +271,12 @@ func (s *HTTPServer) RoundTrip(r *http.Request) (*http.Response, error) {
 	if err != nil {
 		return nil, fmt.Errorf("emitting request decode event: %w", err)
 	}
+	// The concurrent listeners observe the request while its invocations
+	// execute. Every return path waits for them, the error paths included:
+	// the request context is cancelled once ServeHTTP returns, and a listener
+	// still running would see its work fail under it.
+	awaitRequestDecode := s.startRequestDecode(r.Context(), reqContainer)
+	defer awaitRequestDecode()
 
 	res, err := s.ExecuteBatch(batch.NewRequest(
 		r.Context(),
@@ -252,6 +304,11 @@ func (s *HTTPServer) RoundTrip(r *http.Request) (*http.Response, error) {
 	}
 	respContainer := container.New(options...)
 
+	// The response listeners run once the request is fully recorded, so a
+	// listener that stores both halves sees them land in order.
+	if err := awaitRequestDecode(); err != nil {
+		return nil, fmt.Errorf("emitting request decode event: %w", err)
+	}
 	err = s.emitResponseEncode(r.Context(), respContainer)
 	if err != nil {
 		return nil, fmt.Errorf("emitting response encode event: %w", err)

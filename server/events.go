@@ -15,7 +15,10 @@ type EventListener interface {
 }
 
 // RequestDecodeListener is an observer with a function that is called after an
-// execution request has been decoded by the codec.
+// execution request has been decoded by the codec. Whether it is called
+// before the request's handlers run or alongside them depends on how the
+// listener is registered: see [WithEventListener] and
+// [WithConcurrentEventListener].
 type RequestDecodeListener interface {
 	OnRequestDecode(ctx context.Context, container ucan.Container) error
 }

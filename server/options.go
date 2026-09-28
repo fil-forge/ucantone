@@ -15,7 +15,7 @@ type httpServerConfig struct {
 	codec             transport.InboundCodec[*http.Request, *http.Response]
 	validationOpts    []validator.Option
 	receiptTimestamps bool
-	listeners         []EventListener
+	listeners         []listenerEntry
 	panicLogger       dispatcher.PanicLogger
 	maxConcurrency    int
 }
@@ -80,9 +80,34 @@ func WithPanicLogger(logger dispatcher.PanicLogger) HTTPOption {
 }
 
 // WithEventListener registers an [EventListener] to observe the server's
-// requests and responses as they are decoded and encoded.
+// requests and responses as they are decoded and encoded. Its OnRequestDecode
+// runs before any handler does, so an error from it fails the request before
+// anything executes: the place for a listener that gates execution.
 func WithEventListener(listener EventListener) HTTPOption {
 	return func(cfg *httpServerConfig) {
-		cfg.listeners = append(cfg.listeners, listener)
+		cfg.listeners = append(cfg.listeners, listenerEntry{EventListener: listener})
 	}
+}
+
+// WithConcurrentEventListener registers an [EventListener] whose
+// OnRequestDecode runs on its own goroutine while the request's handlers
+// execute, instead of before them. The server waits for it before any
+// OnResponseEncode runs, so whatever it records is in place by the time the
+// response leaves, and an error from it still fails the request, after the
+// handlers have run. Its OnResponseEncode runs as it does for
+// [WithEventListener]. The place for a listener that only observes the
+// request, such as one that stores it, and whose work would otherwise delay
+// every handler by its own duration.
+func WithConcurrentEventListener(listener EventListener) HTTPOption {
+	return func(cfg *httpServerConfig) {
+		cfg.listeners = append(cfg.listeners, listenerEntry{EventListener: listener, concurrent: true})
+	}
+}
+
+// listenerEntry is a registered listener and how its OnRequestDecode runs.
+// One list keeps registration order for OnResponseEncode, which runs the same
+// way for every listener.
+type listenerEntry struct {
+	EventListener
+	concurrent bool
 }
