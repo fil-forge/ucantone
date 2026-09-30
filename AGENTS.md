@@ -117,8 +117,14 @@ holds the wire structs and their generated codecs.
 - `result/` — `Result[OK, Err]`. `errors/` — `Named` errors and the
   `ErrorModel` that travels in receipts.
 - `testutil/` — randomised principals, args and helpers for tests here and in
-  dependents. `examples/` — runnable examples (`go test ./examples`); the
-  README snippets are copied from them, keep both in step.
+  dependents, plus the fixed identities `Alice`, `Bob`, `Carol`, `Mallory`,
+  `Service` and `WebService` (`fixtures.go`) for tests that need stable DIDs.
+  `examples/` — runnable examples (`go test ./examples`); the README snippets
+  are copied from them, keep both in step.
+- `ucanlib/` — invoker-side proof-chain assembly: `ProofChain`,
+  `DelegationMatcherFunc`, `ProofStore` and the container-backed
+  `ContainerProofStore`. The counterpart to `validator/`, which checks a
+  chain already attached to a token.
 - `notes.md` — design decisions and intentional divergences from the spec
   text. Add to it when you make another one.
 
