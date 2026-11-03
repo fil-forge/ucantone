@@ -160,18 +160,18 @@ func (s *HTTPServer) HandleBatch(command ucan.Command, fn execution.BatchHandler
 	s.executor.HandleBatch(command, fn)
 }
 
-// HandleRoute registers the handlers the route carries: its Handler with
-// [HTTPServer.Handle] and its BatchHandler with [HTTPServer.HandleBatch]. A
-// route with neither panics.
+// HandleRoute registers the route's handler. A route with a BatchHandler is
+// registered with [HTTPServer.HandleBatch] and its Handler is not registered,
+// since the batch handler takes precedence; any other route is registered with
+// [HTTPServer.Handle]. A route with neither handler panics.
 func (s *HTTPServer) HandleRoute(route Route) {
-	if route.Handler == nil && route.BatchHandler == nil {
-		panic(fmt.Sprintf("server.HandleRoute: route for %q has no handler", route.Command))
-	}
-	if route.Handler != nil {
-		s.Handle(route.Command, route.Handler)
-	}
-	if route.BatchHandler != nil {
+	switch {
+	case route.BatchHandler != nil:
 		s.HandleBatch(route.Command, route.BatchHandler)
+	case route.Handler != nil:
+		s.Handle(route.Command, route.Handler)
+	default:
+		panic(fmt.Sprintf("server.HandleRoute: route for %q has no handler", route.Command))
 	}
 }
 
