@@ -200,7 +200,9 @@ server always uses it for that command, even for a single invocation, and
 falls back to the per-invocation handler for commands without one:
 
 ```go
-ucanSrv.HandleRoute(echo.BatchRoute(func(items []binding.Batch[*types.EchoArguments, *types.EchoArguments]) error {
+echoBinding := binding.Bind[*types.EchoArguments, *types.EchoArguments](echo)
+
+ucanSrv.HandleRoute(echoBinding.BatchRoute(func(items []binding.Batch[*types.EchoArguments, *types.EchoArguments]) error {
   for _, item := range items {
     if err := item.Response.SetSuccess(item.Request.Task().Arguments()); err != nil {
       return err
