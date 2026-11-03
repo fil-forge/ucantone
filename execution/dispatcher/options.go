@@ -25,15 +25,16 @@ type execConfig struct {
 	maxConcurrency         int
 }
 
-// DefaultMaxConcurrency is how many validations and handler calls of one
-// [Dispatcher.ExecuteAll] call run at the same time unless [WithMaxConcurrency]
-// says otherwise.
+// DefaultMaxConcurrency is how many validations and per-invocation handler
+// calls of one [Dispatcher.ExecuteAll] call run at the same time unless
+// [WithMaxConcurrency] says otherwise.
 const DefaultMaxConcurrency = 100
 
-// WithMaxConcurrency caps how many validations and handler calls of one
-// [Dispatcher.ExecuteAll] call run at the same time. A batch handler call
-// takes one slot. The cap applies to each call alone: concurrent calls each
-// get their own.
+// WithMaxConcurrency caps how many validations and per-invocation handler
+// calls (those of a handler registered with [Dispatcher.Handle] or wrapped by
+// [Each]) of one [Dispatcher.ExecuteAll] call run at the same time. A batch
+// handler call does not count: it is one goroutine per command. The cap applies
+// to each call alone: concurrent calls each get their own.
 //
 // - WithMaxConcurrency(1) runs them serially, one after another.
 // - WithMaxConcurrency(0) removes the cap.

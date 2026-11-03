@@ -1,10 +1,12 @@
 package dispatcher
 
 import (
+	"context"
 	"errors"
 	"fmt"
 	"log"
 	"runtime"
+	"slices"
 	"sync"
 	"time"
 
@@ -16,9 +18,10 @@ import (
 // Dispatcher executes UCAN invocations by dispatching them to registered
 // handlers.
 type Dispatcher struct {
-	authority              ucan.Issuer
-	handlers               map[ucan.Command]execution.HandlerFunc
-	batchHandlers          map[ucan.Command]execution.BatchHandlerFunc
+	authority ucan.Issuer
+	// handlers holds one batch handler per command. A per-invocation handler is
+	// registered wrapped by [Each].
+	handlers               map[ucan.Command]execution.BatchHandlerFunc
 	validationOpts         []validator.Option
 	receiptTimestamps      bool
 	handlerErrorReceiptTTL time.Duration
@@ -42,8 +45,7 @@ func New(authority ucan.Issuer, options ...Option) *Dispatcher {
 	}
 	return &Dispatcher{
 		authority:              authority,
-		handlers:               map[ucan.Command]execution.HandlerFunc{},
-		batchHandlers:          map[ucan.Command]execution.BatchHandlerFunc{},
+		handlers:               map[ucan.Command]execution.BatchHandlerFunc{},
 		validationOpts:         cfg.validationOpts,
 		receiptTimestamps:      cfg.receiptTimestamps,
 		handlerErrorReceiptTTL: cfg.handlerErrorReceiptTTL,
@@ -52,82 +54,72 @@ func New(authority ucan.Issuer, options ...Option) *Dispatcher {
 	}
 }
 
-// Handle registers the handler that executes invocations of command, one call
-// per invocation. A batch handler registered for the same command with
-// [Dispatcher.HandleBatch] takes precedence over it. A nil handler panics.
+// Handle registers a handler that executes invocations of command one call per
+// invocation. It is [Dispatcher.HandleBatch] with the handler wrapped by
+// [Each], and replaces any handler registered for the command before. A nil
+// handler panics.
 func (d *Dispatcher) Handle(command ucan.Command, fn execution.HandlerFunc) {
 	if fn == nil {
 		panic(fmt.Sprintf("dispatcher.Handle: nil handler for %q", command))
 	}
-	d.handlers[command] = fn
+	d.handlers[command] = Each(fn)
 }
 
 // HandleBatch registers the handler that executes every invocation of command
-// in a call to [Dispatcher.ExecuteAll] at once. It is always used for the
-// command when registered, even for a single invocation passed to
-// [Dispatcher.Execute], and takes precedence over a handler registered with
-// [Dispatcher.Handle]. A nil handler panics.
+// in a call to [Dispatcher.ExecuteAll] at once, even a single invocation passed
+// to [Dispatcher.Execute]. It replaces any handler registered for the command
+// before. A nil handler panics.
 func (d *Dispatcher) HandleBatch(command ucan.Command, fn execution.BatchHandlerFunc) {
 	if fn == nil {
 		panic(fmt.Sprintf("dispatcher.HandleBatch: nil batch handler for %q", command))
 	}
-	d.batchHandlers[command] = fn
+	d.handlers[command] = fn
 }
 
 // Execute validates the invocation and runs the handler registered for its
-// command. When the command has a batch handler, the invocation runs through it
-// as a batch of one. A panic anywhere along the way, in the handler or in
-// validation code such as a DID resolver or verifier factory, fails that task
-// with a short-lived [execution.ExecutionFailureErrorName] receipt instead of
-// escaping to the caller, so one misbehaving invocation cannot take down a
-// server that executes many at once. The receipt does not say that the
+// command, as a batch of one. A panic anywhere along the way, in the handler
+// or in validation code such as a DID resolver or verifier factory, fails that
+// task with a short-lived [execution.ExecutionFailureErrorName] receipt
+// instead of escaping to the caller, so one misbehaving invocation cannot take
+// down a server that executes many at once. The receipt does not say that the
 // failure was a panic; the panic value goes to the configured [PanicLogger].
 func (d *Dispatcher) Execute(req execution.Request) (execution.Response, error) {
-	if _, ok := d.batchHandlers[req.Invocation().Command()]; ok {
-		resps, err := d.ExecuteAll([]execution.Request{req})
-		if err != nil {
-			return nil, err
-		}
-		return resps[0], nil
+	resps, err := d.ExecuteAll([]execution.Request{req})
+	if err != nil {
+		return nil, err
 	}
-	return d.guard(req, func() (execution.Response, error) {
-		return d.execute(req)
-	})
+	return resps[0], nil
 }
 
 // ExecuteAll executes the requests and returns their responses in request
-// order. Requests for a command with a batch handler are validated one by one
-// and the valid ones go to the batch handler in a single call per command; the
-// invalid ones get their failure receipts and never reach it. Requests for any
-// other command execute as [Dispatcher.Execute] runs them.
+// order. Each request is validated on its own, and the valid requests of each
+// command go to the command's handler in a single call; the invalid ones get
+// their failure receipts and never reach it.
 //
-// Validations and handler calls run concurrently, each on its own goroutine,
-// with at most [WithMaxConcurrency] of them running at once. A batch handler
-// call takes one slot, and starts once every invocation of its command has been
-// validated. Panics are recovered as [Dispatcher.Execute] recovers them: a
-// panic in a batch handler fails every task of the batch that does not already
-// have a failure.
+// Validations, and the per-invocation calls of a handler registered with
+// [Dispatcher.Handle], run concurrently, each on its own goroutine, with at
+// most [WithMaxConcurrency] of them running at once. A batch handler call
+// starts once every invocation of its command has been validated; it is one
+// goroutine per command and does not count towards the cap. Panics are
+// recovered as [Dispatcher.Execute] recovers them: a panic in a batch handler
+// fails every task of the batch that does not already have a failure.
 func (d *Dispatcher) ExecuteAll(reqs []execution.Request) ([]execution.Response, error) {
+	r := &run{dispatcher: d}
+	if d.maxConcurrency > 0 {
+		r.slots = make(chan struct{}, d.maxConcurrency)
+	}
+	// Every request carries the run, so a handler wrapped by Each takes its
+	// slots from the same cap as the validations.
+	reqs = slices.Clone(reqs)
+	for i, req := range reqs {
+		reqs[i] = runRequest{Request: req, ctx: context.WithValue(req.Context(), runKey{}, r)}
+	}
+
 	resps := make([]execution.Response, len(reqs))
 	errs := make([]error, len(reqs))
-	// ready[i] says resps[i] awaits its batch handler. Each goroutine writes
-	// only its own slots, so the slices need no lock.
+	// ready[i] says resps[i] awaits its handler. Each goroutine writes only its
+	// own slots, so the slices need no lock.
 	ready := make([]bool, len(reqs))
-
-	var slots chan struct{}
-	if d.maxConcurrency > 0 {
-		slots = make(chan struct{}, d.maxConcurrency)
-	}
-	acquire := func() {
-		if slots != nil {
-			slots <- struct{}{}
-		}
-	}
-	release := func() {
-		if slots != nil {
-			<-slots
-		}
-	}
 
 	type batchGroup struct {
 		handler   execution.BatchHandlerFunc
@@ -135,13 +127,13 @@ func (d *Dispatcher) ExecuteAll(reqs []execution.Request) ([]execution.Response,
 		validated sync.WaitGroup
 	}
 	// group[i] is the batch request i belongs to, or nil when its command has
-	// no batch handler.
+	// no handler.
 	group := make([]*batchGroup, len(reqs))
 	groups := map[ucan.Command]*batchGroup{}
 	var order []ucan.Command
 	for i, req := range reqs {
 		cmd := req.Invocation().Command()
-		fn, ok := d.batchHandlers[cmd]
+		fn, ok := d.handlers[cmd]
 		if !ok {
 			continue
 		}
@@ -156,10 +148,9 @@ func (d *Dispatcher) ExecuteAll(reqs []execution.Request) ([]execution.Response,
 	}
 
 	var wg sync.WaitGroup
-	// Each batch runner starts before any request is admitted, so it competes
-	// for a slot as soon as its own validations finish rather than after the
-	// whole request has been admitted. It holds no slot while it waits, so it
-	// cannot starve the validations of the slots they need.
+	// Each batch runner starts before any request is admitted, so it runs as
+	// soon as its own validations finish rather than after the whole request
+	// has been admitted.
 	for _, cmd := range order {
 		g := groups[cmd]
 		g.validated.Add(len(g.members))
@@ -174,8 +165,6 @@ func (d *Dispatcher) ExecuteAll(reqs []execution.Request) ([]execution.Response,
 			if len(members) == 0 {
 				return
 			}
-			acquire()
-			defer release()
 			d.runBatch(cmd, g.handler, reqs, resps, errs, members)
 		})
 	}
@@ -183,27 +172,25 @@ func (d *Dispatcher) ExecuteAll(reqs []execution.Request) ([]execution.Response,
 	for i, req := range reqs {
 		// Acquire before spawning, so a request larger than the cap waits in
 		// this loop instead of as a pile of blocked goroutines.
-		acquire()
-		g := group[i]
-		if g == nil {
-			wg.Go(func() {
-				defer release()
-				resps[i], errs[i] = d.guard(req, func() (execution.Response, error) {
-					return d.execute(req)
-				})
-			})
-			continue
-		}
-		// The runner waiting on the group is what wg tracks for this request.
-		go func() {
-			defer g.validated.Done()
-			defer release()
+		r.acquire()
+		validate := func() {
+			defer r.release()
 			resps[i], errs[i] = d.guard(req, func() (execution.Response, error) {
 				res, ok, err := d.prepare(req)
 				ready[i] = ok
 				return res, err
 			})
-		}()
+		}
+		if g := group[i]; g != nil {
+			// The runner waiting on the group is what wg tracks for this
+			// request.
+			go func() {
+				defer g.validated.Done()
+				validate()
+			}()
+			continue
+		}
+		wg.Go(validate)
 	}
 	wg.Wait()
 	for i, err := range errs {
@@ -212,6 +199,108 @@ func (d *Dispatcher) ExecuteAll(reqs []execution.Request) ([]execution.Response,
 		}
 	}
 	return resps, errors.Join(errs...)
+}
+
+// run is the state one [Dispatcher.ExecuteAll] call shares with the handlers
+// it calls: the dispatcher and the concurrency cap.
+type run struct {
+	dispatcher *Dispatcher
+	// slots is the cap's semaphore, nil when there is no cap.
+	slots chan struct{}
+}
+
+func (r *run) acquire() {
+	if r.slots != nil {
+		r.slots <- struct{}{}
+	}
+}
+
+func (r *run) release() {
+	if r.slots != nil {
+		<-r.slots
+	}
+}
+
+type runKey struct{}
+
+// runRequest is a request whose context carries the [run] executing it.
+type runRequest struct {
+	execution.Request
+	ctx context.Context
+}
+
+func (r runRequest) Context() context.Context {
+	return r.ctx
+}
+
+// Each returns a batch handler that calls fn once for each invocation of the
+// batch. Run by a [Dispatcher], the calls execute concurrently under its
+// [WithMaxConcurrency] cap, and each one fails only its own task: an error
+// returned by fn gets a short-lived [execution.HandlerExecutionErrorName]
+// receipt and a panic a short-lived [execution.ExecutionFailureErrorName]
+// one, as a per-invocation handler always has. Called outside a dispatcher,
+// the batch handler calls fn for each invocation in turn and returns the first
+// error. A nil handler panics.
+func Each(fn execution.HandlerFunc) execution.BatchHandlerFunc {
+	if fn == nil {
+		panic("dispatcher.Each: handler must not be nil")
+	}
+	return func(items []execution.Batch) error {
+		if len(items) == 0 {
+			return nil
+		}
+		r, ok := items[0].Request.Context().Value(runKey{}).(*run)
+		if !ok {
+			for _, item := range items {
+				if err := fn(item.Request, item.Response); err != nil {
+					return err
+				}
+			}
+			return nil
+		}
+		errs := make([]error, len(items))
+		var wg sync.WaitGroup
+		for i, item := range items {
+			r.acquire()
+			wg.Go(func() {
+				defer r.release()
+				errs[i] = r.dispatcher.handleOne(fn, item)
+			})
+		}
+		wg.Wait()
+		return errors.Join(errs...)
+	}
+}
+
+// handleOne calls fn for one invocation of a batch, turning an error or a
+// panic into a short-lived failure receipt on that invocation's response. It
+// returns an error only when that receipt cannot be issued.
+func (d *Dispatcher) handleOne(fn execution.HandlerFunc, item execution.Batch) error {
+	cmd := item.Request.Invocation().Command()
+	var failure error
+	func() {
+		// See guard for why a flag rather than the recovered value.
+		returned := false
+		defer func() {
+			if returned {
+				return
+			}
+			d.panicLogger(item.Request, recover())
+			failure = execution.NewExecutionFailureError(cmd)
+		}()
+		if err := fn(item.Request, item.Response); err != nil {
+			failure = execution.NewHandlerExecutionError(cmd, err)
+		}
+		returned = true
+	}()
+	if failure == nil {
+		return nil
+	}
+	res, err := d.transientFailure(item.Request, failure)
+	if err != nil {
+		return err
+	}
+	return item.Response.SetReceipt(res.Receipt())
 }
 
 // runBatch calls the batch handler with the given members of reqs and resps.
@@ -281,21 +370,6 @@ func (d *Dispatcher) guard(req execution.Request, f func() (execution.Response, 
 	return res, err
 }
 
-// execute runs a request through validation and its per-invocation handler,
-// without the recovery boundary.
-func (d *Dispatcher) execute(req execution.Request) (execution.Response, error) {
-	res, ok, err := d.prepare(req)
-	if !ok || err != nil {
-		return res, err
-	}
-	cmd := req.Invocation().Command()
-	err = d.handlers[cmd](req, res)
-	if err != nil {
-		return d.transientFailure(req, execution.NewHandlerExecutionError(cmd, err))
-	}
-	return res, nil
-}
-
 // prepare checks the audience, finds a handler and validates the invocation.
 // When ok it returns an empty response for the handler to complete; otherwise
 // the response already holds the failure receipt.
@@ -315,9 +389,7 @@ func (d *Dispatcher) prepare(req execution.Request) (res execution.Response, ok 
 	}
 
 	cmd := req.Invocation().Command()
-	_, single := d.handlers[cmd]
-	_, batch := d.batchHandlers[cmd]
-	if !single && !batch {
+	if _, ok := d.handlers[cmd]; !ok {
 		res, err := execution.NewResponse(
 			req.Invocation().Task().Link(),
 			execution.WithIssuer(d.authority),

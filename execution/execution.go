@@ -62,8 +62,9 @@ type Batch struct {
 // and its own response, on which the handler sets the outcome, as a
 // [HandlerFunc] does for one invocation.
 //
-// When a command has a batch handler, the server always calls it, even for a
-// single invocation. Every response should have a receipt by the time the
+// Every command's handler is a batch handler: a [HandlerFunc] registered with
+// a server is wrapped into one that calls it for each invocation. The server
+// calls it even for a single invocation. Every response should have a receipt by the time the
 // handler returns: one left without fails its task with an
 // [ExecutionFailureErrorName] receipt. A returned error fails every task of the
 // batch that does not already have a failure, as it fails the one task of a

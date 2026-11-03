@@ -83,16 +83,18 @@ holds the wire structs and their generated codecs.
   invocation, and `Batch`/`BatchHandlerFunc` for a handler that takes every
   invocation of its command in one call; `dispatcher/` routes a validated
   invocation to the handler for its command and issues the receipt
-  (`ExecuteAll` groups a command's invocations for its batch handler, which
-  wins over a per-invocation handler, and owns the concurrency cap); `batch/`
+  (every handler is a batch handler: `ExecuteAll` groups a command's
+  invocations for it and owns the concurrency cap, and `Each` wraps a
+  per-invocation handler into one); `batch/`
   — `Request`/`Response`/`Executor` (`ExecuteBatch`) for many invocations in
   one round trip, with receipts looked up by task CID.
 - `server/` — `NewHTTP(issuer)` is an `http.Handler` (and `RoundTripper`, for
   in-process tests) over a dispatcher; its `ExecuteBatch` runs every
   invocation addressed to it. Register with `Handle`, `HandleBatch` or
-  `HandleRoute` (a `Route` carries a `Handler` or a `BatchHandler`). `middleware/` — `Apply(routes, mw...)` wraps a
-  route's handler (and batch handler, per item) with checks made after
-  validation and before the command:
+  `HandleRoute`; a `Route` carries one batch handler, which `NewRoute` builds
+  from a per-invocation one. `middleware/` — `Apply(routes, mw...)` wraps a
+  route's handler with checks made per invocation after validation and before
+  the command:
   `NotSelfSigned`, `OnlySubject(did)`, `OnlyIssuer(did)`. They are silent; a
   service that wants the rejections logged adds its own middleware outermost.
   `client/` — `NewHTTP(url)`; `ExecuteBatch` is

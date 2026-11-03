@@ -144,35 +144,28 @@ func (s *HTTPServer) emitResponseEncode(ctx context.Context, ct ucan.Container) 
 	return errs
 }
 
-// Handle registers the handler that executes invocations of command, one call
-// per invocation. A batch handler registered for the same command with
-// [HTTPServer.HandleBatch] takes precedence over it. A nil handler panics.
+// Handle registers a handler that executes invocations of command, one call per
+// invocation, wrapped by [dispatcher.Each]. It replaces any handler registered
+// for the command before. A nil handler panics.
 func (s *HTTPServer) Handle(command ucan.Command, fn execution.HandlerFunc) {
 	s.executor.Handle(command, fn)
 }
 
 // HandleBatch registers the handler that executes every invocation of command
-// in a request with one call. It is always used for the command when
-// registered, even for a request with a single invocation of it, and takes
-// precedence over a handler registered with [HTTPServer.Handle]. A nil handler
+// in a request with one call, even for a request with a single invocation of
+// it. It replaces any handler registered for the command before. A nil handler
 // panics.
 func (s *HTTPServer) HandleBatch(command ucan.Command, fn execution.BatchHandlerFunc) {
 	s.executor.HandleBatch(command, fn)
 }
 
-// HandleRoute registers the route's handler. A route with a BatchHandler is
-// registered with [HTTPServer.HandleBatch] and its Handler is not registered,
-// since the batch handler takes precedence; any other route is registered with
-// [HTTPServer.Handle]. A route with neither handler panics.
+// HandleRoute registers the route's handler with [HTTPServer.HandleBatch]. A
+// route without a handler panics.
 func (s *HTTPServer) HandleRoute(route Route) {
-	switch {
-	case route.BatchHandler != nil:
-		s.HandleBatch(route.Command, route.BatchHandler)
-	case route.Handler != nil:
-		s.Handle(route.Command, route.Handler)
-	default:
+	if route.Handler == nil {
 		panic(fmt.Sprintf("server.HandleRoute: route for %q has no handler", route.Command))
 	}
+	s.HandleBatch(route.Command, route.Handler)
 }
 
 // Execute validates and executes a single invocation.
@@ -186,14 +179,14 @@ func (s *HTTPServer) Execute(req execution.Request) (execution.Response, error) 
 // the request as its metadata, and the tokens handlers attach to their
 // responses are gathered into the metadata of the returned response.
 //
-// Invocations of a command with a batch handler ([HTTPServer.HandleBatch]) are
-// validated one by one and the valid ones go to the batch handler in one call
-// per command. Every other invocation runs through its own handler.
+// Each invocation is validated on its own, and the valid invocations of each
+// command go to the command's handler in one call per command; a handler
+// registered with [HTTPServer.Handle] then executes them one call each.
 //
-// Validations and handler calls execute concurrently, each on its own
-// goroutine, with at most [DefaultMaxConcurrency] of them running at once
-// unless [WithMaxConcurrency] sets another cap. A batch handler call takes one
-// slot. The cap applies to this request alone: concurrent requests each get
+// Validations and per-invocation handler calls execute concurrently, each on
+// its own goroutine, with at most [DefaultMaxConcurrency] of them running at
+// once unless [WithMaxConcurrency] sets another cap. A batch handler call does
+// not count towards the cap. The cap applies to this request alone: concurrent requests each get
 // their own, so the server as a whole runs up to the cap times the number of
 // requests in flight. Handlers must therefore be safe to call concurrently
 // within one request, as they already must be across requests. Receipts and

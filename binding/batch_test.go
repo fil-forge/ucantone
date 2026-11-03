@@ -85,7 +85,6 @@ func TestBatchHandler(t *testing.T) {
 	t.Run("BatchRoute carries the command and a batch handler", func(t *testing.T) {
 		route := cmd.BatchRoute(func(items []binding.Batch[*tdm.TestObject, *tdm.TestObject2]) error { return nil })
 		require.Equal(t, cmd.Command, route.Command)
-		require.Nil(t, route.Handler)
-		require.NotNil(t, route.BatchHandler)
+		require.NotNil(t, route.Handler)
 	})
 }

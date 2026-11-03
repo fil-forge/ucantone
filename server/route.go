@@ -2,6 +2,7 @@ package server
 
 import (
 	"github.com/fil-forge/ucantone/execution"
+	"github.com/fil-forge/ucantone/execution/dispatcher"
 	"github.com/fil-forge/ucantone/ucan"
 )
 
@@ -15,21 +16,19 @@ import (
 type Route struct {
 	// Command is the command the route serves.
 	Command ucan.Command
-	// Handler executes one invocation of the command per call. Nil for a route
-	// built with [NewBatchRoute].
-	Handler execution.HandlerFunc
-	// BatchHandler executes every invocation of the command in a request with
-	// one call, and takes precedence over Handler. Nil for a route built with
-	// [NewRoute].
-	BatchHandler execution.BatchHandlerFunc
+	// Handler executes every invocation of the command in a request with one
+	// call. [NewRoute] builds it from a handler that takes one invocation per
+	// call, so middleware wraps every route the same way.
+	Handler execution.BatchHandlerFunc
 }
 
-// NewRoute builds a [Route] from a command and a handler.
+// NewRoute builds a [Route] from a command and a handler that executes one
+// invocation per call, wrapped by [dispatcher.Each].
 func NewRoute(cmd ucan.Command, fn execution.HandlerFunc) Route {
-	return Route{Command: cmd, Handler: fn}
+	return Route{Command: cmd, Handler: dispatcher.Each(fn)}
 }
 
 // NewBatchRoute builds a [Route] from a command and a batch handler.
 func NewBatchRoute(cmd ucan.Command, fn execution.BatchHandlerFunc) Route {
-	return Route{Command: cmd, BatchHandler: fn}
+	return Route{Command: cmd, Handler: fn}
 }

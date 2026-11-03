@@ -19,13 +19,12 @@ import (
 // wrap applies the middleware to a command that records whether it ran.
 func wrap(t *testing.T, ran *bool, mw ...middleware.Middleware) server.Route {
 	t.Helper()
-	routes := middleware.Apply([]server.Route{{
-		Command: testutil.ConsoleLogCommand,
-		Handler: func(req execution.Request, res execution.Response) error {
+	routes := middleware.Apply([]server.Route{server.NewRoute(testutil.ConsoleLogCommand,
+		func(req execution.Request, res execution.Response) error {
 			*ran = true
 			return nil
 		},
-	}}, mw...)
+	)}, mw...)
 	require.Len(t, routes, 1)
 	return routes[0]
 }
@@ -39,7 +38,7 @@ func execute(t *testing.T, route server.Route, executor ucan.Issuer, issuer ucan
 
 	res, err := execution.NewResponse(inv.Task().Link(), execution.WithIssuer(executor))
 	require.NoError(t, err)
-	require.NoError(t, route.Handler(execution.NewRequest(t.Context(), inv), res))
+	require.NoError(t, route.Handler([]execution.Batch{{Request: execution.NewRequest(t.Context(), inv), Response: res}}))
 
 	rcpt := res.Receipt()
 	if rcpt == nil {
@@ -151,13 +150,12 @@ func TestApplyLeavesRoutesUnchanged(t *testing.T) {
 	agent := testutil.RandomIssuer(t)
 
 	var ran bool
-	original := []server.Route{{
-		Command: testutil.ConsoleLogCommand,
-		Handler: func(req execution.Request, res execution.Response) error {
+	original := []server.Route{server.NewRoute(testutil.ConsoleLogCommand,
+		func(req execution.Request, res execution.Response) error {
 			ran = true
 			return nil
 		},
-	}}
+	)}
 	middleware.Apply(original, middleware.NotSelfSigned())
 
 	err := execute(t, original[0], service, agent, agent.DID())

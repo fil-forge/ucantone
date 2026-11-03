@@ -1,8 +1,8 @@
 // Package middleware holds authorization checks a server's routes can be served
-// behind. Each wraps a [server.Route]'s handler and batch handler, so it runs
-// after the invocation has been validated and before the command sees it, and
-// records its rejection as the receipt's failure. A batch handler receives only
-// the invocations every check accepted.
+// behind. Each wraps a [server.Route]'s handler, so it runs after the
+// invocations have been validated and before the command sees them, and
+// records a rejection as that invocation's receipt failure. The handler
+// receives only the invocations every check accepted.
 //
 // The checks are about who an invocation came from and what it claims authority
 // over, which validation alone does not settle: a valid invocation may still be
@@ -11,8 +11,8 @@
 // applies [OnlyIssuer], which [NotSelfSigned] would reject.
 //
 // They are silent. A service that wants a record of the rejections adds a
-// middleware of its own, outermost, that inspects the receipt the chain
-// produced; it is handed the route, so it can bind the command to its logger
+// middleware of its own, outermost, that inspects the receipts the chain
+// produced once its handler returns; it is handed the route, so it can bind the command to its logger
 // once instead of reading it back off every invocation.
 package middleware
 
@@ -104,37 +104,26 @@ func OnlyIssuer(issuer did.DID) Middleware {
 }
 
 // check builds a middleware from a rule applied to each invocation. A rejected
-// invocation gets the rule's error as its failure. On a route's Handler that
-// ends the call; on its BatchHandler the rejected invocations are dropped from
-// the batch, and the next handler runs with the rest, or not at all when none
-// remain.
+// invocation gets the rule's error as its failure and is dropped from the
+// batch; the next handler runs with the rest, or not at all when none remain.
 func check(rule func(execution.Request) error) Middleware {
 	return func(route server.Route) server.Route {
-		if next := route.Handler; next != nil {
-			route.Handler = func(req execution.Request, res execution.Response) error {
-				if err := rule(req); err != nil {
-					return res.SetFailure(err)
-				}
-				return next(req, res)
-			}
-		}
-		if next := route.BatchHandler; next != nil {
-			route.BatchHandler = func(items []execution.Batch) error {
-				accepted := make([]execution.Batch, 0, len(items))
-				for _, item := range items {
-					if err := rule(item.Request); err != nil {
-						if err := item.Response.SetFailure(err); err != nil {
-							return err
-						}
-						continue
+		next := route.Handler
+		route.Handler = func(items []execution.Batch) error {
+			accepted := make([]execution.Batch, 0, len(items))
+			for _, item := range items {
+				if err := rule(item.Request); err != nil {
+					if err := item.Response.SetFailure(err); err != nil {
+						return err
 					}
-					accepted = append(accepted, item)
+					continue
 				}
-				if len(accepted) == 0 {
-					return nil
-				}
-				return next(accepted)
+				accepted = append(accepted, item)
 			}
+			if len(accepted) == 0 {
+				return nil
+			}
+			return next(accepted)
 		}
 		return route
 	}

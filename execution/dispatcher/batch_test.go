@@ -92,7 +92,7 @@ func TestDispatcherBatchHandler(t *testing.T) {
 		require.Equal(t, []int{1}, sizes)
 	})
 
-	t.Run("the batch handler takes precedence over the single handler", func(t *testing.T) {
+	t.Run("a later registration for a command replaces the earlier one", func(t *testing.T) {
 		d := dispatcher.New(service)
 		d.Handle(testutil.TestEchoCommand, func(req execution.Request, res execution.Response) error {
 			return errors.New("single handler called")
@@ -194,6 +194,46 @@ func TestDispatcherBatchHandler(t *testing.T) {
 		}
 	})
 
+	t.Run("a per-invocation handler's error or panic fails only its own task", func(t *testing.T) {
+		d := dispatcher.New(service, dispatcher.WithPanicLogger(discardPanics))
+		reqs := echoRequests(t, 3)
+		failing, panicking := reqs[0].Invocation().Task().Link(), reqs[1].Invocation().Task().Link()
+		d.Handle(testutil.TestEchoCommand, func(req execution.Request, res execution.Response) error {
+			switch req.Invocation().Task().Link() {
+			case failing:
+				return errors.New("boom")
+			case panicking:
+				panic("boom")
+			}
+			return res.SetSuccess(testutil.ArgsMap(t, req.Invocation()))
+		})
+
+		resps, err := d.ExecuteAll(reqs)
+		require.NoError(t, err)
+		requireFailure(t, resps[0], execution.HandlerExecutionErrorName)
+		require.NotNil(t, resps[0].Receipt().Expiration())
+		requireFailure(t, resps[1], execution.ExecutionFailureErrorName)
+		require.NotNil(t, resps[1].Receipt().Expiration())
+		requireOK(t, reqs[2:], resps[2:])
+	})
+
+	t.Run("Each calls the handler for each invocation outside a dispatcher", func(t *testing.T) {
+		var calls int
+		handler := dispatcher.Each(func(req execution.Request, res execution.Response) error {
+			calls++
+			return nil
+		})
+		reqs := echoRequests(t, 2)
+		items := make([]execution.Batch, len(reqs))
+		for i, req := range reqs {
+			res, err := execution.NewResponse(req.Invocation().Task().Link(), execution.WithIssuer(service))
+			require.NoError(t, err)
+			items[i] = execution.Batch{Request: req, Response: res}
+		}
+		require.NoError(t, handler(items))
+		require.Equal(t, 2, calls)
+	})
+
 	t.Run("a failure a task already has survives a batch error", func(t *testing.T) {
 		d := dispatcher.New(service)
 		rejection := errors.New("rejected before the batch failed")
@@ -221,7 +261,7 @@ func TestDispatcherBatchHandler(t *testing.T) {
 			},
 		)
 		route = middleware.Apply([]server.Route{route}, middleware.NotSelfSigned())[0]
-		d.HandleBatch(route.Command, route.BatchHandler)
+		d.HandleBatch(route.Command, route.Handler)
 
 		// alice is her own subject, so her invocation is self-signed.
 		selfSigned := invoke(t, testutil.TestEchoCommand, datamodel.Map{"bytes": []byte{1}})
@@ -349,5 +389,8 @@ func TestDispatcherRejectsNilHandlers(t *testing.T) {
 	})
 	require.PanicsWithValue(t, `dispatcher.HandleBatch: nil batch handler for "/test/echo"`, func() {
 		d.HandleBatch(testutil.TestEchoCommand, nil)
+	})
+	require.PanicsWithValue(t, "dispatcher.Each: handler must not be nil", func() {
+		dispatcher.Each(nil)
 	})
 }

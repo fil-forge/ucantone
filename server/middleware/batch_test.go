@@ -51,13 +51,12 @@ func TestBatchRoute(t *testing.T) {
 				}
 				return nil
 			})}, tc.mw)
-			require.Nil(t, routes[0].Handler)
 
 			items := []execution.Batch{
 				item(t, tc.accepted.issuer, tc.accepted.subject),
 				item(t, tc.rejected.issuer, tc.rejected.subject),
 			}
-			require.NoError(t, routes[0].BatchHandler(items))
+			require.NoError(t, routes[0].Handler(items))
 			require.Len(t, got, 1)
 			require.Equal(t, items[0], got[0])
 			require.False(t, items[0].Response.Receipt().Out().IsErr())
@@ -73,7 +72,7 @@ func TestBatchRoute(t *testing.T) {
 		})}, middleware.OnlyIssuer(agent.DID()))
 
 		items := []execution.Batch{item(t, other, service), item(t, other, other)}
-		require.NoError(t, routes[0].BatchHandler(items))
+		require.NoError(t, routes[0].Handler(items))
 		require.False(t, called)
 		for _, item := range items {
 			require.True(t, item.Response.Receipt().Out().IsErr())

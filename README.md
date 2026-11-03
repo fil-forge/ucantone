@@ -196,8 +196,7 @@ for _, inv := range invs {
 
 A command whose handler wants every invocation of a request in one call (one
 database transaction, one downstream call) registers a batch handler. The
-server always uses it for that command, even for a single invocation, and
-falls back to the per-invocation handler for commands without one:
+server always uses it for that command, even for a single invocation:
 
 ```go
 echoBinding := binding.Bind[*types.EchoArguments, *types.EchoArguments](echo)
