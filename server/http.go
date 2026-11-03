@@ -24,7 +24,6 @@ type HTTPServer struct {
 	codec          transport.InboundCodec[*http.Request, *http.Response]
 	listeners      []listenerEntry
 	listenerPanics ListenerPanicLogger
-	maxConcurrency int
 }
 
 var (
@@ -45,6 +44,7 @@ func NewHTTP(id ucan.Issuer, options ...HTTPOption) *HTTPServer {
 	dispatcherOpts := []dispatcher.Option{
 		dispatcher.WithValidationOptions(cfg.validationOpts...),
 		dispatcher.WithReceiptTimestamps(cfg.receiptTimestamps),
+		dispatcher.WithMaxConcurrency(cfg.maxConcurrency),
 	}
 	if cfg.panicLogger != nil {
 		dispatcherOpts = append(dispatcherOpts, dispatcher.WithPanicLogger(cfg.panicLogger))
@@ -56,7 +56,6 @@ func NewHTTP(id ucan.Issuer, options ...HTTPOption) *HTTPServer {
 		executor:       executor,
 		listeners:      cfg.listeners,
 		listenerPanics: cfg.listenerPanics,
-		maxConcurrency: cfg.maxConcurrency,
 	}
 }
 
@@ -145,8 +144,28 @@ func (s *HTTPServer) emitResponseEncode(ctx context.Context, ct ucan.Container) 
 	return errs
 }
 
+// Handle registers a handler that executes invocations of command, one call per
+// invocation, wrapped by [dispatcher.Each]. It replaces any handler registered
+// for the command before. A nil handler panics.
 func (s *HTTPServer) Handle(command ucan.Command, fn execution.HandlerFunc) {
 	s.executor.Handle(command, fn)
+}
+
+// HandleBatch registers the handler that executes every invocation of command
+// in a request with one call, even for a request with a single invocation of
+// it. It replaces any handler registered for the command before. A nil handler
+// panics.
+func (s *HTTPServer) HandleBatch(command ucan.Command, fn execution.BatchHandlerFunc) {
+	s.executor.HandleBatch(command, fn)
+}
+
+// HandleRoute registers the route's handler with [HTTPServer.HandleBatch]. A
+// route without a handler panics.
+func (s *HTTPServer) HandleRoute(route Route) {
+	if route.Handler == nil {
+		panic(fmt.Sprintf("server.HandleRoute: route for %q has no handler", route.Command))
+	}
+	s.HandleBatch(route.Command, route.Handler)
 }
 
 // Execute validates and executes a single invocation.
@@ -160,81 +179,59 @@ func (s *HTTPServer) Execute(req execution.Request) (execution.Response, error) 
 // the request as its metadata, and the tokens handlers attach to their
 // responses are gathered into the metadata of the returned response.
 //
-// Invocations execute concurrently, each on its own goroutine, with at most
-// [DefaultMaxConcurrency] of them running at once unless [WithMaxConcurrency]
-// sets another cap. The cap applies to this request alone: concurrent
-// requests each get their own, so the server as a whole runs up to the cap
-// times the number of requests in flight. Handlers
-// must therefore be safe to call concurrently within one request, as they
-// already must be across requests. Receipts and metadata are gathered in
-// request order once every invocation has finished, so the response does not
-// depend on which handler finished first.
+// Each invocation is validated on its own, and the valid invocations of each
+// command go to the command's handler in one call per command; a handler
+// registered with [HTTPServer.Handle] then executes them one call each.
+//
+// Validations and per-invocation handler calls execute concurrently, each on
+// its own goroutine, with at most [DefaultMaxConcurrency] of them running at
+// once unless [WithMaxConcurrency] sets another cap. A batch handler call does
+// not count towards the cap. The cap applies to this request alone: concurrent requests each get
+// their own, so the server as a whole runs up to the cap times the number of
+// requests in flight. Handlers must therefore be safe to call concurrently
+// within one request, as they already must be across requests. Receipts and
+// metadata are gathered in request order once every invocation has finished,
+// so the response does not depend on which handler finished first.
 func (s *HTTPServer) ExecuteBatch(req *batch.Request) (*batch.Response, error) {
-	// Every handler sees the same tokens, so the container is built once, on
-	// the first invocation addressed to this server, and shared by every
-	// handler in the batch.
-	var execMeta ucan.Container
-
-	// Each goroutine writes only its own slot, so the slice needs no lock and
-	// the merge below runs in request order.
-	results := make([]batchResult, len(req.Invocations()))
-	var wg sync.WaitGroup
-	var slots chan struct{}
-	if s.maxConcurrency > 0 {
-		slots = make(chan struct{}, s.maxConcurrency)
-	}
-	for i, inv := range req.Invocations() {
+	var addressed []ucan.Invocation
+	for _, inv := range req.Invocations() {
 		aud := inv.Audience()
 		if !aud.Defined() {
 			aud = inv.Subject()
 		}
-		if aud != s.id.DID() {
-			continue
+		if aud == s.id.DID() {
+			addressed = append(addressed, inv)
 		}
-		if execMeta == nil {
-			execMeta = batchMetadata(req)
-		}
-		// Acquire before spawning, so a request larger than the cap waits in
-		// this loop instead of as a pile of blocked goroutines.
-		if slots != nil {
-			slots <- struct{}{}
-		}
-		wg.Go(func() {
-			if slots != nil {
-				defer func() { <-slots }()
-			}
-			execReq := execution.NewRequest(req.Context(), inv, execution.WithRequestMetadata(execMeta))
-			res, err := s.executor.Execute(execReq)
-			results[i] = batchResult{executed: true, response: res, err: err}
-		})
 	}
-	wg.Wait()
 
-	var errs error
+	var execReqs []execution.Request
+	if len(addressed) > 0 {
+		// Every handler sees the same tokens, so the container is built once
+		// and shared by every handler in the batch.
+		execMeta := batchMetadata(req)
+		execReqs = make([]execution.Request, len(addressed))
+		for i, inv := range addressed {
+			execReqs[i] = execution.NewRequest(req.Context(), inv, execution.WithRequestMetadata(execMeta))
+		}
+	}
+	// The dispatcher only returns an error when a response cannot be built,
+	// which is likely a developer error.
+	responses, err := s.executor.ExecuteAll(execReqs)
+	if err != nil {
+		return nil, err
+	}
+
 	var receipts []ucan.Receipt
 	var invocations []ucan.Invocation
 	var delegations []ucan.Delegation
 	var extraReceipts []ucan.Receipt
-	for i, inv := range req.Invocations() {
-		result := results[i]
-		if !result.executed {
-			continue
+	for _, res := range responses {
+		receipts = append(receipts, res.Receipt())
+		if res.Metadata() != nil {
+			invocations = append(invocations, res.Metadata().Invocations()...)
+			delegations = append(delegations, res.Metadata().Delegations()...)
+			extraReceipts = append(extraReceipts, res.Metadata().Receipts()...)
 		}
-		if result.err != nil {
-			// This shouldn't really happen, executor only returns an error when
-			// result or metadata cannot be set, which is likely a developer error.
-			errs = errors.Join(errs, fmt.Errorf("executing task %s: %w", inv.Task().Link(), result.err))
-			continue
-		}
-		receipts = append(receipts, result.response.Receipt())
-		if result.response.Metadata() != nil {
-			invocations = append(invocations, result.response.Metadata().Invocations()...)
-			delegations = append(delegations, result.response.Metadata().Delegations()...)
-			extraReceipts = append(extraReceipts, result.response.Metadata().Receipts()...)
-		}
-	}
-	if errs != nil {
-		return nil, errs
 	}
 
 	var options []batch.ResponseOption
@@ -259,14 +256,6 @@ func batchMetadata(req *batch.Request) ucan.Container {
 		)
 	}
 	return container.New(options...)
-}
-
-// batchResult is the outcome of executing one invocation of a batch. executed
-// is false for invocations addressed elsewhere, which get no receipt.
-type batchResult struct {
-	executed bool
-	response execution.Response
-	err      error
 }
 
 func (s *HTTPServer) ServeHTTP(w http.ResponseWriter, r *http.Request) {

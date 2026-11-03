@@ -48,10 +48,13 @@ func WithReceiptTimestamps(enabled bool) HTTPOption {
 	}
 }
 
-// WithMaxConcurrency caps how many invocations of one request execute at the
-// same time. Every invocation still gets its own goroutine; the cap is a
-// per-request semaphore that limits how many are admitted at once, the way an
-// HTTP/2 or QUIC server caps concurrent streams per connection. It does not
+// WithMaxConcurrency caps how much of one request executes at the same time.
+// Each invocation is validated on a goroutine of its own, and so is each call
+// of a per-invocation handler ([HTTPServer.Handle], [NewRoute]). The cap is a
+// per-request semaphore on those goroutines that limits how many run at once,
+// the way an HTTP/2 or QUIC server caps concurrent streams per connection. A
+// batch handler call runs on one more goroutine per command and does not count
+// towards it. It does not
 // limit the server as a whole: each request in flight gets its own cap.
 //
 // - WithMaxConcurrency(1) runs the invocations of a request serially, one after another.

@@ -194,6 +194,23 @@ for _, inv := range invs {
 }
 ```
 
+A command whose handler wants every invocation of a request in one call (one
+database transaction, one downstream call) registers a batch handler. The
+server always uses it for that command, even for a single invocation:
+
+```go
+echoBinding := binding.Bind[*types.EchoArguments, *types.EchoArguments](echo)
+
+ucanSrv.HandleRoute(echoBinding.BatchRoute(func(items []binding.Batch[*types.EchoArguments, *types.EchoArguments]) error {
+  for _, item := range items {
+    if err := item.Response.SetSuccess(item.Request.Task().Arguments()); err != nil {
+      return err
+    }
+  }
+  return nil
+}))
+```
+
 ## Contributing
 
 Feel free to join in. All welcome. Please [open an issue](https://github.com/fil-forge/ucantone/issues)!

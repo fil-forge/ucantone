@@ -1,7 +1,8 @@
 // Package middleware holds authorization checks a server's routes can be served
-// behind. Each wraps a [server.Route]'s handler, so it runs after the invocation
-// has been validated and before the command sees it, and records its rejection
-// as the receipt's failure.
+// behind. Each wraps a [server.Route]'s handler, so it runs after the
+// invocations have been validated and before the command sees them, and
+// records a rejection as that invocation's receipt failure. The handler
+// receives only the invocations every check accepted.
 //
 // The checks are about who an invocation came from and what it claims authority
 // over, which validation alone does not settle: a valid invocation may still be
@@ -10,8 +11,8 @@
 // applies [OnlyIssuer], which [NotSelfSigned] would reject.
 //
 // They are silent. A service that wants a record of the rejections adds a
-// middleware of its own, outermost, that inspects the receipt the chain
-// produced; it is handed the route, so it can bind the command to its logger
+// middleware of its own, outermost, that inspects the receipts the chain
+// produced once its handler returns; it is handed the route, so it can bind the command to its logger
 // once instead of reading it back off every invocation.
 package middleware
 
@@ -68,33 +69,25 @@ func Apply(routes []server.Route, middleware ...Middleware) []server.Route {
 // invocation it issues needs no proofs and claims everything the subject can do.
 // A command behind this check requires authority that came from somewhere else.
 func NotSelfSigned() Middleware {
-	return func(route server.Route) server.Route {
-		next := route.Handler
-		route.Handler = func(req execution.Request, res execution.Response) error {
-			inv := req.Invocation()
-			if inv.Issuer() == inv.Subject() {
-				return res.SetFailure(ErrSelfSignedInvocation)
-			}
-			return next(req, res)
+	return check(func(req execution.Request) error {
+		inv := req.Invocation()
+		if inv.Issuer() == inv.Subject() {
+			return ErrSelfSignedInvocation
 		}
-		return route
-	}
+		return nil
+	})
 }
 
 // OnlySubject rejects an invocation subjected to anyone but subject, so the
 // authority a caller presents has to trace back to that subject rather than to
 // a key the caller owns.
 func OnlySubject(subject did.DID) Middleware {
-	return func(route server.Route) server.Route {
-		next := route.Handler
-		route.Handler = func(req execution.Request, res execution.Response) error {
-			if req.Invocation().Subject() != subject {
-				return res.SetFailure(ErrInvalidSubject)
-			}
-			return next(req, res)
+	return check(func(req execution.Request) error {
+		if req.Invocation().Subject() != subject {
+			return ErrInvalidSubject
 		}
-		return route
-	}
+		return nil
+	})
 }
 
 // OnlyIssuer rejects an invocation issued by anyone but issuer. It guards the
@@ -102,13 +95,40 @@ func OnlySubject(subject did.DID) Middleware {
 // so cannot sit behind [NotSelfSigned]: what makes them safe is that only the
 // service's own key can produce them.
 func OnlyIssuer(issuer did.DID) Middleware {
+	return check(func(req execution.Request) error {
+		if req.Invocation().Issuer() != issuer {
+			return ErrUnauthorized
+		}
+		return nil
+	})
+}
+
+// check builds a middleware from a rule applied to each invocation. A rejected
+// invocation gets the rule's error as its failure and is dropped from the
+// batch; the next handler runs with the rest, or not at all when none remain.
+// A route without a handler is returned as it is, so registering it still
+// panics rather than failing on the first request.
+func check(rule func(execution.Request) error) Middleware {
 	return func(route server.Route) server.Route {
 		next := route.Handler
-		route.Handler = func(req execution.Request, res execution.Response) error {
-			if req.Invocation().Issuer() != issuer {
-				return res.SetFailure(ErrUnauthorized)
+		if next == nil {
+			return route
+		}
+		route.Handler = func(items []execution.Batch) error {
+			accepted := make([]execution.Batch, 0, len(items))
+			for _, item := range items {
+				if err := rule(item.Request); err != nil {
+					if err := item.Response.SetFailure(err); err != nil {
+						return err
+					}
+					continue
+				}
+				accepted = append(accepted, item)
 			}
-			return next(req, res)
+			if len(accepted) == 0 {
+				return nil
+			}
+			return next(accepted)
 		}
 		return route
 	}

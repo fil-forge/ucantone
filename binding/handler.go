@@ -211,3 +211,47 @@ func NewHandler[Args cbg.CBORUnmarshaler, OK cbg.CBORMarshaler](handler HandlerF
 		return handler(&Request[Args]{Request: req, task: task}, &Response[OK]{res: res})
 	}
 }
+
+// Batch pairs one invocation of a batch, with its arguments decoded into Args,
+// and the typed response it gets.
+type Batch[Args cbg.CBORUnmarshaler, OK cbg.CBORMarshaler] struct {
+	// Request carries the invocation and its decoded arguments.
+	Request *Request[Args]
+	// Response records the outcome of executing the invocation.
+	Response *Response[OK]
+}
+
+// BatchHandlerFunc handles every invocation of a command in a request with one
+// call, reporting the outcome of each on its own [Response]. Register it with a
+// server via [Binding.BatchHandler], [NewBatchHandler], or [NewBatchRoute]. See
+// [execution.BatchHandlerFunc] for how a server calls it.
+type BatchHandlerFunc[Args cbg.CBORUnmarshaler, OK cbg.CBORMarshaler] = func([]Batch[Args, OK]) error
+
+// NewBatchHandler adapts a typed [BatchHandlerFunc] into the untyped
+// [execution.BatchHandlerFunc] a server registers. It decodes each invocation's
+// arguments into Args, reporting a [MalformedArgumentsErrorName] failure for
+// those that do not conform and leaving them out of the batch. The handler is
+// not called when no invocation remains.
+func NewBatchHandler[Args cbg.CBORUnmarshaler, OK cbg.CBORMarshaler](handler BatchHandlerFunc[Args, OK]) execution.BatchHandlerFunc {
+	return func(items []execution.Batch) error {
+		typed := make([]Batch[Args, OK], 0, len(items))
+		for _, item := range items {
+			inv := item.Request.Invocation()
+			task, err := NewTask[Args](inv.Subject(), inv.Command(), inv.ArgumentsBytes(), inv.Nonce())
+			if err != nil {
+				if err := item.Response.SetFailure(NewMalformedArgumentsError(err)); err != nil {
+					return err
+				}
+				continue
+			}
+			typed = append(typed, Batch[Args, OK]{
+				Request:  &Request[Args]{Request: item.Request, task: task},
+				Response: &Response[OK]{res: item.Response},
+			})
+		}
+		if len(typed) == 0 {
+			return nil
+		}
+		return handler(typed)
+	}
+}
