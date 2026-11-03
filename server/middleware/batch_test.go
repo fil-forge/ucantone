@@ -79,3 +79,17 @@ func TestBatchRoute(t *testing.T) {
 		}
 	})
 }
+
+func TestApplyKeepsAMissingHandlerMissing(t *testing.T) {
+	routes := middleware.Apply([]server.Route{{Command: testutil.ConsoleLogCommand}},
+		middleware.NotSelfSigned(),
+		middleware.OnlySubject(testutil.RandomDID(t)),
+		middleware.OnlyIssuer(testutil.RandomDID(t)),
+	)
+	require.Nil(t, routes[0].Handler)
+
+	srv := server.NewHTTP(testutil.RandomIssuer(t))
+	require.PanicsWithValue(t, `server.HandleRoute: route for "/console/log" has no handler`, func() {
+		srv.HandleRoute(routes[0])
+	})
+}

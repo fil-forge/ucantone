@@ -106,9 +106,14 @@ func OnlyIssuer(issuer did.DID) Middleware {
 // check builds a middleware from a rule applied to each invocation. A rejected
 // invocation gets the rule's error as its failure and is dropped from the
 // batch; the next handler runs with the rest, or not at all when none remain.
+// A route without a handler is returned as it is, so registering it still
+// panics rather than failing on the first request.
 func check(rule func(execution.Request) error) Middleware {
 	return func(route server.Route) server.Route {
 		next := route.Handler
+		if next == nil {
+			return route
+		}
 		route.Handler = func(items []execution.Batch) error {
 			accepted := make([]execution.Batch, 0, len(items))
 			for _, item := range items {
