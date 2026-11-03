@@ -146,7 +146,7 @@ func (s *HTTPServer) emitResponseEncode(ctx context.Context, ct ucan.Container) 
 
 // Handle registers the handler that executes invocations of command, one call
 // per invocation. A batch handler registered for the same command with
-// [HTTPServer.HandleBatch] takes precedence over it.
+// [HTTPServer.HandleBatch] takes precedence over it. A nil handler panics.
 func (s *HTTPServer) Handle(command ucan.Command, fn execution.HandlerFunc) {
 	s.executor.Handle(command, fn)
 }
@@ -154,14 +154,19 @@ func (s *HTTPServer) Handle(command ucan.Command, fn execution.HandlerFunc) {
 // HandleBatch registers the handler that executes every invocation of command
 // in a request with one call. It is always used for the command when
 // registered, even for a request with a single invocation of it, and takes
-// precedence over a handler registered with [HTTPServer.Handle].
+// precedence over a handler registered with [HTTPServer.Handle]. A nil handler
+// panics.
 func (s *HTTPServer) HandleBatch(command ucan.Command, fn execution.BatchHandlerFunc) {
 	s.executor.HandleBatch(command, fn)
 }
 
 // HandleRoute registers the handlers the route carries: its Handler with
-// [HTTPServer.Handle] and its BatchHandler with [HTTPServer.HandleBatch].
+// [HTTPServer.Handle] and its BatchHandler with [HTTPServer.HandleBatch]. A
+// route with neither panics.
 func (s *HTTPServer) HandleRoute(route Route) {
+	if route.Handler == nil && route.BatchHandler == nil {
+		panic(fmt.Sprintf("server.HandleRoute: route for %q has no handler", route.Command))
+	}
 	if route.Handler != nil {
 		s.Handle(route.Command, route.Handler)
 	}

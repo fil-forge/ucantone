@@ -54,8 +54,11 @@ func New(authority ucan.Issuer, options ...Option) *Dispatcher {
 
 // Handle registers the handler that executes invocations of command, one call
 // per invocation. A batch handler registered for the same command with
-// [Dispatcher.HandleBatch] takes precedence over it.
+// [Dispatcher.HandleBatch] takes precedence over it. A nil handler panics.
 func (d *Dispatcher) Handle(command ucan.Command, fn execution.HandlerFunc) {
+	if fn == nil {
+		panic(fmt.Sprintf("dispatcher.Handle: nil handler for %q", command))
+	}
 	d.handlers[command] = fn
 }
 
@@ -63,8 +66,11 @@ func (d *Dispatcher) Handle(command ucan.Command, fn execution.HandlerFunc) {
 // in a call to [Dispatcher.ExecuteAll] at once. It is always used for the
 // command when registered, even for a single invocation passed to
 // [Dispatcher.Execute], and takes precedence over a handler registered with
-// [Dispatcher.Handle].
+// [Dispatcher.Handle]. A nil handler panics.
 func (d *Dispatcher) HandleBatch(command ucan.Command, fn execution.BatchHandlerFunc) {
+	if fn == nil {
+		panic(fmt.Sprintf("dispatcher.HandleBatch: nil batch handler for %q", command))
+	}
 	d.batchHandlers[command] = fn
 }
 

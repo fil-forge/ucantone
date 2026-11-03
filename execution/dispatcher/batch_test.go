@@ -341,3 +341,13 @@ func TestDispatcherBatchHandler(t *testing.T) {
 		require.Panics(t, func() { dispatcher.WithMaxConcurrency(-1) })
 	})
 }
+
+func TestDispatcherRejectsNilHandlers(t *testing.T) {
+	d := dispatcher.New(testutil.RandomIssuer(t))
+	require.PanicsWithValue(t, `dispatcher.Handle: nil handler for "/test/echo"`, func() {
+		d.Handle(testutil.TestEchoCommand, nil)
+	})
+	require.PanicsWithValue(t, `dispatcher.HandleBatch: nil batch handler for "/test/echo"`, func() {
+		d.HandleBatch(testutil.TestEchoCommand, nil)
+	})
+}
