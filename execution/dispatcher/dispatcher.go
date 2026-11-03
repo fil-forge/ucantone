@@ -99,7 +99,8 @@ func (d *Dispatcher) Execute(req execution.Request) (execution.Response, error) 
 // with at most [WithMaxConcurrency] of them running at once. A batch handler
 // call takes one slot, and starts once every invocation of its command has been
 // validated. Panics are recovered as [Dispatcher.Execute] recovers them: a
-// panic in a batch handler fails every task of the batch.
+// panic in a batch handler fails every task of the batch that does not already
+// have a failure.
 func (d *Dispatcher) ExecuteAll(reqs []execution.Request) ([]execution.Response, error) {
 	resps := make([]execution.Response, len(reqs))
 	errs := make([]error, len(reqs))
@@ -127,23 +128,15 @@ func (d *Dispatcher) ExecuteAll(reqs []execution.Request) ([]execution.Response,
 		members   []int
 		validated sync.WaitGroup
 	}
+	// group[i] is the batch request i belongs to, or nil when its command has
+	// no batch handler.
+	group := make([]*batchGroup, len(reqs))
 	groups := map[ucan.Command]*batchGroup{}
 	var order []ucan.Command
-
-	var wg sync.WaitGroup
 	for i, req := range reqs {
 		cmd := req.Invocation().Command()
-		// Acquire before spawning, so a request larger than the cap waits in
-		// this loop instead of as a pile of blocked goroutines.
-		acquire()
 		fn, ok := d.batchHandlers[cmd]
 		if !ok {
-			wg.Go(func() {
-				defer release()
-				resps[i], errs[i] = d.guard(req, func() (execution.Response, error) {
-					return d.execute(req)
-				})
-			})
 			continue
 		}
 		g, ok := groups[cmd]
@@ -153,19 +146,17 @@ func (d *Dispatcher) ExecuteAll(reqs []execution.Request) ([]execution.Response,
 			order = append(order, cmd)
 		}
 		g.members = append(g.members, i)
-		g.validated.Go(func() {
-			defer release()
-			resps[i], errs[i] = d.guard(req, func() (execution.Response, error) {
-				res, ok, err := d.prepare(req)
-				ready[i] = ok
-				return res, err
-			})
-		})
+		group[i] = g
 	}
-	// The batch runners hold no slot while they wait for their validations, so
-	// they cannot starve the validations of the slots they need.
+
+	var wg sync.WaitGroup
+	// Each batch runner starts before any request is admitted, so it competes
+	// for a slot as soon as its own validations finish rather than after the
+	// whole request has been admitted. It holds no slot while it waits, so it
+	// cannot starve the validations of the slots they need.
 	for _, cmd := range order {
 		g := groups[cmd]
+		g.validated.Add(len(g.members))
 		wg.Go(func() {
 			g.validated.Wait()
 			var members []int
@@ -182,6 +173,32 @@ func (d *Dispatcher) ExecuteAll(reqs []execution.Request) ([]execution.Response,
 			d.runBatch(cmd, g.handler, reqs, resps, errs, members)
 		})
 	}
+
+	for i, req := range reqs {
+		// Acquire before spawning, so a request larger than the cap waits in
+		// this loop instead of as a pile of blocked goroutines.
+		acquire()
+		g := group[i]
+		if g == nil {
+			wg.Go(func() {
+				defer release()
+				resps[i], errs[i] = d.guard(req, func() (execution.Response, error) {
+					return d.execute(req)
+				})
+			})
+			continue
+		}
+		// The runner waiting on the group is what wg tracks for this request.
+		go func() {
+			defer g.validated.Done()
+			defer release()
+			resps[i], errs[i] = d.guard(req, func() (execution.Response, error) {
+				res, ok, err := d.prepare(req)
+				ready[i] = ok
+				return res, err
+			})
+		}()
+	}
 	wg.Wait()
 	for i, err := range errs {
 		if err != nil {
@@ -191,9 +208,10 @@ func (d *Dispatcher) ExecuteAll(reqs []execution.Request) ([]execution.Response,
 	return resps, errors.Join(errs...)
 }
 
-// runBatch calls the batch handler with the given members of reqs and resps,
-// replacing their responses with transient failures when the handler returns
-// an error or panics, and failing any task it left without a receipt.
+// runBatch calls the batch handler with the given members of reqs and resps.
+// When the handler returns an error or panics, every task without a failure
+// receipt gets a transient failure; a task that already has one keeps it. A
+// task left without a receipt fails either way.
 func (d *Dispatcher) runBatch(cmd ucan.Command, fn execution.BatchHandlerFunc, reqs []execution.Request, resps []execution.Response, errs []error, members []int) {
 	// The handler gets its own slice of its own structs, so whatever it does
 	// to them leaves the dispatcher's record of the responses intact.
@@ -220,11 +238,20 @@ func (d *Dispatcher) runBatch(cmd ucan.Command, fn execution.BatchHandlerFunc, r
 	}()
 
 	for _, i := range members {
+		rcpt := resps[i].Receipt()
 		switch {
-		case failure != nil:
+		case rcpt == nil:
+			missing := failure
+			if missing == nil {
+				missing = execution.NewExecutionFailureError(cmd)
+			}
+			resps[i], errs[i] = d.transientFailure(reqs[i], missing)
+		case failure != nil && !rcpt.Out().IsErr():
+			// A failure the task already has stays: it is a specific answer
+			// (from the handler, a middleware or argument decoding) that the
+			// batch failing does not change. A success does not survive it,
+			// since the work may not have completed.
 			resps[i], errs[i] = d.transientFailure(reqs[i], failure)
-		case resps[i].Receipt() == nil:
-			resps[i], errs[i] = d.transientFailure(reqs[i], execution.NewExecutionFailureError(cmd))
 		}
 	}
 }

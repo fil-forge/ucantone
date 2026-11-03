@@ -2,14 +2,21 @@ package dispatcher_test
 
 import (
 	"errors"
+	"slices"
 	"sync"
 	"testing"
+	"time"
 
+	"github.com/fil-forge/ucantone/binding"
 	"github.com/fil-forge/ucantone/execution"
 	"github.com/fil-forge/ucantone/execution/dispatcher"
 	"github.com/fil-forge/ucantone/ipld/datamodel"
+	"github.com/fil-forge/ucantone/server"
+	"github.com/fil-forge/ucantone/server/middleware"
 	"github.com/fil-forge/ucantone/testutil"
+	tdm "github.com/fil-forge/ucantone/testutil/datamodel"
 	"github.com/fil-forge/ucantone/ucan"
+	"github.com/fil-forge/ucantone/ucan/delegation"
 	"github.com/fil-forge/ucantone/ucan/invocation"
 	"github.com/stretchr/testify/require"
 )
@@ -187,6 +194,54 @@ func TestDispatcherBatchHandler(t *testing.T) {
 		}
 	})
 
+	t.Run("a failure a task already has survives a batch error", func(t *testing.T) {
+		d := dispatcher.New(service)
+		rejection := errors.New("rejected before the batch failed")
+		d.HandleBatch(testutil.TestEchoCommand, func(items []execution.Batch) error {
+			if err := items[0].Response.SetFailure(rejection); err != nil {
+				return err
+			}
+			return errors.New("boom")
+		})
+
+		resps, err := d.ExecuteAll(echoRequests(t, 3))
+		require.NoError(t, err)
+		_, x := resps[0].Receipt().Out().Unpack()
+		require.Equal(t, rejection.Error(), testutil.ResultMap(t, x)["message"])
+		for _, res := range resps[1:] {
+			requireFailure(t, res, execution.HandlerExecutionErrorName)
+		}
+	})
+
+	t.Run("middleware and decoding rejections survive a batch error", func(t *testing.T) {
+		d := dispatcher.New(service)
+		route := binding.Bind[*tdm.TestObject, *tdm.TestObject2](testutil.TestEchoCommand).BatchRoute(
+			func(items []binding.Batch[*tdm.TestObject, *tdm.TestObject2]) error {
+				return errors.New("boom")
+			},
+		)
+		route = middleware.Apply([]server.Route{route}, middleware.NotSelfSigned())[0]
+		d.HandleBatch(route.Command, route.BatchHandler)
+
+		// alice is her own subject, so her invocation is self-signed.
+		selfSigned := invoke(t, testutil.TestEchoCommand, datamodel.Map{"bytes": []byte{1}})
+		bob := testutil.RandomIssuer(t)
+		dlg := testutil.Must(delegation.Delegate(service, bob.DID(), service.DID(), testutil.TestEchoCommand))(t)
+		bobInvokes := func(args datamodel.Map) execution.Request {
+			inv := testutil.Must(invocation.Invoke(bob, service.DID(), testutil.TestEchoCommand, args,
+				invocation.WithAudience(service.DID()), invocation.WithProofs(dlg.Link())))(t)
+			return execution.NewRequest(t.Context(), inv, execution.WithDelegations(dlg))
+		}
+		malformed := bobInvokes(datamodel.Map{"bytes": "not bytes"})
+		accepted := bobInvokes(datamodel.Map{"bytes": []byte{2}})
+
+		resps, err := d.ExecuteAll([]execution.Request{selfSigned, malformed, accepted})
+		require.NoError(t, err)
+		requireFailure(t, resps[0], middleware.SelfSignedInvocationErrorName)
+		requireFailure(t, resps[1], binding.MalformedArgumentsErrorName)
+		requireFailure(t, resps[2], execution.HandlerExecutionErrorName)
+	})
+
 	t.Run("a panic in the batch handler fails every task and is logged once", func(t *testing.T) {
 		var logged int
 		d := dispatcher.New(service, dispatcher.WithPanicLogger(func(execution.Request, any) { logged++ }))
@@ -249,6 +304,37 @@ func TestDispatcherBatchHandler(t *testing.T) {
 		resps, err := d.ExecuteAll(reqs)
 		require.NoError(t, err)
 		requireOK(t, reqs, resps)
+	})
+
+	t.Run("a validated batch runs without waiting for the rest of the request to be admitted", func(t *testing.T) {
+		d := dispatcher.New(service, dispatcher.WithMaxConcurrency(1))
+		var mu sync.Mutex
+		var events []string
+		record := func(event string) {
+			mu.Lock()
+			defer mu.Unlock()
+			events = append(events, event)
+		}
+		d.HandleBatch(testutil.TestEchoCommand, func(items []execution.Batch) error {
+			record("batch")
+			return echoAll(items)
+		})
+		d.Handle(testutil.ConsoleLogCommand, func(req execution.Request, res execution.Response) error {
+			record("single")
+			time.Sleep(20 * time.Millisecond)
+			return res.SetSuccess(datamodel.Map{})
+		})
+
+		reqs := []execution.Request{invoke(t, testutil.TestEchoCommand, datamodel.Map{"i": int64(0)})}
+		const singles = 5
+		for i := range singles {
+			reqs = append(reqs, invoke(t, testutil.ConsoleLogCommand, datamodel.Map{"i": int64(i)}))
+		}
+		_, err := d.ExecuteAll(reqs)
+		require.NoError(t, err)
+		// The batch queues for a slot as soon as its validation finishes, so it
+		// runs before the last invocations are admitted rather than after.
+		require.Less(t, slices.Index(events, "batch"), singles-1, events)
 	})
 
 	t.Run("WithMaxConcurrency panics on a negative value", func(t *testing.T) {

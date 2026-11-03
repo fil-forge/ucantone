@@ -66,7 +66,9 @@ type Batch struct {
 // single invocation. Every response should have a receipt by the time the
 // handler returns: one left without fails its task with an
 // [ExecutionFailureErrorName] receipt. A returned error fails every task of the
-// batch, as it fails the one task of a [HandlerFunc].
+// batch that does not already have a failure, as it fails the one task of a
+// [HandlerFunc]; a failure set before the error, by the handler, a middleware
+// or argument decoding, stays as the task's answer.
 //
 // A server calls a batch handler concurrently with the other handlers of the
 // same request and with batch handlers of other requests, so the same rules on
