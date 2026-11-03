@@ -9,3 +9,9 @@ import "github.com/fil-forge/ucantone/server"
 func NewRoute[Args, OK CBORValue](cmd Binding[Args, OK], fn HandlerFunc[Args, OK]) server.Route {
 	return server.Route{Command: cmd.Command, Handler: cmd.Handler(fn)}
 }
+
+// NewBatchRoute builds a [Route] from a command binding and its batch handler,
+// with the same compile-time checks as [NewRoute].
+func NewBatchRoute[Args, OK CBORValue](cmd Binding[Args, OK], fn BatchHandlerFunc[Args, OK]) server.Route {
+	return server.NewBatchRoute(cmd.Command, cmd.BatchHandler(fn))
+}

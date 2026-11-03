@@ -344,3 +344,79 @@ func TestBatchClient(t *testing.T) {
 		fmt.Printf("Echo response: %+v\n", ok)
 	}
 }
+
+// A batch handler receives every invocation of its command in a request with
+// one call, each paired with its own response, so it can do their work
+// together (one database transaction, one downstream call). The server always
+// uses it for that command, even for a single invocation.
+func TestBatchHandler(t *testing.T) {
+	echo := binding.Bind[*types.EchoArguments, *types.EchoArguments](command.MustParse("/example/echo"))
+
+	serviceID, err := ed25519.GenerateIssuer()
+	if err != nil {
+		panic(err)
+	}
+
+	var calls int
+	ucanSrv := server.NewHTTP(serviceID)
+	ucanSrv.HandleRoute(echo.BatchRoute(func(items []binding.Batch[*types.EchoArguments, *types.EchoArguments]) error {
+		calls++
+		for _, item := range items {
+			if err := item.Response.SetSuccess(item.Request.Task().Arguments()); err != nil {
+				return err
+			}
+		}
+		return nil
+	}))
+
+	alice, err := ed25519.GenerateIssuer()
+	if err != nil {
+		panic(err)
+	}
+
+	dlg, err := echo.Delegate(serviceID, alice.DID(), serviceID.DID())
+	if err != nil {
+		panic(err)
+	}
+
+	var invs []ucan.Invocation
+	for _, message := range []string{"Hello", "UCAN!"} {
+		inv, err := echo.Invoke(
+			alice,
+			serviceID.DID(),
+			&types.EchoArguments{Message: message},
+			invocation.WithProofs(dlg.Link()),
+		)
+		if err != nil {
+			panic(err)
+		}
+		invs = append(invs, inv)
+	}
+
+	serviceURL, err := url.Parse("http://test.service.example.com")
+	if err != nil {
+		panic(err)
+	}
+	c, err := client.NewHTTP(serviceURL, client.WithHTTPClient(&http.Client{Transport: ucanSrv}))
+	if err != nil {
+		panic(err)
+	}
+
+	res, err := c.ExecuteBatch(batch.NewRequest(context.Background(), invs, batch.WithDelegations(dlg)))
+	if err != nil {
+		panic(err)
+	}
+
+	// both invocations went to the batch handler in one call
+	if calls != 1 {
+		t.Fatalf("expected one batch handler call, got %d", calls)
+	}
+	for _, inv := range invs {
+		rcpt, _ := res.Receipt(inv.Task().Link())
+		ok, err := echo.Unpack(rcpt)
+		if err != nil {
+			panic(err)
+		}
+		fmt.Printf("Echo response: %+v\n", ok)
+	}
+}

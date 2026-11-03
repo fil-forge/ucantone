@@ -48,3 +48,27 @@ type Executor interface {
 // same time. A handler must not rely on another invocation of the same request
 // having run before it, and any state it shares needs its own locking.
 type HandlerFunc = func(Request, Response) error
+
+// Batch pairs one invocation of a batch with the response it gets.
+type Batch struct {
+	// Request carries the invocation to execute.
+	Request Request
+	// Response records the outcome of executing the invocation.
+	Response Response
+}
+
+// BatchHandlerFunc is a function that handles every invocation of one command
+// in a request with a single call. Each [Batch] holds a validated invocation
+// and its own response, on which the handler sets the outcome, as a
+// [HandlerFunc] does for one invocation.
+//
+// When a command has a batch handler, the server always calls it, even for a
+// single invocation. Every response should have a receipt by the time the
+// handler returns: one left without fails its task with an
+// [ExecutionFailureErrorName] receipt. A returned error fails every task of the
+// batch, as it fails the one task of a [HandlerFunc].
+//
+// A server calls a batch handler concurrently with the other handlers of the
+// same request and with batch handlers of other requests, so the same rules on
+// shared state apply as for a [HandlerFunc].
+type BatchHandlerFunc = func([]Batch) error
