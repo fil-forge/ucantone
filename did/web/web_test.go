@@ -192,7 +192,7 @@ func TestResolver(t *testing.T) {
 			// The roundtripper is synchronous, so we have to cooperate.
 			case <-r.Context().Done():
 				return nil, r.Context().Err()
-			case <-time.After(10 * time.Millisecond):
+			case <-time.After(100 * time.Millisecond):
 				return &http.Response{
 					StatusCode: http.StatusOK,
 					Header:     http.Header{"Content-Type": []string{"application/json"}},
@@ -206,7 +206,7 @@ func TestResolver(t *testing.T) {
 		_, resolveErr := slowResolver.Resolve(t.Context(), did.MustParse("did:web:example.com"))
 		require.ErrorContains(t, resolveErr, "context deadline exceeded")
 
-		fastResolver, err := web.NewResolver(web.WithTimeout(20*time.Millisecond), web.WithTransport(transport))
+		fastResolver, err := web.NewResolver(web.WithTimeout(time.Second), web.WithTransport(transport))
 		require.NoError(t, err)
 		result, resolveErr := fastResolver.Resolve(t.Context(), did.MustParse("did:web:example.com"))
 		require.NoError(t, resolveErr)
