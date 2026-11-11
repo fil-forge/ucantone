@@ -157,9 +157,7 @@ func (t *ComparisonModel) UnmarshalDagJSON(r io.Reader) (err error) {
 		return fmt.Errorf("peeking array close for field ComparisonModel: %w", err)
 	}
 	if close {
-		if err := jr.ReadArrayClose(); err != nil {
-			return fmt.Errorf("reading array close for field ComparisonModel: %w", err)
-		}
+		return fmt.Errorf("json input has too few fields 0 < 3")
 	} else {
 
 		// t.Op (string) (string)
@@ -294,9 +292,7 @@ func (t *WildcardModel) UnmarshalDagJSON(r io.Reader) (err error) {
 		return fmt.Errorf("peeking array close for field WildcardModel: %w", err)
 	}
 	if close {
-		if err := jr.ReadArrayClose(); err != nil {
-			return fmt.Errorf("reading array close for field WildcardModel: %w", err)
-		}
+		return fmt.Errorf("json input has too few fields 0 < 3")
 	} else {
 
 		// t.Op (string) (string)
@@ -428,9 +424,7 @@ func (t *ConjunctionModel) UnmarshalDagJSON(r io.Reader) (err error) {
 		return fmt.Errorf("peeking array close for field ConjunctionModel: %w", err)
 	}
 	if close {
-		if err := jr.ReadArrayClose(); err != nil {
-			return fmt.Errorf("reading array close for field ConjunctionModel: %w", err)
-		}
+		return fmt.Errorf("json input has too few fields 0 < 2")
 	} else {
 
 		// t.Op (string) (string)
@@ -582,9 +576,7 @@ func (t *DisjunctionModel) UnmarshalDagJSON(r io.Reader) (err error) {
 		return fmt.Errorf("peeking array close for field DisjunctionModel: %w", err)
 	}
 	if close {
-		if err := jr.ReadArrayClose(); err != nil {
-			return fmt.Errorf("reading array close for field DisjunctionModel: %w", err)
-		}
+		return fmt.Errorf("json input has too few fields 0 < 2")
 	} else {
 
 		// t.Op (string) (string)
@@ -718,9 +710,7 @@ func (t *NegationModel) UnmarshalDagJSON(r io.Reader) (err error) {
 		return fmt.Errorf("peeking array close for field NegationModel: %w", err)
 	}
 	if close {
-		if err := jr.ReadArrayClose(); err != nil {
-			return fmt.Errorf("reading array close for field NegationModel: %w", err)
-		}
+		return fmt.Errorf("json input has too few fields 0 < 2")
 	} else {
 
 		// t.Op (string) (string)
@@ -830,9 +820,7 @@ func (t *QuantificationModel) UnmarshalDagJSON(r io.Reader) (err error) {
 		return fmt.Errorf("peeking array close for field QuantificationModel: %w", err)
 	}
 	if close {
-		if err := jr.ReadArrayClose(); err != nil {
-			return fmt.Errorf("reading array close for field QuantificationModel: %w", err)
-		}
+		return fmt.Errorf("json input has too few fields 0 < 3")
 	} else {
 
 		// t.Op (string) (string)

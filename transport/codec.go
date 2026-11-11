@@ -1,6 +1,7 @@
 package transport
 
 import (
+	"context"
 	"fmt"
 	"io"
 	"net/http"
@@ -72,7 +73,7 @@ type HTTPOutboundCodec struct{}
 
 var _ OutboundCodec[*http.Request, *http.Response] = (*HTTPOutboundCodec)(nil)
 
-func (h *HTTPOutboundCodec) Encode(c ucan.Container) (*http.Request, error) {
+func (h *HTTPOutboundCodec) Encode(ctx context.Context, c ucan.Container) (*http.Request, error) {
 	ct, ok := c.(*container.Container)
 	if !ok {
 		ct = container.New(
@@ -81,17 +82,17 @@ func (h *HTTPOutboundCodec) Encode(c ucan.Container) (*http.Request, error) {
 			container.WithReceipts(c.Receipts()...),
 		)
 	}
+	// The URL is the transport's to set.
 	r, w := io.Pipe()
+	req, err := http.NewRequestWithContext(ctx, http.MethodPost, "", r)
+	if err != nil {
+		return nil, fmt.Errorf("creating request: %w", err)
+	}
+	req.Header.Set("Content-Type", dagcbor.ContentType)
 	go func() {
 		err := ct.MarshalCBOR(w)
 		w.CloseWithError(err)
 	}()
-	req := &http.Request{
-		Method: http.MethodPost,
-		Body:   r,
-		Header: http.Header{},
-	}
-	req.Header.Set("Content-Type", dagcbor.ContentType)
 	return req, nil
 }
 

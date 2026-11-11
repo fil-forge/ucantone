@@ -38,7 +38,7 @@ func ExampleNewRoute() {
 	service, _ := ed25519.GenerateIssuer()
 	srv := server.NewHTTP(service)
 	for _, r := range routes {
-		srv.Handle(r.Command, r.Handler)
+		srv.HandleRoute(r)
 	}
 
 	// Drive the server in-process by using it as the client's HTTP transport.

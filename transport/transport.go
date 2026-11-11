@@ -19,7 +19,10 @@ type InboundCodec[Req Request, Res Response] interface {
 }
 
 type OutboundCodec[Req Request, Res Response] interface {
-	Encode(ucan.Container) (Req, error)
+	// Encode builds the request carrying the container. The request carries
+	// ctx, which is how the caller's cancellation, deadline and trace span
+	// reach the round trip.
+	Encode(ctx context.Context, c ucan.Container) (Req, error)
 	Decode(Res) (ucan.Container, error)
 }
 

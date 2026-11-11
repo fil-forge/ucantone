@@ -5,7 +5,10 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"log"
 	"net/http"
+	"runtime"
+	"sync"
 
 	"github.com/fil-forge/ucantone/execution"
 	"github.com/fil-forge/ucantone/execution/batch"
@@ -16,10 +19,11 @@ import (
 )
 
 type HTTPServer struct {
-	id        ucan.Issuer
-	executor  *dispatcher.Dispatcher
-	codec     transport.InboundCodec[*http.Request, *http.Response]
-	listeners []EventListener
+	id             ucan.Issuer
+	executor       *dispatcher.Dispatcher
+	codec          transport.InboundCodec[*http.Request, *http.Response]
+	listeners      []listenerEntry
+	listenerPanics ListenerPanicLogger
 }
 
 var (
@@ -30,27 +34,39 @@ var (
 // NewHTTP creates a new server capable of handling UCAN invocations over HTTP.
 func NewHTTP(id ucan.Issuer, options ...HTTPOption) *HTTPServer {
 	cfg := httpServerConfig{
-		codec: transport.DefaultHTTPInboundCodec,
+		codec:          transport.DefaultHTTPInboundCodec,
+		listenerPanics: logListenerPanic,
+		maxConcurrency: DefaultMaxConcurrency,
 	}
 	for _, opt := range options {
 		opt(&cfg)
 	}
-	executor := dispatcher.New(
-		id,
+	dispatcherOpts := []dispatcher.Option{
 		dispatcher.WithValidationOptions(cfg.validationOpts...),
 		dispatcher.WithReceiptTimestamps(cfg.receiptTimestamps),
-	)
+		dispatcher.WithMaxConcurrency(cfg.maxConcurrency),
+	}
+	if cfg.panicLogger != nil {
+		dispatcherOpts = append(dispatcherOpts, dispatcher.WithPanicLogger(cfg.panicLogger))
+	}
+	executor := dispatcher.New(id, dispatcherOpts...)
 	return &HTTPServer{
-		id:        id,
-		codec:     cfg.codec,
-		executor:  executor,
-		listeners: cfg.listeners,
+		id:             id,
+		codec:          cfg.codec,
+		executor:       executor,
+		listeners:      cfg.listeners,
+		listenerPanics: cfg.listenerPanics,
 	}
 }
 
+// emitRequestDecode calls OnRequestDecode of every listener registered with
+// [WithEventListener], before any handler runs.
 func (s *HTTPServer) emitRequestDecode(ctx context.Context, ct ucan.Container) error {
 	var errs error
 	for _, listener := range s.listeners {
+		if listener.concurrent {
+			continue
+		}
 		if err := listener.OnRequestDecode(ctx, ct); err != nil {
 			errs = errors.Join(errs, err)
 		}
@@ -58,6 +74,66 @@ func (s *HTTPServer) emitRequestDecode(ctx context.Context, ct ucan.Container) e
 	return errs
 }
 
+// startRequestDecode calls OnRequestDecode of every listener registered with
+// [WithConcurrentEventListener], each on its own goroutine, and returns a
+// function that waits for them all and reports their errors. The function is
+// safe to call more than once. A panic in a listener becomes an error: unlike
+// a listener called from ServeHTTP, a goroutine has no net/http recovery
+// boundary above it.
+func (s *HTTPServer) startRequestDecode(ctx context.Context, ct ucan.Container) func() error {
+	var wg sync.WaitGroup
+	errs := make([]error, len(s.listeners))
+	for i, listener := range s.listeners {
+		if !listener.concurrent {
+			continue
+		}
+		wg.Go(func() {
+			errs[i] = s.requestDecode(ctx, listener, ct)
+		})
+	}
+	return func() error {
+		wg.Wait()
+		return errors.Join(errs...)
+	}
+}
+
+// errListenerPanic is what a panicking listener fails the request with. It
+// says nothing about the panic itself: the error reaches the HTTP caller, and
+// the value goes to the [ListenerPanicLogger] alone.
+var errListenerPanic = errors.New("event listener panicked")
+
+// requestDecode calls the listener, turning a panic into [errListenerPanic]
+// after recording it.
+func (s *HTTPServer) requestDecode(ctx context.Context, listener RequestDecodeListener, ct ucan.Container) (err error) {
+	// recover() alone cannot tell a normal return from panic(nil), so the
+	// flag is what says whether the listener returned.
+	returned := false
+	defer func() {
+		if returned {
+			return
+		}
+		s.listenerPanics(ct, recover())
+		err = errListenerPanic
+	}()
+	err = listener.OnRequestDecode(ctx, ct)
+	returned = true
+	return err
+}
+
+// logListenerPanic is the default [ListenerPanicLogger]. It prints the panic
+// and the stack through the standard log package, as the dispatcher's default
+// does for handler panics.
+func logListenerPanic(_ ucan.Container, value any) {
+	buf := make([]byte, panicStackSize)
+	buf = buf[:runtime.Stack(buf, false)]
+	log.Printf("panic in event listener: %v\n%s", value, buf)
+}
+
+// panicStackSize matches the buffer net/http uses for the same purpose.
+const panicStackSize = 64 << 10
+
+// emitResponseEncode calls OnResponseEncode of every listener, however it was
+// registered, in registration order.
 func (s *HTTPServer) emitResponseEncode(ctx context.Context, ct ucan.Container) error {
 	var errs error
 	for _, listener := range s.listeners {
@@ -68,8 +144,28 @@ func (s *HTTPServer) emitResponseEncode(ctx context.Context, ct ucan.Container) 
 	return errs
 }
 
+// Handle registers a handler that executes invocations of command, one call per
+// invocation, wrapped by [dispatcher.Each]. It replaces any handler registered
+// for the command before. A nil handler panics.
 func (s *HTTPServer) Handle(command ucan.Command, fn execution.HandlerFunc) {
 	s.executor.Handle(command, fn)
+}
+
+// HandleBatch registers the handler that executes every invocation of command
+// in a request with one call, even for a request with a single invocation of
+// it. It replaces any handler registered for the command before. A nil handler
+// panics.
+func (s *HTTPServer) HandleBatch(command ucan.Command, fn execution.BatchHandlerFunc) {
+	s.executor.HandleBatch(command, fn)
+}
+
+// HandleRoute registers the route's handler with [HTTPServer.HandleBatch]. A
+// route without a handler panics.
+func (s *HTTPServer) HandleRoute(route Route) {
+	if route.Handler == nil {
+		panic(fmt.Sprintf("server.HandleRoute: route for %q has no handler", route.Command))
+	}
+	s.HandleBatch(route.Command, route.Handler)
 }
 
 // Execute validates and executes a single invocation.
@@ -82,44 +178,54 @@ func (s *HTTPServer) Execute(req execution.Request) (execution.Response, error) 
 // skipped and get no receipt. Each handler sees every token of
 // the request as its metadata, and the tokens handlers attach to their
 // responses are gathered into the metadata of the returned response.
+//
+// Each invocation is validated on its own, and the valid invocations of each
+// command go to the command's handler in one call per command; a handler
+// registered with [HTTPServer.Handle] then executes them one call each.
+//
+// Validations and per-invocation handler calls execute concurrently, each on
+// its own goroutine, with at most [DefaultMaxConcurrency] of them running at
+// once unless [WithMaxConcurrency] sets another cap. A batch handler call does
+// not count towards the cap. The cap applies to this request alone: concurrent requests each get
+// their own, so the server as a whole runs up to the cap times the number of
+// requests in flight. Handlers must therefore be safe to call concurrently
+// within one request, as they already must be across requests. Receipts and
+// metadata are gathered in request order once every invocation has finished,
+// so the response does not depend on which handler finished first.
 func (s *HTTPServer) ExecuteBatch(req *batch.Request) (*batch.Response, error) {
-	var metaInvocations []ucan.Invocation
-	var metaDelegations []ucan.Delegation
-	var metaReceipts []ucan.Receipt
-	if req.Metadata() != nil {
-		metaInvocations = req.Metadata().Invocations()
-		metaDelegations = req.Metadata().Delegations()
-		metaReceipts = req.Metadata().Receipts()
+	var addressed []ucan.Invocation
+	for _, inv := range req.Invocations() {
+		aud := inv.Audience()
+		if !aud.Defined() {
+			aud = inv.Subject()
+		}
+		if aud == s.id.DID() {
+			addressed = append(addressed, inv)
+		}
+	}
+
+	var execReqs []execution.Request
+	if len(addressed) > 0 {
+		// Every handler sees the same tokens, so the container is built once
+		// and shared by every handler in the batch.
+		execMeta := batchMetadata(req)
+		execReqs = make([]execution.Request, len(addressed))
+		for i, inv := range addressed {
+			execReqs[i] = execution.NewRequest(req.Context(), inv, execution.WithRequestMetadata(execMeta))
+		}
+	}
+	// The dispatcher only returns an error when a response cannot be built,
+	// which is likely a developer error.
+	responses, err := s.executor.ExecuteAll(execReqs)
+	if err != nil {
+		return nil, err
 	}
 
 	var receipts []ucan.Receipt
 	var invocations []ucan.Invocation
 	var delegations []ucan.Delegation
 	var extraReceipts []ucan.Receipt
-	for _, inv := range req.Invocations() {
-		aud := inv.Audience()
-		if !aud.Defined() {
-			aud = inv.Subject()
-		}
-		if aud != s.id.DID() {
-			continue
-		}
-		execReq := execution.NewRequest(
-			req.Context(),
-			inv,
-			execution.WithInvocations(req.Invocations()...),
-			execution.WithInvocations(metaInvocations...),
-			execution.WithDelegations(metaDelegations...),
-			execution.WithReceipts(metaReceipts...),
-		)
-
-		res, err := s.executor.Execute(execReq)
-		if err != nil {
-			// This shouldn't really happen, executor only returns an error when
-			// result or metadata cannot be set, which is likely a developer error.
-			return nil, fmt.Errorf("executing task %s: %w", inv.Task().Link(), err)
-		}
-
+	for _, res := range responses {
 		receipts = append(receipts, res.Receipt())
 		if res.Metadata() != nil {
 			invocations = append(invocations, res.Metadata().Invocations()...)
@@ -137,6 +243,19 @@ func (s *HTTPServer) ExecuteBatch(req *batch.Request) (*batch.Response, error) {
 		)))
 	}
 	return batch.NewResponse(receipts, options...), nil
+}
+
+// batchMetadata gathers every token of the batch request into one container.
+func batchMetadata(req *batch.Request) ucan.Container {
+	options := []container.Option{container.WithInvocations(req.Invocations()...)}
+	if req.Metadata() != nil {
+		options = append(options,
+			container.WithInvocations(req.Metadata().Invocations()...),
+			container.WithDelegations(req.Metadata().Delegations()...),
+			container.WithReceipts(req.Metadata().Receipts()...),
+		)
+	}
+	return container.New(options...)
 }
 
 func (s *HTTPServer) ServeHTTP(w http.ResponseWriter, r *http.Request) {
@@ -165,6 +284,12 @@ func (s *HTTPServer) RoundTrip(r *http.Request) (*http.Response, error) {
 	if err != nil {
 		return nil, fmt.Errorf("emitting request decode event: %w", err)
 	}
+	// The concurrent listeners observe the request while its invocations
+	// execute. Every return path waits for them, the error paths included:
+	// the request context is cancelled once ServeHTTP returns, and a listener
+	// still running would see its work fail under it.
+	awaitRequestDecode := s.startRequestDecode(r.Context(), reqContainer)
+	defer awaitRequestDecode()
 
 	res, err := s.ExecuteBatch(batch.NewRequest(
 		r.Context(),
@@ -173,7 +298,8 @@ func (s *HTTPServer) RoundTrip(r *http.Request) (*http.Response, error) {
 		batch.WithReceipts(reqContainer.Receipts()...),
 	))
 	if err != nil {
-		return nil, err
+		// The listeners' errors are reported too, not just waited for.
+		return nil, errors.Join(err, awaitRequestDecode())
 	}
 
 	var receipts []ucan.Receipt
@@ -192,6 +318,11 @@ func (s *HTTPServer) RoundTrip(r *http.Request) (*http.Response, error) {
 	}
 	respContainer := container.New(options...)
 
+	// The response listeners run once the request is fully recorded, so a
+	// listener that stores both halves sees them land in order.
+	if err := awaitRequestDecode(); err != nil {
+		return nil, fmt.Errorf("emitting request decode event: %w", err)
+	}
 	err = s.emitResponseEncode(r.Context(), respContainer)
 	if err != nil {
 		return nil, fmt.Errorf("emitting response encode event: %w", err)

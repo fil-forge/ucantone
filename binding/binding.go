@@ -32,6 +32,11 @@
 //     needs the lower-level request and response (e.g. custom transport
 //     metadata).
 //
+// A command whose handler wants every invocation of a request in one call
+// registers a batch handler instead, through [Binding.BatchRoute],
+// [Binding.BatchHandler] or [NewBatchHandler]. The server then always uses it
+// for that command, even when a request carries a single invocation of it.
+//
 // See the package example for the full client-and-server round trip.
 package binding
 
@@ -104,6 +109,19 @@ func (c Binding[Args, OK]) Route(fn HandlerFunc[Args, OK]) server.Route {
 // checked against the command's Args and OK at compile time.
 func (c Binding[Args, OK]) Handler(fn HandlerFunc[Args, OK]) execution.HandlerFunc {
 	return NewHandler(fn)
+}
+
+// BatchRoute adapts a typed batch handler into an
+// [execution.BatchHandlerFunc] and wraps it in a [server.Route] along with the
+// command for registration with a server.
+func (c Binding[Args, OK]) BatchRoute(fn BatchHandlerFunc[Args, OK]) server.Route {
+	return NewBatchRoute(c, fn)
+}
+
+// BatchHandler adapts a typed batch handler into an
+// [execution.BatchHandlerFunc] for registration on a server.
+func (c Binding[Args, OK]) BatchHandler(fn BatchHandlerFunc[Args, OK]) execution.BatchHandlerFunc {
+	return NewBatchHandler(fn)
 }
 
 // Unpack the command's typed result (OK) from a receipt. If the receipt

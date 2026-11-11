@@ -80,18 +80,30 @@ holds the wire structs and their generated codecs.
   `WithVerifierFactories`, `WithValidationTime`,
   `WithNonStandardSignatureVerifier`. Typed failures in `validator/errors`.
 - `execution/` — `Request`/`Response`/`Executor`/`HandlerFunc` for a single
-  invocation; `dispatcher/` routes a validated invocation to the handler for
-  its command and issues the receipt; `batch/` — `Request`/`Response`/
-  `Executor` (`ExecuteBatch`) for many invocations in one round trip, with
-  receipts looked up by task CID.
+  invocation, and `Batch`/`BatchHandlerFunc` for a handler that takes every
+  invocation of its command in one call; `dispatcher/` routes a validated
+  invocation to the handler for its command and issues the receipt
+  (every handler is a batch handler: `ExecuteAll` groups a command's
+  invocations for it and owns the concurrency cap, and `Each` wraps a
+  per-invocation handler into one); `batch/`
+  — `Request`/`Response`/`Executor` (`ExecuteBatch`) for many invocations in
+  one round trip, with receipts looked up by task CID.
 - `server/` — `NewHTTP(issuer)` is an `http.Handler` (and `RoundTripper`, for
   in-process tests) over a dispatcher; its `ExecuteBatch` runs every
-  invocation addressed to it. `client/` — `NewHTTP(url)`; `ExecuteBatch` is
+  invocation addressed to it. Register with `Handle`, `HandleBatch` or
+  `HandleRoute`; a `Route` carries one batch handler, which `NewRoute` builds
+  from a per-invocation one. `middleware/` — `Apply(routes, mw...)` wraps a
+  route's handler with checks made per invocation after validation and before
+  the command:
+  `NotSelfSigned`, `OnlySubject(did)`, `OnlyIssuer(did)`. They are silent; a
+  service that wants the rejections logged adds its own middleware outermost.
+  `client/` — `NewHTTP(url)`; `ExecuteBatch` is
   the primitive and `Execute` a batch of one; `client.New(transport, codec)`
   for other transports. `transport/` — the inbound/outbound codec interfaces;
   HTTP bodies are DAG-CBOR containers.
 - `binding/` — `Bind[Args, OK](cmd)`: one typed definition of a command that
-  gives you `Invoke`, `Delegate`, `Route`/`Handler` and `Unpack`. Downstream
+  gives you `Invoke`, `Delegate`, `Route`/`Handler`,
+  `BatchRoute`/`BatchHandler` and `Unpack`. Downstream
   libraries define their commands with it.
 - `did/` — `DID` (string form; `Parse`/`MustParse`), `Document`,
   verification methods and relationships, `Resolver`. Methods: `key/`,

@@ -180,7 +180,9 @@ if out := resp.Receipt().Out(); out.IsOK() {
 ```
 
 Many invocations can be sent in one request. The service executes every
-invocation addressed to it and answers each with its own receipt:
+invocation addressed to it concurrently, up to `server.DefaultMaxConcurrency`
+(100) at a time unless `server.WithMaxConcurrency` sets another cap, and
+answers each with its own receipt:
 
 ```go
 res, err := c.ExecuteBatch(batch.NewRequest(context.Background(), invs, batch.WithDelegations(dlg)))
@@ -190,6 +192,23 @@ for _, inv := range invs {
   ok, err := echo.Unpack(rcpt)
   fmt.Printf("Echo response: %+v\n", ok)
 }
+```
+
+A command whose handler wants every invocation of a request in one call (one
+database transaction, one downstream call) registers a batch handler. The
+server always uses it for that command, even for a single invocation:
+
+```go
+echoBinding := binding.Bind[*types.EchoArguments, *types.EchoArguments](echo)
+
+ucanSrv.HandleRoute(echoBinding.BatchRoute(func(items []binding.Batch[*types.EchoArguments, *types.EchoArguments]) error {
+  for _, item := range items {
+    if err := item.Response.SetSuccess(item.Request.Task().Arguments()); err != nil {
+      return err
+    }
+  }
+  return nil
+}))
 ```
 
 ## Contributing

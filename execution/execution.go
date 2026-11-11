@@ -42,4 +42,36 @@ type Executor interface {
 }
 
 // HandlerFunc is a function that can handle a specific UCAN invocation.
+//
+// A server calls handlers concurrently: across requests, as any HTTP handler,
+// and within one request, since the invocations of a batch execute at the
+// same time. A handler must not rely on another invocation of the same request
+// having run before it, and any state it shares needs its own locking.
 type HandlerFunc = func(Request, Response) error
+
+// Batch pairs one invocation of a batch with the response it gets.
+type Batch struct {
+	// Request carries the invocation to execute.
+	Request Request
+	// Response records the outcome of executing the invocation.
+	Response Response
+}
+
+// BatchHandlerFunc is a function that handles every invocation of one command
+// in a request with a single call. Each [Batch] holds a validated invocation
+// and its own response, on which the handler sets the outcome, as a
+// [HandlerFunc] does for one invocation.
+//
+// Every command's handler is a batch handler: a [HandlerFunc] registered with
+// a server is wrapped into one that calls it for each invocation. The server
+// calls it even for a single invocation. Every response should have a receipt by the time the
+// handler returns: one left without fails its task with an
+// [ExecutionFailureErrorName] receipt. A returned error fails every task of the
+// batch that does not already have a failure, as it fails the one task of a
+// [HandlerFunc]; a failure set before the error, by the handler, a middleware
+// or argument decoding, stays as the task's answer.
+//
+// A server calls a batch handler concurrently with the other handlers of the
+// same request and with batch handlers of other requests, so the same rules on
+// shared state apply as for a [HandlerFunc].
+type BatchHandlerFunc = func([]Batch) error

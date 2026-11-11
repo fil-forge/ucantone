@@ -1,11 +1,15 @@
 package server_test
 
 import (
+	"context"
 	"io"
 	"net/http"
+	"sync"
 	"testing"
 	"time"
 
+	"github.com/fil-forge/ucantone/did"
+	"github.com/fil-forge/ucantone/did/key"
 	"github.com/fil-forge/ucantone/execution"
 	"github.com/fil-forge/ucantone/execution/batch"
 	"github.com/fil-forge/ucantone/ipld"
@@ -16,6 +20,7 @@ import (
 	"github.com/fil-forge/ucantone/ucan"
 	"github.com/fil-forge/ucantone/ucan/container"
 	"github.com/fil-forge/ucantone/ucan/invocation"
+	"github.com/fil-forge/ucantone/validator"
 	"github.com/stretchr/testify/require"
 )
 
@@ -49,10 +54,10 @@ func TestHTTPServer(t *testing.T) {
 		ct := container.New(container.WithInvocations(logInv))
 
 		r, w := io.Pipe()
-		go func() {
+		go func(ct *container.Container, w *io.PipeWriter) {
 			err := ct.MarshalCBOR(w)
 			w.CloseWithError(err)
-		}()
+		}(ct, w)
 
 		req := http.Request{Header: http.Header{}, Body: r}
 		req.Header.Set("Content-Type", dagcbor.ContentType)
@@ -84,10 +89,10 @@ func TestHTTPServer(t *testing.T) {
 		ct = container.New(container.WithInvocations(echoInv))
 
 		r, w = io.Pipe()
-		go func() {
+		go func(ct *container.Container, w *io.PipeWriter) {
 			err := ct.MarshalCBOR(w)
 			w.CloseWithError(err)
-		}()
+		}(ct, w)
 
 		req = http.Request{Header: http.Header{}, Body: r}
 		req.Header.Set("Content-Type", dagcbor.ContentType)
@@ -169,6 +174,124 @@ func TestHTTPServerBatch(t *testing.T) {
 		require.NotNil(t, res.Metadata())
 		require.Len(t, res.Metadata().Invocations(), 1)
 		require.Equal(t, attached.Link(), res.Metadata().Invocations()[0].Link())
+	})
+
+	t.Run("batch handlers share one metadata container", func(t *testing.T) {
+		server := server.NewHTTP(service)
+
+		var mu sync.Mutex
+		var seen []ucan.Container
+		server.Handle(testutil.TestEchoCommand, func(req execution.Request, res execution.Response) error {
+			mu.Lock()
+			seen = append(seen, req.Metadata())
+			mu.Unlock()
+			return res.SetSuccess(datamodel.Map{})
+		})
+
+		var invs []ucan.Invocation
+		for range 3 {
+			inv, err := invocation.Invoke(alice, alice.DID(), testutil.TestEchoCommand, datamodel.Map{}, invocation.WithAudience(service.DID()))
+			require.NoError(t, err)
+			invs = append(invs, inv)
+		}
+
+		_, err := server.ExecuteBatch(batch.NewRequest(t.Context(), invs))
+		require.NoError(t, err)
+
+		require.Len(t, seen, 3)
+		require.Same(t, seen[0], seen[1])
+		require.Same(t, seen[0], seen[2])
+	})
+
+	t.Run("handler panics reach the configured panic logger", func(t *testing.T) {
+		var logged []any
+		server := server.NewHTTP(service, server.WithPanicLogger(func(req execution.Request, value any) {
+			logged = append(logged, value)
+		}))
+		server.Handle(testutil.TestEchoCommand, func(req execution.Request, res execution.Response) error {
+			panic("boom")
+		})
+		inv, err := invocation.Invoke(alice, alice.DID(), testutil.TestEchoCommand, datamodel.Map{}, invocation.WithAudience(service.DID()))
+		require.NoError(t, err)
+
+		res, err := server.ExecuteBatch(batch.NewRequest(t.Context(), []ucan.Invocation{inv}))
+		require.NoError(t, err)
+
+		rcpt, ok := res.Receipt(inv.Task().Link())
+		require.True(t, ok)
+		_, x := rcpt.Out().Unpack()
+		require.Equal(t, execution.ExecutionFailureErrorName, testutil.ResultMap(t, x)["name"])
+		require.Equal(t, []any{"boom"}, logged)
+	})
+
+	t.Run("a panic in validation fails its own task only", func(t *testing.T) {
+		bob := testutil.RandomIssuer(t)
+		// Resolves every DID the usual way except Alice's, so validation of
+		// her invocation panics and Bob's goes through.
+		resolver := did.ResolverFunc(func(ctx context.Context, d did.DID) (did.Document, error) {
+			if d == alice.DID() {
+				panic("boom")
+			}
+			return key.Resolver.Resolve(ctx, d)
+		})
+		server := server.NewHTTP(service,
+			server.WithPanicLogger(func(execution.Request, any) {}),
+			server.WithValidationOptions(validator.WithDIDResolver(resolver)),
+		)
+		server.Handle(testutil.TestEchoCommand, func(req execution.Request, res execution.Response) error {
+			return res.SetSuccess(testutil.ArgsMap(t, req.Invocation()))
+		})
+		fromAlice, err := invocation.Invoke(alice, alice.DID(), testutil.TestEchoCommand, datamodel.Map{"message": "alice"}, invocation.WithAudience(service.DID()))
+		require.NoError(t, err)
+		fromBob, err := invocation.Invoke(bob, bob.DID(), testutil.TestEchoCommand, datamodel.Map{"message": "bob"}, invocation.WithAudience(service.DID()))
+		require.NoError(t, err)
+
+		res, err := server.ExecuteBatch(batch.NewRequest(t.Context(), []ucan.Invocation{fromAlice, fromBob}))
+		require.NoError(t, err)
+
+		aliceRcpt, ok := res.Receipt(fromAlice.Task().Link())
+		require.True(t, ok)
+		_, x := aliceRcpt.Out().Unpack()
+		require.Equal(t, execution.ExecutionFailureErrorName, testutil.ResultMap(t, x)["name"])
+
+		bobRcpt, ok := res.Receipt(fromBob.Task().Link())
+		require.True(t, ok)
+		o, _ := bobRcpt.Out().Unpack()
+		require.Equal(t, "bob", testutil.ResultMap(t, o)["message"])
+	})
+
+	t.Run("WithPanicLogger(nil) panics", func(t *testing.T) {
+		require.PanicsWithValue(t, "server.WithPanicLogger: logger must not be nil", func() {
+			server.WithPanicLogger(nil)
+		})
+	})
+
+	t.Run("batch addressed entirely elsewhere runs no handler", func(t *testing.T) {
+		server := server.NewHTTP(service)
+
+		calls := 0
+		server.Handle(testutil.TestEchoCommand, func(req execution.Request, res execution.Response) error {
+			calls++
+			return res.SetSuccess(datamodel.Map{})
+		})
+
+		var invs []ucan.Invocation
+		for range 2 {
+			inv, err := invocation.Invoke(alice, alice.DID(), testutil.TestEchoCommand, datamodel.Map{}, invocation.WithAudience(testutil.RandomDID(t)))
+			require.NoError(t, err)
+			invs = append(invs, inv)
+		}
+
+		res, err := server.ExecuteBatch(batch.NewRequest(t.Context(), invs))
+		require.NoError(t, err)
+
+		var receipts []ucan.Receipt
+		for _, inv := range invs {
+			if rcpt, ok := res.Receipt(inv.Task().Link()); ok {
+				receipts = append(receipts, rcpt)
+			}
+		}
+		require.Equal(t, []any{0, []ucan.Receipt(nil), ucan.Container(nil)}, []any{calls, receipts, res.Metadata()})
 	})
 
 	t.Run("empty batch", func(t *testing.T) {

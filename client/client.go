@@ -76,7 +76,7 @@ func (c *Client[Req, Res]) ExecuteBatch(req *batch.Request) (_ *batch.Response, 
 	if err != nil {
 		return nil, fmt.Errorf("emitting request encode event: %w", err)
 	}
-	request, err := c.Codec.Encode(reqContainer)
+	request, err := c.Codec.Encode(req.Context(), reqContainer)
 	if err != nil {
 		return nil, fmt.Errorf("encoding container: %w", err)
 	}

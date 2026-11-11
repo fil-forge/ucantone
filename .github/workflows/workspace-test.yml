@@ -13,4 +13,4 @@ concurrency:
 
 jobs:
   workspace-test:
-    uses: fil-forge/libforge/.github/workflows/go-workspace-test.yml@v1
+    uses: fil-forge/libforge/.github/workflows/go-workspace-test.yml@main
