@@ -81,11 +81,15 @@ func (r *Resolver) Resolve(ctx context.Context, d did.DID) (did.Document, error)
 
 	// The cached document, when it is stale and can be revalidated.
 	var stale *entry
+	// The version of the cache entry seen, if there is one. The response only
+	// updates the cache if the entry is still that version when it arrives.
+	var seen uint64
 	if r.cache != nil {
 		if e, ok := r.cache.get(d.String()); ok {
 			if r.cfg.now().Before(e.expires) {
 				return e.doc, nil
 			}
+			seen = e.version
 			if e.revalidatable() {
 				stale = &e
 			}
@@ -152,7 +156,7 @@ func (r *Resolver) Resolve(ctx context.Context, d did.DID) (did.Document, error)
 		// revalidated.
 		if store && (ttl > 0 || fresh.revalidatable()) {
 			fresh.expires = r.cfg.now().Add(ttl)
-			r.cache.put(fresh)
+			r.cache.put(fresh, seen)
 		} else {
 			r.cache.remove(fresh.key)
 		}

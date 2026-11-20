@@ -27,6 +27,8 @@ type entry struct {
 	// expires is when the document stops being served without asking the
 	// origin.
 	expires time.Time
+	// version identifies this write of the entry. The cache sets it.
+	version uint64
 }
 
 // revalidatable reports whether the origin gave a validator for the document,
@@ -39,10 +41,12 @@ func (e entry) revalidatable() bool {
 // documents stay in it so they can be revalidated; they leave when newer
 // documents push them out.
 type cache struct {
-	mu    sync.Mutex
-	size  int
-	order *list.List // of entry, most recently used first
-	items map[string]*list.Element
+	mu sync.Mutex
+	// writes counts the entries written, to give each a version.
+	writes uint64
+	size   int
+	order  *list.List // of entry, most recently used first
+	items  map[string]*list.Element
 }
 
 func newCache(size int) *cache {
@@ -60,10 +64,20 @@ func (c *cache) get(key string) (entry, bool) {
 	return el.Value.(entry), true
 }
 
-func (c *cache) put(e entry) {
+// put stores e if the entry for its key is still the version the caller saw
+// when it read the cache: zero for no entry. It does nothing otherwise, since
+// another resolution has written the key in the meantime, and what this one
+// holds may be older.
+func (c *cache) put(e entry, seen uint64) {
 	c.mu.Lock()
 	defer c.mu.Unlock()
-	if el, ok := c.items[e.key]; ok {
+	el, ok := c.items[e.key]
+	if (ok && el.Value.(entry).version != seen) || (!ok && seen != 0) {
+		return
+	}
+	c.writes++
+	e.version = c.writes
+	if ok {
 		el.Value = e
 		c.order.MoveToFront(el)
 		return
