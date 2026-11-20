@@ -2,7 +2,6 @@ package web
 
 import (
 	"container/list"
-	"net/http"
 	"strconv"
 	"strings"
 	"sync"
@@ -22,6 +21,9 @@ type entry struct {
 	// lastModified is the Last-Modified response header the document arrived
 	// with, sent back as If-Modified-Since when revalidating.
 	lastModified string
+	// cacheControl is the Cache-Control response header the document arrived
+	// with. It goes on applying when a 304 comes without one.
+	cacheControl []string
 	// expires is when the document stops being served without asking the
 	// origin.
 	expires time.Time
@@ -83,30 +85,36 @@ func (c *cache) remove(key string) {
 	}
 }
 
-// freshness works out from the response headers whether a document may be
-// kept, and for how long it may be served without asking the origin again.
+// freshness works out whether a document may be kept, and for how long it may
+// be served without asking the origin again, from the Cache-Control and Age
+// headers of its response.
 //
 // A Cache-Control max-age sets the lifetime, capped at maxTTL; without one the
 // lifetime is defaultTTL. The Age header, set by intermediaries that served
 // the response from their own cache, is subtracted. no-cache gives a lifetime
 // of zero (keep, but revalidate before every use) and no-store forbids
-// keeping the document.
-func freshness(h http.Header, defaultTTL, maxTTL time.Duration) (ttl time.Duration, store bool) {
+// keeping the document. Each wins over max-age, and no-store over no-cache,
+// wherever it appears.
+func freshness(cacheControl []string, age string, defaultTTL, maxTTL time.Duration) (ttl time.Duration, store bool) {
 	ttl = defaultTTL
-	for _, value := range h.Values("Cache-Control") {
+	noCache := false
+	for _, value := range cacheControl {
 		for directive := range strings.SplitSeq(value, ",") {
 			name, arg, _ := strings.Cut(strings.TrimSpace(directive), "=")
 			switch strings.ToLower(name) {
 			case "no-store":
 				return 0, false
 			case "no-cache":
-				return 0, true
+				noCache = true
 			case "max-age":
 				ttl = min(seconds(arg, maxTTL), maxTTL)
 			}
 		}
 	}
-	ttl -= seconds(h.Get("Age"), ttl)
+	if noCache {
+		return 0, true
+	}
+	ttl -= seconds(age, ttl)
 	return max(ttl, 0), true
 }
 

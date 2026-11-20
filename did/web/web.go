@@ -30,6 +30,10 @@ var _ did.Resolver = (*Resolver)(nil)
 // Last-Modified header it makes the request conditional, so an unchanged
 // document costs a 304 with no body. Failed resolutions are not cached, and a
 // stale document is never returned when the origin cannot be reached.
+//
+// A returned document shares its verification methods and other contents with
+// the cache, as it does with the other resolutions of the same DID. Treat it
+// as read-only.
 type Resolver struct {
 	cfg   config
 	cache *cache // nil when caching is disabled
@@ -123,10 +127,15 @@ func (r *Resolver) Resolve(ctx context.Context, d did.DID) (did.Document, error)
 		}
 		fresh.etag = resp.Header.Get("ETag")
 		fresh.lastModified = resp.Header.Get("Last-Modified")
+		fresh.cacheControl = resp.Header.Values("Cache-Control")
 	case resp.StatusCode == http.StatusNotModified && stale != nil:
 		// The cached document is still current. A 304 may carry new
-		// validators; the ones already held stand otherwise.
+		// validators or a new Cache-Control; what came with the document
+		// stands otherwise.
 		fresh = *stale
+		if cacheControl := resp.Header.Values("Cache-Control"); len(cacheControl) > 0 {
+			fresh.cacheControl = cacheControl
+		}
 		if etag := resp.Header.Get("ETag"); etag != "" {
 			fresh.etag = etag
 		}
@@ -138,7 +147,7 @@ func (r *Resolver) Resolve(ctx context.Context, d did.DID) (did.Document, error)
 	}
 
 	if r.cache != nil {
-		ttl, store := freshness(resp.Header, r.cfg.cacheTTL, r.cfg.maxCacheTTL)
+		ttl, store := freshness(fresh.cacheControl, resp.Header.Get("Age"), r.cfg.cacheTTL, r.cfg.maxCacheTTL)
 		// A document with no lifetime is only worth keeping when it can be
 		// revalidated.
 		if store && (ttl > 0 || fresh.revalidatable()) {

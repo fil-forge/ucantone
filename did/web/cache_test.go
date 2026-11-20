@@ -242,6 +242,7 @@ func TestResolverCache(t *testing.T) {
 			{"max-age too large for an integer", http.Header{"Cache-Control": {"max-age=99999999999999999999999"}}, web.DefaultMaxCacheTTL},
 			{"s-maxage is for shared caches", http.Header{"Cache-Control": {"s-maxage=10"}}, web.DefaultCacheTTL},
 			{"no-cache", http.Header{"Cache-Control": {"no-cache, max-age=3600"}}, 0},
+			{"no-cache after max-age", http.Header{"Cache-Control": {"max-age=3600, no-cache"}}, 0},
 			{"no-store", http.Header{"Cache-Control": {"no-store, max-age=3600"}}, 0},
 			{"Age counts against max-age", http.Header{"Cache-Control": {"max-age=60"}, "Age": {"45"}}, 15 * time.Second},
 			{"Age counts against the default", http.Header{"Age": {"60"}}, web.DefaultCacheTTL - time.Minute},
@@ -380,6 +381,54 @@ func TestResolverCache(t *testing.T) {
 			resolve(t, resolver, example)
 			require.Equal(t, 2, o.count())
 			require.Empty(t, o.last().Header.Get("If-None-Match"))
+		})
+
+		t.Run("keeps nothing under no-store, wherever it appears", func(t *testing.T) {
+			for _, header := range []http.Header{
+				{"Cache-Control": {"no-cache, no-store"}},
+				{"Cache-Control": {"no-cache", "no-store"}},
+				{"Cache-Control": {"max-age=3600, no-store"}},
+			} {
+				o := &origin{etag: `"v1"`, header: header}
+				resolver, _ := setup(t, o)
+
+				resolve(t, resolver, example)
+				resolve(t, resolver, example)
+				require.Equal(t, 2, o.count(), header)
+				require.Empty(t, o.last().Header.Get("If-None-Match"), header)
+			}
+		})
+
+		t.Run("keeps the document's Cache-Control when the 304 has none", func(t *testing.T) {
+			t.Run("no-cache", func(t *testing.T) {
+				o := &origin{etag: `"v1"`, header: http.Header{"Cache-Control": {"no-cache"}}}
+				resolver, _ := setup(t, o)
+
+				resolve(t, resolver, example)
+				o.set(func(o *origin) { o.header = nil })
+				resolve(t, resolver, example)
+				resolve(t, resolver, example)
+				require.Equal(t, 3, o.count())
+				require.Equal(t, `"v1"`, o.last().Header.Get("If-None-Match"))
+			})
+
+			t.Run("max-age", func(t *testing.T) {
+				o := &origin{etag: `"v1"`, header: http.Header{"Cache-Control": {"max-age=60"}}}
+				resolver, c := setup(t, o)
+
+				resolve(t, resolver, example)
+				o.set(func(o *origin) { o.header = nil })
+				c.Advance(time.Minute)
+				resolve(t, resolver, example)
+				require.Equal(t, 2, o.count())
+
+				c.Advance(59 * time.Second)
+				resolve(t, resolver, example)
+				require.Equal(t, 2, o.count())
+				c.Advance(time.Second)
+				resolve(t, resolver, example)
+				require.Equal(t, 3, o.count())
+			})
 		})
 
 		t.Run("drops the cached document when a later response says no-store", func(t *testing.T) {
