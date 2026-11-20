@@ -81,15 +81,11 @@ func (r *Resolver) Resolve(ctx context.Context, d did.DID) (did.Document, error)
 
 	// The cached document, when it is stale and can be revalidated.
 	var stale *entry
-	// The version of the cache entry seen, if there is one. The response only
-	// updates the cache if the entry is still that version when it arrives.
-	var seen uint64
 	if r.cache != nil {
 		if e, ok := r.cache.get(d.String()); ok {
 			if r.cfg.now().Before(e.expires) {
 				return e.doc, nil
 			}
-			seen = e.version
 			if e.revalidatable() {
 				stale = &e
 			}
@@ -124,6 +120,7 @@ func (r *Resolver) Resolve(ctx context.Context, d did.DID) (did.Document, error)
 	defer resp.Body.Close()
 
 	fresh := entry{key: d.String()}
+	notModified := false
 	switch {
 	case resp.StatusCode == http.StatusOK:
 		if err := json.NewDecoder(resp.Body).Decode(&fresh.doc); err != nil {
@@ -137,6 +134,7 @@ func (r *Resolver) Resolve(ctx context.Context, d did.DID) (did.Document, error)
 		// validators or a new Cache-Control; what came with the document
 		// stands otherwise.
 		fresh = *stale
+		notModified = true
 		if cacheControl := resp.Header.Values("Cache-Control"); len(cacheControl) > 0 {
 			fresh.cacheControl = cacheControl
 		}
@@ -155,11 +153,19 @@ func (r *Resolver) Resolve(ctx context.Context, d did.DID) (did.Document, error)
 		ttl, store := freshness(fresh.cacheControl, responseAge(resp.Header, now), r.cfg.cacheTTL, r.cfg.maxCacheTTL)
 		// A document with no lifetime is only worth keeping when it can be
 		// revalidated.
-		if store && (ttl > 0 || fresh.revalidatable()) {
-			fresh.expires = now.Add(ttl)
-			r.cache.put(fresh, seen)
-		} else {
+		switch {
+		case !store || (ttl == 0 && !fresh.revalidatable()):
 			r.cache.remove(fresh.key)
+		case notModified:
+			// Another resolution may have fetched a newer document while
+			// this one was being revalidated. A 304 never replaces it.
+			fresh.expires = now.Add(ttl)
+			r.cache.renew(fresh, stale.version)
+		default:
+			// A fetched document always goes in, so one that arrives after
+			// a 304 for its predecessor replaces what the 304 renewed.
+			fresh.expires = now.Add(ttl)
+			r.cache.put(fresh)
 		}
 	}
 

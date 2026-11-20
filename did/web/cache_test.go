@@ -497,11 +497,11 @@ func TestResolverCache(t *testing.T) {
 		})
 	})
 
-	// Two resolutions revalidate the same stale document. The origin answers
-	// the first with a 304, changes the document, and answers the second with
-	// the new one; the 304 arrives last. It must not put the old document
-	// back.
-	t.Run("a late 304 does not replace a newer document", func(t *testing.T) {
+	// Two resolutions revalidate the same stale document, and the document
+	// changes between the origin's answers: a 304 for the first, the new
+	// document for the second. Whichever answer arrives last, the cache must
+	// end up with the new document.
+	t.Run("racing revalidations leave the newer document cached", func(t *testing.T) {
 		body := func(alsoKnownAs string) io.ReadCloser {
 			doc := did.NewDocument(example)
 			doc.AlsoKnownAs = []did.URL{mustParseURL(t, alsoKnownAs)}
@@ -509,57 +509,77 @@ func TestResolverCache(t *testing.T) {
 			require.NoError(t, err)
 			return io.NopCloser(bytes.NewReader(b))
 		}
-		var mu sync.Mutex
-		requests := 0
-		notModifiedSent := make(chan struct{})
-		deliverNotModified := make(chan struct{})
-		transport := roundTripFunc(func(r *http.Request) (*http.Response, error) {
-			mu.Lock()
-			requests++
-			n := requests
-			mu.Unlock()
-			switch n {
-			case 1:
-				return &http.Response{StatusCode: http.StatusOK, Header: http.Header{"Etag": {`"v1"`}}, Body: body("did:example:one")}, nil
-			case 2:
-				close(notModifiedSent)
-				<-deliverNotModified
-				return &http.Response{StatusCode: http.StatusNotModified, Header: http.Header{"Etag": {`"v1"`}}, Body: http.NoBody}, nil
-			case 3:
-				return &http.Response{StatusCode: http.StatusOK, Header: http.Header{"Etag": {`"v2"`}}, Body: body("did:example:two")}, nil
-			default:
-				return nil, fmt.Errorf("unexpected request %d", n)
-			}
-		})
-		c := newClock()
-		resolver, err := web.NewResolver(web.WithTransport(transport), web.WithClock(c.Now))
-		require.NoError(t, err)
+		notModified := func() *http.Response {
+			return &http.Response{StatusCode: http.StatusNotModified, Header: http.Header{"Etag": {`"v1"`}}, Body: http.NoBody}
+		}
+		changed := func() *http.Response {
+			return &http.Response{StatusCode: http.StatusOK, Header: http.Header{"Etag": {`"v2"`}}, Body: body("did:example:two")}
+		}
 
-		resolve(t, resolver, example)
-		c.Advance(web.DefaultCacheTTL)
+		tests := []struct {
+			name string
+			// late is the answer held back until the other has been stored.
+			late, prompt func() *http.Response
+			// lateDocument is what the resolution with the late answer gets.
+			lateDocument string
+		}{
+			{"the 304 arrives last", notModified, changed, "did:example:one"},
+			{"the new document arrives last", changed, notModified, "did:example:two"},
+		}
+		for _, tt := range tests {
+			t.Run(tt.name, func(t *testing.T) {
+				var mu sync.Mutex
+				requests := 0
+				lateSent := make(chan struct{})
+				deliverLate := make(chan struct{})
+				transport := roundTripFunc(func(r *http.Request) (*http.Response, error) {
+					mu.Lock()
+					requests++
+					n := requests
+					mu.Unlock()
+					switch n {
+					case 1:
+						return &http.Response{StatusCode: http.StatusOK, Header: http.Header{"Etag": {`"v1"`}}, Body: body("did:example:one")}, nil
+					case 2:
+						close(lateSent)
+						<-deliverLate
+						return tt.late(), nil
+					case 3:
+						return tt.prompt(), nil
+					default:
+						return nil, fmt.Errorf("unexpected request %d", n)
+					}
+				})
+				c := newClock()
+				resolver, err := web.NewResolver(web.WithTransport(transport), web.WithClock(c.Now))
+				require.NoError(t, err)
 
-		late := make(chan did.Document)
-		go func() {
-			doc, err := resolver.Resolve(t.Context(), example)
-			if err != nil {
-				close(late)
-				return
-			}
-			late <- doc
-		}()
-		<-notModifiedSent
-		second := resolve(t, resolver, example)
-		require.Equal(t, "did:example:two", second.AlsoKnownAs[0].String())
-		close(deliverNotModified)
-		doc, ok := <-late
-		require.True(t, ok, "the late resolution failed")
-		require.Equal(t, "did:example:one", doc.AlsoKnownAs[0].String())
+				resolve(t, resolver, example)
+				c.Advance(web.DefaultCacheTTL)
 
-		third := resolve(t, resolver, example)
-		require.Equal(t, "did:example:two", third.AlsoKnownAs[0].String())
-		mu.Lock()
-		defer mu.Unlock()
-		require.Equal(t, 3, requests)
+				late := make(chan did.Document)
+				go func() {
+					doc, err := resolver.Resolve(t.Context(), example)
+					if err != nil {
+						close(late)
+						return
+					}
+					late <- doc
+				}()
+				<-lateSent
+				resolve(t, resolver, example)
+				close(deliverLate)
+				doc, ok := <-late
+				require.True(t, ok, "the late resolution failed")
+				require.Equal(t, tt.lateDocument, doc.AlsoKnownAs[0].String())
+
+				cached := resolve(t, resolver, example)
+				require.Equal(t, "did:example:two", cached.AlsoKnownAs[0].String())
+				mu.Lock()
+				defer mu.Unlock()
+				require.Equal(t, 3, requests)
+			})
+		}
 	})
 
 	t.Run("handles concurrent resolution", func(t *testing.T) {

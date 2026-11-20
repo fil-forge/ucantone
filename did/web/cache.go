@@ -65,17 +65,28 @@ func (c *cache) get(key string) (entry, bool) {
 	return el.Value.(entry), true
 }
 
-// put stores e if the entry for its key is still the version the caller saw
-// when it read the cache: zero for no entry. It does nothing otherwise, since
-// another resolution has written the key in the meantime, and what this one
-// holds may be older.
-func (c *cache) put(e entry, seen uint64) {
+// put stores e, replacing any entry for its key.
+func (c *cache) put(e entry) {
 	c.mu.Lock()
 	defer c.mu.Unlock()
-	el, ok := c.items[e.key]
-	if (ok && el.Value.(entry).version != seen) || (!ok && seen != 0) {
-		return
+	c.store(e)
+}
+
+// renew stores e, a revalidated copy of the entry with the given version, if
+// that entry is still the one in the cache. It does nothing otherwise: another
+// resolution has replaced the document in the meantime, and the one that was
+// revalidated is the older of the two.
+func (c *cache) renew(e entry, version uint64) {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+	if el, ok := c.items[e.key]; ok && el.Value.(entry).version == version {
+		c.store(e)
 	}
+}
+
+// store writes e. The caller holds the lock.
+func (c *cache) store(e entry) {
+	el, ok := c.items[e.key]
 	c.writes++
 	e.version = c.writes
 	if ok {
