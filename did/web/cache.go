@@ -2,6 +2,7 @@ package web
 
 import (
 	"container/list"
+	"net/http"
 	"strconv"
 	"strings"
 	"sync"
@@ -100,16 +101,16 @@ func (c *cache) remove(key string) {
 }
 
 // freshness works out whether a document may be kept, and for how long it may
-// be served without asking the origin again, from the Cache-Control and Age
-// headers of its response.
+// be served without asking the origin again, from the Cache-Control header of
+// its response and the age the response had when it arrived (see
+// [responseAge]).
 //
 // A Cache-Control max-age sets the lifetime, capped at maxTTL; without one the
-// lifetime is defaultTTL. The Age header, set by intermediaries that served
-// the response from their own cache, is subtracted. no-cache gives a lifetime
+// lifetime is defaultTTL. The age is subtracted. no-cache gives a lifetime
 // of zero (keep, but revalidate before every use) and no-store forbids
 // keeping the document. Each wins over max-age, and no-store over no-cache,
 // wherever it appears.
-func freshness(cacheControl []string, age string, defaultTTL, maxTTL time.Duration) (ttl time.Duration, store bool) {
+func freshness(cacheControl []string, age, defaultTTL, maxTTL time.Duration) (ttl time.Duration, store bool) {
 	ttl = defaultTTL
 	noCache := false
 	for _, value := range cacheControl {
@@ -128,8 +129,24 @@ func freshness(cacheControl []string, age string, defaultTTL, maxTTL time.Durati
 	if noCache {
 		return 0, true
 	}
-	ttl -= seconds(age, ttl)
-	return max(ttl, 0), true
+	return max(ttl-age, 0), true
+}
+
+// maxAge is the largest response age reported. Anything older is as stale as
+// it needs to be.
+const maxAge = 365 * 24 * time.Hour
+
+// responseAge is how old a response already was when it arrived at now: the
+// larger of its Age header, set by intermediaries that served it from their
+// own cache, and the time since its Date header, which covers intermediaries
+// that set no Age. A Date in the future, or one that does not parse, counts
+// for nothing.
+func responseAge(h http.Header, now time.Time) time.Duration {
+	age := seconds(h.Get("Age"), maxAge)
+	if date, err := http.ParseTime(h.Get("Date")); err == nil {
+		age = max(age, min(now.Sub(date), maxAge))
+	}
+	return age
 }
 
 // seconds parses a non-negative whole number of seconds, as used by max-age

@@ -247,6 +247,14 @@ func TestResolverCache(t *testing.T) {
 			{"Age counts against max-age", http.Header{"Cache-Control": {"max-age=60"}, "Age": {"45"}}, 15 * time.Second},
 			{"Age counts against the default", http.Header{"Age": {"60"}}, web.DefaultCacheTTL - time.Minute},
 			{"Age beyond max-age", http.Header{"Cache-Control": {"max-age=60"}, "Age": {"90"}}, 0},
+			// The clock starts at midnight on 1 January 2026.
+			{"time since Date counts against max-age", http.Header{"Cache-Control": {"max-age=60"}, "Date": {"Wed, 31 Dec 2025 23:59:15 GMT"}}, 15 * time.Second},
+			{"time since Date counts against the default", http.Header{"Date": {"Wed, 31 Dec 2025 23:59:00 GMT"}}, web.DefaultCacheTTL - time.Minute},
+			{"Date older than max-age", http.Header{"Cache-Control": {"max-age=60"}, "Date": {"Wed, 31 Dec 2025 23:00:00 GMT"}}, 0},
+			{"Date older than Age", http.Header{"Cache-Control": {"max-age=60"}, "Age": {"10"}, "Date": {"Wed, 31 Dec 2025 23:59:15 GMT"}}, 15 * time.Second},
+			{"Age older than Date", http.Header{"Cache-Control": {"max-age=60"}, "Age": {"45"}, "Date": {"Wed, 31 Dec 2025 23:59:50 GMT"}}, 15 * time.Second},
+			{"Date in the future", http.Header{"Cache-Control": {"max-age=60"}, "Date": {"Thu, 01 Jan 2026 00:10:00 GMT"}}, time.Minute},
+			{"unparsable Date", http.Header{"Cache-Control": {"max-age=60"}, "Date": {"yesterday"}}, time.Minute},
 		}
 		for _, tt := range tests {
 			t.Run(tt.name, func(t *testing.T) {

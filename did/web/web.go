@@ -151,11 +151,12 @@ func (r *Resolver) Resolve(ctx context.Context, d did.DID) (did.Document, error)
 	}
 
 	if r.cache != nil {
-		ttl, store := freshness(fresh.cacheControl, resp.Header.Get("Age"), r.cfg.cacheTTL, r.cfg.maxCacheTTL)
+		now := r.cfg.now()
+		ttl, store := freshness(fresh.cacheControl, responseAge(resp.Header, now), r.cfg.cacheTTL, r.cfg.maxCacheTTL)
 		// A document with no lifetime is only worth keeping when it can be
 		// revalidated.
 		if store && (ttl > 0 || fresh.revalidatable()) {
-			fresh.expires = r.cfg.now().Add(ttl)
+			fresh.expires = now.Add(ttl)
 			r.cache.put(fresh, seen)
 		} else {
 			r.cache.remove(fresh.key)
