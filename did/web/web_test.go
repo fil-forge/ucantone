@@ -212,4 +212,56 @@ func TestResolver(t *testing.T) {
 		require.NoError(t, resolveErr)
 		require.Equal(t, did.MustParse("did:web:example.com"), result.ID)
 	})
+
+	// redirectingTransport redirects the well-known path on example.com to
+	// redirect.example and serves the document there. It records every URL
+	// requested.
+	redirectingTransport := func(t *testing.T, requested *[]string) roundTripFunc {
+		doc := did.NewDocument(did.MustParse("did:web:example.com"))
+		body, err := json.Marshal(doc)
+		require.NoError(t, err)
+
+		return func(r *http.Request) (*http.Response, error) {
+			*requested = append(*requested, r.URL.String())
+			if r.URL.Host == "example.com" {
+				return &http.Response{
+					StatusCode: http.StatusFound,
+					Header:     http.Header{"Location": []string{"https://redirect.example/did.json"}},
+					Body:       io.NopCloser(strings.NewReader("")),
+				}, nil
+			}
+			return &http.Response{
+				StatusCode: http.StatusOK,
+				Header:     http.Header{"Content-Type": []string{"application/json"}},
+				Body:       io.NopCloser(bytes.NewReader(body)),
+			}, nil
+		}
+	}
+
+	t.Run("returns error on redirect by default", func(t *testing.T) {
+		var requested []string
+		resolver, err := web.NewResolver(web.WithTransport(redirectingTransport(t, &requested)))
+		require.NoError(t, err)
+
+		_, resolveErr := resolver.Resolve(t.Context(), did.MustParse("did:web:example.com"))
+		require.ErrorContains(t, resolveErr, `redirect to "https://redirect.example/did.json" not followed`)
+		require.Equal(t, []string{"https://example.com/.well-known/did.json"}, requested)
+	})
+
+	t.Run("follows redirects when enabled", func(t *testing.T) {
+		var requested []string
+		resolver, err := web.NewResolver(
+			web.WithFollowRedirects(true),
+			web.WithTransport(redirectingTransport(t, &requested)),
+		)
+		require.NoError(t, err)
+
+		result, resolveErr := resolver.Resolve(t.Context(), did.MustParse("did:web:example.com"))
+		require.NoError(t, resolveErr)
+		require.Equal(t, did.MustParse("did:web:example.com"), result.ID)
+		require.Equal(t, []string{
+			"https://example.com/.well-known/did.json",
+			"https://redirect.example/did.json",
+		}, requested)
+	})
 }

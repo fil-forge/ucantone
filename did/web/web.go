@@ -20,6 +20,7 @@ var _ did.Resolver = (*Resolver)(nil)
 
 // Resolver resolves a did:web DID to a DID Document by fetching the document
 // over HTTPS (or HTTP if configured), according to the did:web method spec.
+// HTTP redirects are not followed unless [WithFollowRedirects] is set.
 // https://w3c-ccg.github.io/did-method-web/#read-resolve
 type Resolver struct {
 	cfg config
@@ -63,6 +64,9 @@ func (r *Resolver) Resolve(ctx context.Context, d did.DID) (did.Document, error)
 		Timeout:   r.cfg.timeout,
 		Transport: r.cfg.transport,
 	}
+	if !r.cfg.followRedirects {
+		httpClient.CheckRedirect = refuseRedirect
+	}
 	req, err := http.NewRequestWithContext(ctx, "GET", url.String(), nil)
 	if err != nil {
 		return did.Document{}, fmt.Errorf("creating HTTP request: %w", err)
@@ -83,6 +87,12 @@ func (r *Resolver) Resolve(ctx context.Context, d did.DID) (did.Document, error)
 	}
 
 	return doc, nil
+}
+
+// refuseRedirect is an [http.Client] redirect policy that fails the request
+// instead of following the redirect.
+func refuseRedirect(req *http.Request, via []*http.Request) error {
+	return fmt.Errorf("redirect to %q not followed", req.URL)
 }
 
 func documentURL(d did.DID, insecure bool) url.URL {
