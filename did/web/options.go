@@ -13,6 +13,8 @@ type config struct {
 	insecure  bool
 	globs     map[string]*glob.Pattern
 	transport http.RoundTripper
+	// followRedirects makes the resolver follow HTTP redirects.
+	followRedirects bool
 }
 
 type Option func(*config) error
@@ -59,6 +61,20 @@ func WithTransport(transport http.RoundTripper) Option {
 			return fmt.Errorf("transport cannot be nil")
 		}
 		c.transport = transport
+		return nil
+	}
+}
+
+// WithFollowRedirects sets whether the resolver follows HTTP redirects when
+// fetching a DID document. It does not by default: a redirect response fails
+// the resolution, so the document always comes from the host the DID names.
+//
+// When enabled, the standard [http.Client] policy applies (up to 10
+// redirects). A redirect target is not checked against the patterns given to
+// [WithPatterns] and may use a different host or scheme than the DID.
+func WithFollowRedirects(follow bool) Option {
+	return func(c *config) error {
+		c.followRedirects = follow
 		return nil
 	}
 }
