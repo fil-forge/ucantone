@@ -186,8 +186,9 @@ func documentURL(d did.DID, insecure bool) url.URL {
 
 	segments := strings.Split(d.Identifier(), ":")
 	host := segments[0]
-	// Unescape percent-encoded colons in the host, to support port numbers.
-	host = strings.ReplaceAll(host, "%3A", ":")
+	// Unescape the percent-encoded colon in the host, to support port numbers.
+	// Hex digits in an escape are equivalent in either case.
+	host = strings.NewReplacer("%3A", ":", "%3a", ":").Replace(host)
 	path := ""
 	if len(segments) > 1 {
 		path = "/" + strings.Join(segments[1:], "/") + "/did.json"

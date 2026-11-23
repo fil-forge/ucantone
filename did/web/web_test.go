@@ -120,6 +120,28 @@ func TestResolver(t *testing.T) {
 		require.Equal(t, []did.URL{mustParseURL(t, "did:example:abc123")}, result.AlsoKnownAs)
 	})
 
+	t.Run("resolves a DID whose port is escaped in lower case", func(t *testing.T) {
+		id := did.MustParse("did:web:example.com%3a3000")
+		body, err := json.Marshal(did.NewDocument(id))
+		require.NoError(t, err)
+
+		transport := roundTripFunc(func(r *http.Request) (*http.Response, error) {
+			require.Equal(t, "https://example.com:3000/.well-known/did.json", r.URL.String())
+			return &http.Response{
+				StatusCode: http.StatusOK,
+				Header:     http.Header{"Content-Type": []string{"application/json"}},
+				Body:       io.NopCloser(bytes.NewReader(body)),
+			}, nil
+		})
+
+		resolver, err := web.NewResolver(web.WithTransport(transport))
+		require.NoError(t, err)
+
+		result, resolveErr := resolver.Resolve(t.Context(), id)
+		require.NoError(t, resolveErr)
+		require.Equal(t, id, result.ID)
+	})
+
 	t.Run("returns error on HTTP 404", func(t *testing.T) {
 		transport := roundTripFunc(func(r *http.Request) (*http.Response, error) {
 			return &http.Response{
