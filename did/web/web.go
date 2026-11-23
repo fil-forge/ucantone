@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"net/http"
 	"net/url"
+	"strconv"
 	"strings"
 	"time"
 
@@ -15,6 +16,101 @@ import (
 const Method = "web"
 
 const WellKnownDIDPath = "/.well-known/did.json"
+
+// New returns the did:web that identifies the resource at u, according to the
+// did:web method spec. The host becomes the identifier, in lower case. A port
+// follows it with its colon percent-encoded, unless it is the default for the
+// scheme. Each path segment follows, separated by colons:
+//
+//	https://example.com            did:web:example.com
+//	https://example.com:3000       did:web:example.com%3A3000
+//	https://example.com/user/alice did:web:example.com:user:alice
+//
+// The scheme is not part of the DID. It must be https, or http for hosts whose
+// documents are resolved with [WithInsecure]. A URL with user info, a query or
+// a fragment is refused, as is one whose host is an IPv6 address.
+//
+// https://w3c-ccg.github.io/did-method-web/#create-register
+func New(u url.URL) (did.DID, error) {
+	if u.Scheme != "https" && u.Scheme != "http" {
+		return did.Undef, fmt.Errorf("URL %q must be an http or https URL", u.Redacted())
+	}
+	if u.User != nil || u.RawQuery != "" || u.ForceQuery || u.Fragment != "" {
+		return did.Undef, fmt.Errorf("URL %q must have no user info, query or fragment", u.Redacted())
+	}
+	host := strings.ToLower(u.Hostname())
+	if host == "" {
+		return did.Undef, fmt.Errorf("URL %q has no host", u.String())
+	}
+	if strings.Contains(host, ":") {
+		return did.Undef, fmt.Errorf("URL %q must name a host, not an IPv6 address", u.String())
+	}
+
+	id := host
+	if port := u.Port(); port != "" && !isDefaultPort(u.Scheme, port) {
+		id += "%3A" + port
+	}
+	if path := strings.Trim(u.EscapedPath(), "/"); path != "" {
+		for _, segment := range strings.Split(path, "/") {
+			if segment == "" {
+				return did.Undef, fmt.Errorf("URL %q has an empty path segment", u.String())
+			}
+			// A colon separates the segments of the identifier.
+			id += ":" + strings.ReplaceAll(segment, ":", "%3A")
+		}
+	}
+	return Parse(did.Prefix + Method + ":" + id)
+}
+
+func isDefaultPort(scheme, port string) bool {
+	return (scheme == "https" && port == "443") || (scheme == "http" && port == "80")
+}
+
+// Parse parses a did:web DID string, verifying the method is "web" and the
+// identifier is a host, optionally followed by a percent-encoded colon and a
+// port, then by any number of colon-separated path segments.
+func Parse(str string) (did.DID, error) {
+	d, err := did.Parse(str)
+	if err != nil {
+		return did.Undef, err
+	}
+	if err := did.ValidateMethod(d, Method); err != nil {
+		return did.Undef, err
+	}
+
+	segments := strings.Split(d.Identifier(), ":")
+	for i, segment := range segments {
+		if segment == "" {
+			if i == 0 {
+				return did.Undef, fmt.Errorf("identifier has no host")
+			}
+			return did.Undef, fmt.Errorf("identifier has an empty path segment")
+		}
+		if strings.ContainsAny(segment, "/?#") {
+			return did.Undef, fmt.Errorf("identifier segment %q contains a character that must be percent-encoded", segment)
+		}
+		if _, err := url.PathUnescape(segment); err != nil {
+			return did.Undef, fmt.Errorf("identifier segment %q is not percent-encoded correctly: %w", segment, err)
+		}
+	}
+
+	// The host is the one segment where an escape has meaning: the colon
+	// before a port.
+	hostport, _ := url.PathUnescape(segments[0])
+	host, port, hasPort := strings.Cut(hostport, ":")
+	if host == "" {
+		return did.Undef, fmt.Errorf("identifier has no host")
+	}
+	if strings.ContainsAny(host, "@[] ") {
+		return did.Undef, fmt.Errorf("identifier host %q is not a host name", host)
+	}
+	if hasPort {
+		if n, err := strconv.ParseUint(port, 10, 16); err != nil || n == 0 {
+			return did.Undef, fmt.Errorf("identifier port %q is not a port number", port)
+		}
+	}
+	return d, nil
+}
 
 var _ did.Resolver = (*Resolver)(nil)
 
