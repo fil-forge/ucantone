@@ -32,6 +32,12 @@ const WellKnownDIDPath = "/.well-known/did.json"
 // fragment is refused too. So is one whose host is an IP address: the spec
 // requires a name.
 //
+// A path character that a DID identifier cannot carry is percent-encoded, so
+// https://example.com/~alice is did:web:example.com:%7Ealice.
+//
+// u is the URL the DID identifies, which is the one its document is served
+// under. The URL of the document itself, ending in did.json, is refused.
+//
 // https://w3c-ccg.github.io/did-method-web/#create-register
 func New(u url.URL) (did.DID, error) {
 	if u.Scheme != "https" {
@@ -63,6 +69,11 @@ func newDID(u url.URL) (did.DID, error) {
 	if _, err := netip.ParseAddr(host); err == nil {
 		return did.Undef, fmt.Errorf("URL %q must name a host, not an IP address", u.String())
 	}
+	for i := 0; i < len(host); i++ {
+		if !isIDChar(host[i]) {
+			return did.Undef, fmt.Errorf("URL %q has a host name a DID cannot carry: an internationalized name has to be in its ASCII form", u.String())
+		}
+	}
 
 	id := host
 	if port := u.Port(); port != "" && !isDefaultPort(u.Scheme, port) {
@@ -79,11 +90,34 @@ func newDID(u url.URL) (did.DID, error) {
 			if segment == "" {
 				return did.Undef, fmt.Errorf("URL %q has an empty path segment", u.String())
 			}
-			// A colon separates the segments of the identifier.
-			id += ":" + strings.ReplaceAll(segment, ":", "%3A")
+			id += ":" + escapeSegment(segment)
+		}
+		if strings.HasSuffix(id, ":did.json") {
+			return did.Undef, fmt.Errorf("URL %q is the URL of a DID document: give the URL the DID identifies, which is the one did.json is served under", u.String())
 		}
 	}
 	return Parse(did.Prefix + Method + ":" + id)
+}
+
+// escapeSegment percent-encodes the characters of an escaped URL path segment
+// that a DID identifier cannot carry. The escapes the segment already has are
+// kept as they are.
+func escapeSegment(segment string) string {
+	var b strings.Builder
+	for i := 0; i < len(segment); i++ {
+		if c := segment[i]; isIDChar(c) || c == '%' {
+			b.WriteByte(c)
+		} else {
+			fmt.Fprintf(&b, "%%%02X", c)
+		}
+	}
+	return b.String()
+}
+
+// isIDChar reports whether c may appear unescaped in a DID identifier.
+// https://www.w3.org/TR/did-core/#did-syntax
+func isIDChar(c byte) bool {
+	return 'a' <= c && c <= 'z' || 'A' <= c && c <= 'Z' || '0' <= c && c <= '9' || c == '.' || c == '-' || c == '_'
 }
 
 func isDefaultPort(scheme, port string) bool {
@@ -93,7 +127,9 @@ func isDefaultPort(scheme, port string) bool {
 // Parse parses a did:web DID string, verifying the method is "web" and the
 // identifier is a host, optionally followed by a percent-encoded colon and a
 // port, then by any number of colon-separated path segments. The host has to
-// be a name: the did:web spec does not allow an IP address.
+// be a name: the did:web spec does not allow an IP address. A segment holds
+// only the characters a DID identifier may: letters, digits, ".", "-", "_"
+// and percent-escapes.
 func Parse(str string) (did.DID, error) {
 	d, err := did.Parse(str)
 	if err != nil {
@@ -111,8 +147,10 @@ func Parse(str string) (did.DID, error) {
 			}
 			return did.Undef, fmt.Errorf("identifier has an empty path segment")
 		}
-		if strings.ContainsAny(segment, "/?#") {
-			return did.Undef, fmt.Errorf("identifier segment %q contains a character that must be percent-encoded", segment)
+		for j := 0; j < len(segment); j++ {
+			if c := segment[j]; !isIDChar(c) && c != '%' {
+				return did.Undef, fmt.Errorf("identifier segment %q contains a character that must be percent-encoded", segment)
+			}
 		}
 		if _, err := url.PathUnescape(segment); err != nil {
 			return did.Undef, fmt.Errorf("identifier segment %q is not percent-encoded correctly: %w", segment, err)
@@ -126,8 +164,10 @@ func Parse(str string) (did.DID, error) {
 	if host == "" {
 		return did.Undef, fmt.Errorf("identifier has no host")
 	}
-	if strings.ContainsAny(host, "/?#@[]\\ ") {
-		return did.Undef, fmt.Errorf("identifier host %q is not a host name", host)
+	for i := 0; i < len(host); i++ {
+		if !isIDChar(host[i]) {
+			return did.Undef, fmt.Errorf("identifier host %q is not a host name", host)
+		}
 	}
 	if _, err := netip.ParseAddr(host); err == nil {
 		return did.Undef, fmt.Errorf("identifier host %q is an IP address, not a host name", host)

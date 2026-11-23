@@ -28,6 +28,10 @@ func TestNew(t *testing.T) {
 		{url: "https://example.com:3000/user/alice", want: "did:web:example.com%3A3000:user:alice"},
 		{url: "https://example.com/a:b", want: "did:web:example.com:a%3Ab"},
 		{url: "https://example.com/a%20b", want: "did:web:example.com:a%20b"},
+		{url: "https://example.com/~alice", want: "did:web:example.com:%7Ealice"},
+		{url: "https://example.com/a@b+c=d", want: "did:web:example.com:a%40b%2Bc%3Dd"},
+		{url: "https://example.com/caf%C3%A9", want: "did:web:example.com:caf%C3%A9"},
+		{url: "https://example.com/did.json/alice", want: "did:web:example.com:did.json:alice"},
 		{url: "http://example.com", want: "did:web:example.com", insecureOnly: true},
 		{url: "http://example.com:80", want: "did:web:example.com", insecureOnly: true},
 		{url: "http://example.com:443", want: "did:web:example.com%3A443", insecureOnly: true},
@@ -36,6 +40,10 @@ func TestNew(t *testing.T) {
 		{url: "https://example.com//user", wantErr: "empty path segment"},
 		{url: "https://example.com/user//", wantErr: "empty path segment"},
 		{url: "https://example.com//", wantErr: "empty path segment"},
+		{url: "https://example.com/.well-known/did.json", wantErr: "URL of a DID document"},
+		{url: "https://example.com/user/alice/did.json", wantErr: "URL of a DID document"},
+		{url: "https://example.com/did.json", wantErr: "URL of a DID document"},
+		{url: "https://ex%C3%A4mple.com", wantErr: "ASCII form"},
 		{url: "https://example.com/?x=1", wantErr: "query"},
 		{url: "https://example.com/#x", wantErr: "fragment"},
 		{url: "https://user@example.com", wantErr: "user info"},
@@ -107,6 +115,8 @@ func TestParse(t *testing.T) {
 			"did:web:localhost",
 			"did:web:localhost%3A3000",
 			"did:web:example.com:a%3Ab",
+			"did:web:example.com:%7Ealice",
+			"did:web:my_host.example-1.com",
 		} {
 			t.Run(str, func(t *testing.T) {
 				d, err := web.Parse(str)
@@ -140,6 +150,11 @@ func TestParse(t *testing.T) {
 		{str: "did:web:example.com/user", wantErr: "must be percent-encoded"},
 		{str: "did:web:example.com?x=1", wantErr: "must be percent-encoded"},
 		{str: "did:web:example.com#key-0", wantErr: "must be percent-encoded"},
+		{str: "did:web:example.com:~alice", wantErr: "must be percent-encoded"},
+		{str: "did:web:example.com:a@b", wantErr: "must be percent-encoded"},
+		{str: "did:web:example.com:a b", wantErr: "must be percent-encoded"},
+		{str: "did:web:ex~ample.com", wantErr: "must be percent-encoded"},
+		{str: "did:web:ex%7Eample.com", wantErr: "not a host name"},
 		{str: "did:web:example.com%3", wantErr: "not percent-encoded correctly"},
 		{str: "did:web:example.com:user%zz", wantErr: "not percent-encoded correctly"},
 		{str: "did:web:example.com%3Ahttp", wantErr: "not a port number"},
@@ -172,6 +187,7 @@ func TestLocation(t *testing.T) {
 		{did: "did:web:example.com:user:alice", want: "https://example.com/user/alice"},
 		{did: "did:web:example.com%3A3000:user:alice", want: "https://example.com:3000/user/alice"},
 		{did: "did:web:example.com:a%20b:c%3Ad", want: "https://example.com/a%20b/c%3Ad"},
+		{did: "did:web:example.com:%7Ealice", want: "https://example.com/%7Ealice"},
 	}
 	for _, tt := range tests {
 		t.Run(tt.did, func(t *testing.T) {
