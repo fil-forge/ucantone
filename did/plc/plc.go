@@ -59,7 +59,11 @@ func New(signer Signer, options ...OperationOption) (did.DID, *SignedOperation, 
 
 	digest := sha256.Sum256(signedOpBytes.Bytes())
 	str := base32LowerNoPad.EncodeToString(digest[:])
-	return did.New(Method, str[:IdentifierLength]), signedOp, nil
+	d, err := did.New(Method, str[:IdentifierLength])
+	if err != nil {
+		return did.Undef, nil, fmt.Errorf("creating DID: %w", err)
+	}
+	return d, signedOp, nil
 }
 
 // SignOperation signs a PLC operation with the given signer and returns a

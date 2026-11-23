@@ -75,6 +75,35 @@ func TestParse(t *testing.T) {
 	})
 }
 
+func TestNew(t *testing.T) {
+	t.Run("builds a DID from a method and an identifier", func(t *testing.T) {
+		d, err := did.New("web", "example.com%3A3000:user:alice")
+		require.NoError(t, err)
+		require.Equal(t, "did:web:example.com%3A3000:user:alice", d.String())
+		require.Equal(t, "web", d.Method())
+		require.Equal(t, "example.com%3A3000:user:alice", d.Identifier())
+	})
+
+	t.Run("rejects what Parse rejects", func(t *testing.T) {
+		cases := []struct{ method, identifier, want string }{
+			{"", "example.com", "method is empty"},
+			{"Web", "example.com", "lower case letters and digits"},
+			{"web", "", "identifier is empty"},
+			{"web", "example.com:", "must not end with ':'"},
+			{"mailto", "example.com:a~b", "must be percent-encoded"},
+			{"web", "example.com%3", "malformed percent-escape"},
+			{"key", "abc", ""},
+		}
+		for _, tt := range cases {
+			_, err := did.New(tt.method, tt.identifier)
+			require.Error(t, err, "%s:%s", tt.method, tt.identifier)
+			if tt.want != "" {
+				require.ErrorContains(t, err, tt.want)
+			}
+		}
+	})
+}
+
 func TestMethod(t *testing.T) {
 	cases := map[string]string{
 		"did:key:z6Mkod5Jr3yd5SC7UDueqK4dAAw5xYJYjksy722tA9Boxc4z": "key",

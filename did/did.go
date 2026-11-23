@@ -154,8 +154,10 @@ func (d *DID) UnmarshalDagJSON(r io.Reader) error {
 	return nil
 }
 
-func New(method, identifier string) DID {
-	return DID{fmt.Sprintf("%s%s:%s", Prefix, method, identifier)}
+// New returns the DID with the given method and method-specific identifier.
+// It fails when the two do not make a DID that [Parse] accepts.
+func New(method, identifier string) (DID, error) {
+	return Parse(Prefix + method + ":" + identifier)
 }
 
 // Parse parses a DID string, checking it against the DID syntax:
