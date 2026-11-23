@@ -23,6 +23,56 @@ func TestParse(t *testing.T) {
 		require.NoError(t, err)
 		require.Equal(t, str, d.String())
 	})
+
+	t.Run("accepts", func(t *testing.T) {
+		for _, str := range []string{
+			"did:web:example.com%3A3000:user:alice",
+			"did:mailto:web.mail:alice",
+			"did:mailto:example.com:alice%2Btag",
+			"did:plc:ewvi7nxzyoun6zhxrhs64oiz",
+			"did:example:123456789abcdefghi",
+			"did:example::a",
+			"did:ex4mple:A-b_c.d",
+		} {
+			d, err := did.Parse(str)
+			require.NoError(t, err, str)
+			require.Equal(t, str, d.String())
+		}
+	})
+
+	t.Run("rejects", func(t *testing.T) {
+		cases := map[string]string{
+			"":                              "must start with 'did:'",
+			"web:example.com":               "must start with 'did:'",
+			"DID:web:example.com":           "must start with 'did:'",
+			"did:":                          "method and an identifier",
+			"did:web":                       "method and an identifier",
+			"did::example.com":              "method is empty",
+			"did:Web:example.com":           "lower case letters and digits",
+			"did:we-b:example.com":          "lower case letters and digits",
+			"did:web:":                      "identifier is empty",
+			"did:web:example.com:":          "must not end with ':'",
+			"did:web:example.com/user":      "must be percent-encoded",
+			"did:web:example.com?x=1":       "must be percent-encoded",
+			"did:web:example.com#key-0":     "must be percent-encoded",
+			"did:web:example.com:~alice":    "must be percent-encoded",
+			"did:web:example .com":          "must be percent-encoded",
+			"did:mailto:example.com:a@b":    "must be percent-encoded",
+			"did:web:ex\u00e4mple.com":      "must be percent-encoded",
+			"did:web:example.com%3":         "malformed percent-escape",
+			"did:web:example.com%zz":        "malformed percent-escape",
+			"did:web:example.com%":          "malformed percent-escape",
+			"did:key:z6Mkod5Jr3yd5SC7UDu0O": "",
+			"did:key:abc":                   "",
+		}
+		for str, want := range cases {
+			_, err := did.Parse(str)
+			require.Error(t, err, str)
+			if want != "" {
+				require.ErrorContains(t, err, want, str)
+			}
+		}
+	})
 }
 
 func TestMethod(t *testing.T) {
