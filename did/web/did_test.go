@@ -23,7 +23,6 @@ func TestNew(t *testing.T) {
 		{url: "https://example.com:443", want: "did:web:example.com"},
 		{url: "https://example.com:3000", want: "did:web:example.com%3A3000"},
 		{url: "https://example.com:80", want: "did:web:example.com%3A80"},
-		{url: "https://127.0.0.1:3000", want: "did:web:127.0.0.1%3A3000"},
 		{url: "https://example.com/user/alice", want: "did:web:example.com:user:alice"},
 		{url: "https://example.com/user/alice/", want: "did:web:example.com:user:alice"},
 		{url: "https://example.com:3000/user/alice", want: "did:web:example.com%3A3000:user:alice"},
@@ -34,10 +33,14 @@ func TestNew(t *testing.T) {
 		{url: "http://example.com:443", want: "did:web:example.com%3A443", insecureOnly: true},
 		{url: "http://piri-0:3000", want: "did:web:piri-0%3A3000", insecureOnly: true},
 		{url: "https://example.com/user//alice", wantErr: "empty path segment"},
+		{url: "https://example.com//user", wantErr: "empty path segment"},
+		{url: "https://example.com/user//", wantErr: "empty path segment"},
+		{url: "https://example.com//", wantErr: "empty path segment"},
 		{url: "https://example.com/?x=1", wantErr: "query"},
 		{url: "https://example.com/#x", wantErr: "fragment"},
 		{url: "https://user@example.com", wantErr: "user info"},
-		{url: "https://[::1]:3000", wantErr: "IPv6"},
+		{url: "https://[::1]:3000", wantErr: "not an IP address"},
+		{url: "https://127.0.0.1:3000", wantErr: "not an IP address"},
 		{url: "https://", wantErr: "no host"},
 	}
 	for _, tt := range tests {
@@ -72,6 +75,14 @@ func TestNew(t *testing.T) {
 		})
 	}
 
+	t.Run("an IP address is refused over http too", func(t *testing.T) {
+		u, err := url.Parse("http://127.0.0.1:3000")
+		require.NoError(t, err)
+
+		_, err = web.NewInsecure(*u)
+		require.ErrorContains(t, err, "not an IP address")
+	})
+
 	t.Run("a scheme that is neither http nor https is refused", func(t *testing.T) {
 		for _, str := range []string{"ftp://example.com", "example.com"} {
 			u, err := url.Parse(str)
@@ -93,8 +104,8 @@ func TestParse(t *testing.T) {
 			"did:web:example.com%3a3000",
 			"did:web:example.com:user:alice",
 			"did:web:example.com%3A3000:user:alice",
-			"did:web:127.0.0.1%3A3000",
 			"did:web:localhost",
+			"did:web:localhost%3A3000",
 			"did:web:example.com:a%3Ab",
 		} {
 			t.Run(str, func(t *testing.T) {
@@ -138,6 +149,8 @@ func TestParse(t *testing.T) {
 		{str: "did:web:example.com%3A80%3A90", wantErr: "not a port number"},
 		{str: "did:web:user%40example.com", wantErr: "not a host name"},
 		{str: "did:web:example.com%2Fuser", wantErr: "not a host name"},
+		{str: "did:web:127.0.0.1", wantErr: "is an IP address"},
+		{str: "did:web:127.0.0.1%3A3000", wantErr: "is an IP address"},
 	}
 	for _, tt := range rejects {
 		t.Run("rejects "+tt.str, func(t *testing.T) {
@@ -155,7 +168,7 @@ func TestLocation(t *testing.T) {
 		{did: "did:web:example.com", want: "https://example.com"},
 		{did: "did:web:example.com%3A3000", want: "https://example.com:3000"},
 		{did: "did:web:example.com%3a3000", want: "https://example.com:3000"},
-		{did: "did:web:127.0.0.1%3A3000", want: "https://127.0.0.1:3000"},
+		{did: "did:web:localhost%3A3000", want: "https://localhost:3000"},
 		{did: "did:web:example.com:user:alice", want: "https://example.com/user/alice"},
 		{did: "did:web:example.com%3A3000:user:alice", want: "https://example.com:3000/user/alice"},
 		{did: "did:web:example.com:a%20b:c%3Ad", want: "https://example.com/a%20b/c%3Ad"},
@@ -204,5 +217,8 @@ func TestLocation(t *testing.T) {
 
 		_, err = web.Location(did.MustParse("did:web:example.com%3Ahttp"))
 		require.ErrorContains(t, err, "not a port number")
+
+		_, err = web.Location(did.MustParse("did:web:127.0.0.1%3A3000"))
+		require.ErrorContains(t, err, "is an IP address")
 	})
 }

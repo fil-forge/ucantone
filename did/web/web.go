@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"net/http"
+	"net/netip"
 	"net/url"
 	"strconv"
 	"strings"
@@ -28,7 +29,8 @@ const WellKnownDIDPath = "/.well-known/did.json"
 //
 // The scheme is not part of the DID, but a did:web document is fetched over
 // HTTPS, so any other scheme is refused. A URL with user info, a query or a
-// fragment is refused too, as is one whose host is an IPv6 address.
+// fragment is refused too. So is one whose host is an IP address: the spec
+// requires a name.
 //
 // https://w3c-ccg.github.io/did-method-web/#create-register
 func New(u url.URL) (did.DID, error) {
@@ -58,15 +60,21 @@ func newDID(u url.URL) (did.DID, error) {
 	if host == "" {
 		return did.Undef, fmt.Errorf("URL %q has no host", u.String())
 	}
-	if strings.Contains(host, ":") {
-		return did.Undef, fmt.Errorf("URL %q must name a host, not an IPv6 address", u.String())
+	if _, err := netip.ParseAddr(host); err == nil {
+		return did.Undef, fmt.Errorf("URL %q must name a host, not an IP address", u.String())
 	}
 
 	id := host
 	if port := u.Port(); port != "" && !isDefaultPort(u.Scheme, port) {
 		id += "%3A" + port
 	}
-	if path := strings.Trim(u.EscapedPath(), "/"); path != "" {
+	// One slash at each end of the path is not a segment. Any more are empty
+	// segments, which a DID cannot carry.
+	path := strings.TrimSuffix(strings.TrimPrefix(u.EscapedPath(), "/"), "/")
+	if path == "" && len(u.EscapedPath()) > 1 {
+		return did.Undef, fmt.Errorf("URL %q has an empty path segment", u.String())
+	}
+	if path != "" {
 		for _, segment := range strings.Split(path, "/") {
 			if segment == "" {
 				return did.Undef, fmt.Errorf("URL %q has an empty path segment", u.String())
@@ -84,7 +92,8 @@ func isDefaultPort(scheme, port string) bool {
 
 // Parse parses a did:web DID string, verifying the method is "web" and the
 // identifier is a host, optionally followed by a percent-encoded colon and a
-// port, then by any number of colon-separated path segments.
+// port, then by any number of colon-separated path segments. The host has to
+// be a name: the did:web spec does not allow an IP address.
 func Parse(str string) (did.DID, error) {
 	d, err := did.Parse(str)
 	if err != nil {
@@ -119,6 +128,9 @@ func Parse(str string) (did.DID, error) {
 	}
 	if strings.ContainsAny(host, "/?#@[]\\ ") {
 		return did.Undef, fmt.Errorf("identifier host %q is not a host name", host)
+	}
+	if _, err := netip.ParseAddr(host); err == nil {
+		return did.Undef, fmt.Errorf("identifier host %q is an IP address, not a host name", host)
 	}
 	if hasPort {
 		if n, err := strconv.ParseUint(port, 10, 16); err != nil || n == 0 {
@@ -163,7 +175,9 @@ var _ did.Resolver = (*Resolver)(nil)
 
 // Resolver resolves a did:web DID to a DID Document by fetching the document
 // over HTTPS (or HTTP if configured), according to the did:web method spec.
-// HTTP redirects are not followed unless [WithFollowRedirects] is set.
+// HTTP redirects are not followed unless [WithFollowRedirects] is set. A DID
+// that [Parse] refuses, such as one whose host is an IP address, is not
+// resolved and no request is made for it.
 // https://w3c-ccg.github.io/did-method-web/#read-resolve
 //
 // Resolved documents are cached in memory. A document is served from the

@@ -171,6 +171,19 @@ func TestResolver(t *testing.T) {
 		require.Equal(t, id, result.ID)
 	})
 
+	t.Run("refuses a DID whose host is an IP address", func(t *testing.T) {
+		transport := roundTripFunc(func(r *http.Request) (*http.Response, error) {
+			t.Fatalf("no request expected, got %s", r.URL)
+			return nil, nil
+		})
+
+		resolver, err := web.NewResolver(web.WithTransport(transport), web.WithInsecure(true))
+		require.NoError(t, err)
+
+		_, resolveErr := resolver.Resolve(t.Context(), did.MustParse("did:web:127.0.0.1%3A3000"))
+		require.ErrorContains(t, resolveErr, "is an IP address")
+	})
+
 	t.Run("returns error on HTTP 404", func(t *testing.T) {
 		transport := roundTripFunc(func(r *http.Request) (*http.Response, error) {
 			return &http.Response{
