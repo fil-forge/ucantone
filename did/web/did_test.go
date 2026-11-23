@@ -137,6 +137,7 @@ func TestParse(t *testing.T) {
 		{str: "did:web:example.com%3A70000", wantErr: "not a port number"},
 		{str: "did:web:example.com%3A80%3A90", wantErr: "not a port number"},
 		{str: "did:web:user%40example.com", wantErr: "not a host name"},
+		{str: "did:web:example.com%2Fuser", wantErr: "not a host name"},
 	}
 	for _, tt := range rejects {
 		t.Run("rejects "+tt.str, func(t *testing.T) {
@@ -144,4 +145,64 @@ func TestParse(t *testing.T) {
 			require.ErrorContains(t, err, tt.wantErr)
 		})
 	}
+}
+
+func TestLocation(t *testing.T) {
+	tests := []struct {
+		did  string
+		want string
+	}{
+		{did: "did:web:example.com", want: "https://example.com"},
+		{did: "did:web:example.com%3A3000", want: "https://example.com:3000"},
+		{did: "did:web:example.com%3a3000", want: "https://example.com:3000"},
+		{did: "did:web:127.0.0.1%3A3000", want: "https://127.0.0.1:3000"},
+		{did: "did:web:example.com:user:alice", want: "https://example.com/user/alice"},
+		{did: "did:web:example.com%3A3000:user:alice", want: "https://example.com:3000/user/alice"},
+		{did: "did:web:example.com:a%20b:c%3Ad", want: "https://example.com/a%20b/c%3Ad"},
+	}
+	for _, tt := range tests {
+		t.Run(tt.did, func(t *testing.T) {
+			got, err := web.Location(did.MustParse(tt.did))
+			require.NoError(t, err)
+			require.Equal(t, tt.want, got.String())
+		})
+	}
+
+	t.Run("is the inverse of New", func(t *testing.T) {
+		for _, str := range []string{
+			"https://example.com",
+			"https://example.com:3000",
+			"https://example.com/user/alice",
+			"https://example.com:3000/a%20b/c%3Ad",
+		} {
+			u, err := url.Parse(str)
+			require.NoError(t, err)
+			d, err := web.New(*u)
+			require.NoError(t, err)
+
+			got, err := web.Location(d)
+			require.NoError(t, err)
+			require.Equal(t, str, got.String())
+
+			back, err := web.New(got)
+			require.NoError(t, err)
+			require.Equal(t, d, back)
+		}
+	})
+
+	t.Run("the scheme can be set to http for a stack that serves over HTTP", func(t *testing.T) {
+		got, err := web.Location(did.MustParse("did:web:piri-0%3A3000"))
+		require.NoError(t, err)
+		got.Scheme = "http"
+		require.Equal(t, "http://piri-0:3000", got.String())
+	})
+
+	t.Run("refuses a DID that is not a well-formed did:web", func(t *testing.T) {
+		_, err := web.Location(did.MustParse("did:plc:ewvi7nxzyoun6zhxrhs64oiz"))
+		var umErr did.UnsupportedMethodError
+		require.ErrorAs(t, err, &umErr)
+
+		_, err = web.Location(did.MustParse("did:web:example.com%3Ahttp"))
+		require.ErrorContains(t, err, "not a port number")
+	})
 }

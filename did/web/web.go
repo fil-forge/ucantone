@@ -117,7 +117,7 @@ func Parse(str string) (did.DID, error) {
 	if host == "" {
 		return did.Undef, fmt.Errorf("identifier has no host")
 	}
-	if strings.ContainsAny(host, "@[] ") {
+	if strings.ContainsAny(host, "/?#@[]\\ ") {
 		return did.Undef, fmt.Errorf("identifier host %q is not a host name", host)
 	}
 	if hasPort {
@@ -126,6 +126,37 @@ func Parse(str string) (did.DID, error) {
 		}
 	}
 	return d, nil
+}
+
+// Location returns the https URL a did:web names: the inverse of [New].
+//
+//	did:web:example.com            https://example.com
+//	did:web:example.com%3A3000     https://example.com:3000
+//	did:web:example.com:user:alice https://example.com/user/alice
+//
+// The DID does not record a scheme. A caller on a stack that serves over HTTP
+// sets the Scheme of the returned URL to "http". Percent-escapes in the path
+// are carried into the URL as the DID has them.
+//
+// It fails for a DID that [Parse] refuses.
+func Location(d did.DID) (url.URL, error) {
+	if _, err := Parse(d.String()); err != nil {
+		return url.URL{}, err
+	}
+
+	segments := strings.Split(d.Identifier(), ":")
+	// Parse has checked the escapes.
+	host, _ := url.PathUnescape(segments[0])
+	u := url.URL{Scheme: "https", Host: host}
+	if len(segments) > 1 {
+		escaped := "/" + strings.Join(segments[1:], "/")
+		path, _ := url.PathUnescape(escaped)
+		u.Path = path
+		if path != escaped {
+			u.RawPath = escaped
+		}
+	}
+	return u, nil
 }
 
 var _ did.Resolver = (*Resolver)(nil)
@@ -204,7 +235,10 @@ func (r *Resolver) Resolve(ctx context.Context, d did.DID) (did.Document, error)
 		}
 	}
 
-	url := documentURL(d, r.cfg.insecure)
+	url, err := documentURL(d, r.cfg.insecure)
+	if err != nil {
+		return did.Document{}, err
+	}
 
 	httpClient := &http.Client{
 		Timeout:   r.cfg.timeout,
@@ -290,31 +324,23 @@ func refuseRedirect(req *http.Request, via []*http.Request) error {
 	return fmt.Errorf("redirect to %q not followed", req.URL)
 }
 
-func documentURL(d did.DID, insecure bool) url.URL {
-	scheme := "https"
+// documentURL is where the DID document of d is fetched from: did.json under
+// the DID's location, or the well-known path when the DID has no path.
+func documentURL(d did.DID, insecure bool) (url.URL, error) {
+	u, err := Location(d)
+	if err != nil {
+		return url.URL{}, err
+	}
 	if insecure {
-		scheme = "http"
+		u.Scheme = "http"
 	}
-
-	segments := strings.Split(d.Identifier(), ":")
-	host := segments[0]
-	// Unescape the percent-encoded colon in the host, to support port numbers.
-	// Hex digits in an escape are equivalent in either case.
-	host = strings.NewReplacer("%3A", ":", "%3a", ":").Replace(host)
-	u := url.URL{
-		Scheme: scheme,
-		Host:   host,
-		Path:   WellKnownDIDPath,
+	if u.Path == "" {
+		u.Path = WellKnownDIDPath
+		return u, nil
 	}
-	if len(segments) > 1 {
-		// The segments are percent-encoded as they are in the DID. The request
-		// carries those escapes unchanged: they are not encoded a second time.
-		escaped := "/" + strings.Join(segments[1:], "/") + "/did.json"
-		u.Path = escaped
-		if path, err := url.PathUnescape(escaped); err == nil {
-			u.Path = path
-			u.RawPath = escaped
-		}
+	u.Path += "/did.json"
+	if u.RawPath != "" {
+		u.RawPath += "/did.json"
 	}
-	return u
+	return u, nil
 }
