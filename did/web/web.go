@@ -17,24 +17,40 @@ const Method = "web"
 
 const WellKnownDIDPath = "/.well-known/did.json"
 
-// New returns the did:web that identifies the resource at u, according to the
-// did:web method spec. The host becomes the identifier, in lower case. A port
-// follows it with its colon percent-encoded, unless it is the default for the
-// scheme. Each path segment follows, separated by colons:
+// New returns the did:web that identifies the resource at the https URL u,
+// according to the did:web method spec. The host becomes the identifier, in
+// lower case. A port follows it with its colon percent-encoded, unless it is
+// the default for the scheme. Each path segment follows, separated by colons:
 //
 //	https://example.com            did:web:example.com
 //	https://example.com:3000       did:web:example.com%3A3000
 //	https://example.com/user/alice did:web:example.com:user:alice
 //
-// The scheme is not part of the DID. It must be https, or http for hosts whose
-// documents are resolved with [WithInsecure]. A URL with user info, a query or
-// a fragment is refused, as is one whose host is an IPv6 address.
+// The scheme is not part of the DID, but a did:web document is fetched over
+// HTTPS, so any other scheme is refused. A URL with user info, a query or a
+// fragment is refused too, as is one whose host is an IPv6 address.
 //
 // https://w3c-ccg.github.io/did-method-web/#create-register
 func New(u url.URL) (did.DID, error) {
+	if u.Scheme != "https" {
+		return did.Undef, fmt.Errorf("URL %q must be an https URL", u.Redacted())
+	}
+	return newDID(u)
+}
+
+// NewInsecure is [New] for hosts whose documents are resolved with
+// [WithInsecure]: it accepts an http URL as well as an https one. Use it only
+// where every resolver of the DID fetches documents over HTTP, such as a
+// development stack.
+func NewInsecure(u url.URL) (did.DID, error) {
 	if u.Scheme != "https" && u.Scheme != "http" {
 		return did.Undef, fmt.Errorf("URL %q must be an http or https URL", u.Redacted())
 	}
+	return newDID(u)
+}
+
+// newDID builds the did:web of a URL whose scheme has been checked.
+func newDID(u url.URL) (did.DID, error) {
 	if u.User != nil || u.RawQuery != "" || u.ForceQuery || u.Fragment != "" {
 		return did.Undef, fmt.Errorf("URL %q must have no user info, query or fragment", u.Redacted())
 	}

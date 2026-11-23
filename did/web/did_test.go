@@ -14,27 +14,29 @@ func TestNew(t *testing.T) {
 		url     string
 		want    string
 		wantErr string
+		// insecureOnly marks a URL only NewInsecure accepts.
+		insecureOnly bool
 	}{
 		{url: "https://example.com", want: "did:web:example.com"},
 		{url: "https://example.com/", want: "did:web:example.com"},
 		{url: "https://Example.COM", want: "did:web:example.com"},
 		{url: "https://example.com:443", want: "did:web:example.com"},
 		{url: "https://example.com:3000", want: "did:web:example.com%3A3000"},
-		{url: "http://example.com", want: "did:web:example.com"},
-		{url: "http://example.com:80", want: "did:web:example.com"},
-		{url: "http://example.com:443", want: "did:web:example.com%3A443"},
-		{url: "http://127.0.0.1:3000", want: "did:web:127.0.0.1%3A3000"},
+		{url: "https://example.com:80", want: "did:web:example.com%3A80"},
+		{url: "https://127.0.0.1:3000", want: "did:web:127.0.0.1%3A3000"},
 		{url: "https://example.com/user/alice", want: "did:web:example.com:user:alice"},
 		{url: "https://example.com/user/alice/", want: "did:web:example.com:user:alice"},
 		{url: "https://example.com:3000/user/alice", want: "did:web:example.com%3A3000:user:alice"},
 		{url: "https://example.com/a:b", want: "did:web:example.com:a%3Ab"},
 		{url: "https://example.com/a%20b", want: "did:web:example.com:a%20b"},
+		{url: "http://example.com", want: "did:web:example.com", insecureOnly: true},
+		{url: "http://example.com:80", want: "did:web:example.com", insecureOnly: true},
+		{url: "http://example.com:443", want: "did:web:example.com%3A443", insecureOnly: true},
+		{url: "http://piri-0:3000", want: "did:web:piri-0%3A3000", insecureOnly: true},
 		{url: "https://example.com/user//alice", wantErr: "empty path segment"},
 		{url: "https://example.com/?x=1", wantErr: "query"},
 		{url: "https://example.com/#x", wantErr: "fragment"},
 		{url: "https://user@example.com", wantErr: "user info"},
-		{url: "ftp://example.com", wantErr: "http or https"},
-		{url: "example.com", wantErr: "http or https"},
 		{url: "https://[::1]:3000", wantErr: "IPv6"},
 		{url: "https://", wantErr: "no host"},
 	}
@@ -43,13 +45,25 @@ func TestNew(t *testing.T) {
 			u, err := url.Parse(tt.url)
 			require.NoError(t, err)
 
-			got, err := web.New(*u)
 			if tt.wantErr != "" {
+				_, err = web.New(*u)
+				require.ErrorContains(t, err, tt.wantErr)
+				_, err = web.NewInsecure(*u)
 				require.ErrorContains(t, err, tt.wantErr)
 				return
 			}
+
+			got, err := web.NewInsecure(*u)
 			require.NoError(t, err)
 			require.Equal(t, tt.want, got.String())
+
+			secure, err := web.New(*u)
+			if tt.insecureOnly {
+				require.ErrorContains(t, err, "must be an https URL")
+			} else {
+				require.NoError(t, err)
+				require.Equal(t, got, secure)
+			}
 
 			// What New produces, Parse accepts.
 			parsed, err := web.Parse(got.String())
@@ -57,6 +71,18 @@ func TestNew(t *testing.T) {
 			require.Equal(t, got, parsed)
 		})
 	}
+
+	t.Run("a scheme that is neither http nor https is refused", func(t *testing.T) {
+		for _, str := range []string{"ftp://example.com", "example.com"} {
+			u, err := url.Parse(str)
+			require.NoError(t, err)
+
+			_, err = web.New(*u)
+			require.ErrorContains(t, err, "must be an https URL")
+			_, err = web.NewInsecure(*u)
+			require.ErrorContains(t, err, "must be an http or https URL")
+		}
+	})
 }
 
 func TestParse(t *testing.T) {
