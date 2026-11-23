@@ -29,8 +29,8 @@ const WellKnownDIDPath = "/.well-known/did.json"
 //
 // The scheme is not part of the DID, but a did:web document is fetched over
 // HTTPS, so any other scheme is refused. A URL with user info, a query or a
-// fragment is refused too. So is one whose host is an IP address: the spec
-// requires a name.
+// fragment is refused too. So is one whose host is an IP address or is not a
+// well-formed host name: the spec requires a domain name.
 //
 // A path character that a DID identifier cannot carry is percent-encoded, so
 // https://example.com/~alice is did:web:example.com:%7Ealice.
@@ -69,10 +69,8 @@ func newDID(u url.URL) (did.DID, error) {
 	if _, err := netip.ParseAddr(host); err == nil {
 		return did.Undef, fmt.Errorf("URL %q must name a host, not an IP address", u.String())
 	}
-	for i := 0; i < len(host); i++ {
-		if !isIDChar(host[i]) {
-			return did.Undef, fmt.Errorf("URL %q has a host name a DID cannot carry: an internationalized name has to be in its ASCII form", u.String())
-		}
+	if err := checkHostName(host); err != nil {
+		return did.Undef, fmt.Errorf("URL %q does not name a host: %w", u.String(), err)
 	}
 
 	id := host
@@ -120,6 +118,34 @@ func isIDChar(c byte) bool {
 	return 'a' <= c && c <= 'z' || 'A' <= c && c <= 'Z' || '0' <= c && c <= '9' || c == '.' || c == '-' || c == '_'
 }
 
+// checkHostName reports why host is not a host name. A host name is labels
+// separated by dots, 253 characters at most. A label is 1 to 63 letters,
+// digits and hyphens, and does not start or end with a hyphen. A name in
+// another script has to be in its ASCII form.
+// https://www.rfc-editor.org/rfc/rfc1123#section-2
+func checkHostName(host string) error {
+	if len(host) > 253 {
+		return fmt.Errorf("it is longer than 253 characters")
+	}
+	for _, label := range strings.Split(host, ".") {
+		if label == "" {
+			return fmt.Errorf("it has an empty label")
+		}
+		if len(label) > 63 {
+			return fmt.Errorf("label %q is longer than 63 characters", label)
+		}
+		if label[0] == '-' || label[len(label)-1] == '-' {
+			return fmt.Errorf("label %q starts or ends with a hyphen", label)
+		}
+		for i := 0; i < len(label); i++ {
+			if c := label[i]; !('a' <= c && c <= 'z' || 'A' <= c && c <= 'Z' || '0' <= c && c <= '9' || c == '-') {
+				return fmt.Errorf("label %q has a character other than a letter, a digit or a hyphen", label)
+			}
+		}
+	}
+	return nil
+}
+
 func isDefaultPort(scheme, port string) bool {
 	return (scheme == "https" && port == "443") || (scheme == "http" && port == "80")
 }
@@ -127,7 +153,8 @@ func isDefaultPort(scheme, port string) bool {
 // Parse parses a did:web DID string, verifying the method is "web" and the
 // identifier is a host, optionally followed by a percent-encoded colon and a
 // port, then by any number of colon-separated path segments. The host has to
-// be a name: the did:web spec does not allow an IP address. The string also
+// be a host name, with labels of letters, digits and hyphens: the did:web spec
+// does not allow an IP address. The string also
 // has to be a DID that [did.Parse] accepts.
 func Parse(str string) (did.DID, error) {
 	d, err := did.Parse(str)
@@ -157,10 +184,8 @@ func Parse(str string) (did.DID, error) {
 	if host == "" {
 		return did.Undef, fmt.Errorf("identifier has no host")
 	}
-	for i := 0; i < len(host); i++ {
-		if !isIDChar(host[i]) {
-			return did.Undef, fmt.Errorf("identifier host %q is not a host name", host)
-		}
+	if err := checkHostName(host); err != nil {
+		return did.Undef, fmt.Errorf("identifier host %q is not a host name: %w", host, err)
 	}
 	if _, err := netip.ParseAddr(host); err == nil {
 		return did.Undef, fmt.Errorf("identifier host %q is an IP address, not a host name", host)

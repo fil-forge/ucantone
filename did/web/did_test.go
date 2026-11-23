@@ -2,6 +2,7 @@ package web_test
 
 import (
 	"net/url"
+	"strings"
 	"testing"
 
 	"github.com/fil-forge/ucantone/did"
@@ -43,7 +44,12 @@ func TestNew(t *testing.T) {
 		{url: "https://example.com/.well-known/did.json", wantErr: "URL of a DID document"},
 		{url: "https://example.com/user/alice/did.json", wantErr: "URL of a DID document"},
 		{url: "https://example.com/did.json", wantErr: "URL of a DID document"},
-		{url: "https://ex%C3%A4mple.com", wantErr: "ASCII form"},
+		{url: "https://ex%C3%A4mple.com", wantErr: "does not name a host"},
+		{url: "https://_svc.example.com", wantErr: "does not name a host"},
+		{url: "https://-example.com", wantErr: "starts or ends with a hyphen"},
+		{url: "https://example..com", wantErr: "empty label"},
+		{url: "https://example.com.", wantErr: "empty label"},
+		{url: "https://" + strings.Repeat("a", 64) + ".com", wantErr: "longer than 63"},
 		{url: "https://example.com/?x=1", wantErr: "query"},
 		{url: "https://example.com/#x", wantErr: "fragment"},
 		{url: "https://user@example.com", wantErr: "user info"},
@@ -116,7 +122,9 @@ func TestParse(t *testing.T) {
 			"did:web:localhost%3A3000",
 			"did:web:example.com:a%3Ab",
 			"did:web:example.com:%7Ealice",
-			"did:web:my_host.example-1.com",
+			"did:web:my-host.example-1.com",
+			"did:web:xn--exmple-cua.com",
+			"did:web:1.example.com",
 		} {
 			t.Run(str, func(t *testing.T) {
 				d, err := web.Parse(str)
@@ -155,6 +163,15 @@ func TestParse(t *testing.T) {
 		{str: "did:web:example.com:a b", wantErr: "must be percent-encoded"},
 		{str: "did:web:ex~ample.com", wantErr: "must be percent-encoded"},
 		{str: "did:web:ex%7Eample.com", wantErr: "not a host name"},
+		{str: "did:web:_svc.example.com", wantErr: "not a host name"},
+		{str: "did:web:my_host.example.com", wantErr: "not a host name"},
+		{str: "did:web:-example.com", wantErr: "starts or ends with a hyphen"},
+		{str: "did:web:example-.com", wantErr: "starts or ends with a hyphen"},
+		{str: "did:web:example..com", wantErr: "empty label"},
+		{str: "did:web:.example.com", wantErr: "empty label"},
+		{str: "did:web:example.com.", wantErr: "empty label"},
+		{str: "did:web:" + strings.Repeat("a", 64) + ".com", wantErr: "longer than 63"},
+		{str: "did:web:" + strings.Repeat("a.", 127) + "com", wantErr: "longer than 253"},
 		{str: "did:web:example.com%3", wantErr: "malformed percent-escape"},
 		{str: "did:web:example.com:user%zz", wantErr: "malformed percent-escape"},
 		{str: "did:web:example.com%3Ahttp", wantErr: "not a port number"},
