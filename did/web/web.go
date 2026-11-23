@@ -127,9 +127,8 @@ func isDefaultPort(scheme, port string) bool {
 // Parse parses a did:web DID string, verifying the method is "web" and the
 // identifier is a host, optionally followed by a percent-encoded colon and a
 // port, then by any number of colon-separated path segments. The host has to
-// be a name: the did:web spec does not allow an IP address. A segment holds
-// only the characters a DID identifier may: letters, digits, ".", "-", "_"
-// and percent-escapes.
+// be a name: the did:web spec does not allow an IP address. The string also
+// has to be a DID that [did.Parse] accepts.
 func Parse(str string) (did.DID, error) {
 	d, err := did.Parse(str)
 	if err != nil {
@@ -139,6 +138,8 @@ func Parse(str string) (did.DID, error) {
 		return did.Undef, err
 	}
 
+	// did.Parse has checked the characters and escapes of the identifier, and
+	// that it neither is empty nor ends with a colon.
 	segments := strings.Split(d.Identifier(), ":")
 	for i, segment := range segments {
 		if segment == "" {
@@ -146,14 +147,6 @@ func Parse(str string) (did.DID, error) {
 				return did.Undef, fmt.Errorf("identifier has no host")
 			}
 			return did.Undef, fmt.Errorf("identifier has an empty path segment")
-		}
-		for j := 0; j < len(segment); j++ {
-			if c := segment[j]; !isIDChar(c) && c != '%' {
-				return did.Undef, fmt.Errorf("identifier segment %q contains a character that must be percent-encoded", segment)
-			}
-		}
-		if _, err := url.PathUnescape(segment); err != nil {
-			return did.Undef, fmt.Errorf("identifier segment %q is not percent-encoded correctly: %w", segment, err)
 		}
 	}
 

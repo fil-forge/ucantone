@@ -142,10 +142,10 @@ func TestParse(t *testing.T) {
 		str     string
 		wantErr string
 	}{
-		{str: "did:web:", wantErr: "no host"},
+		{str: "did:web:", wantErr: "identifier is empty"},
 		{str: "did:web::user", wantErr: "no host"},
 		{str: "did:web:%3A3000", wantErr: "no host"},
-		{str: "did:web:example.com:", wantErr: "empty path segment"},
+		{str: "did:web:example.com:", wantErr: "must not end with ':'"},
 		{str: "did:web:example.com::alice", wantErr: "empty path segment"},
 		{str: "did:web:example.com/user", wantErr: "must be percent-encoded"},
 		{str: "did:web:example.com?x=1", wantErr: "must be percent-encoded"},
@@ -155,8 +155,8 @@ func TestParse(t *testing.T) {
 		{str: "did:web:example.com:a b", wantErr: "must be percent-encoded"},
 		{str: "did:web:ex~ample.com", wantErr: "must be percent-encoded"},
 		{str: "did:web:ex%7Eample.com", wantErr: "not a host name"},
-		{str: "did:web:example.com%3", wantErr: "not percent-encoded correctly"},
-		{str: "did:web:example.com:user%zz", wantErr: "not percent-encoded correctly"},
+		{str: "did:web:example.com%3", wantErr: "malformed percent-escape"},
+		{str: "did:web:example.com:user%zz", wantErr: "malformed percent-escape"},
 		{str: "did:web:example.com%3Ahttp", wantErr: "not a port number"},
 		{str: "did:web:example.com%3A", wantErr: "not a port number"},
 		{str: "did:web:example.com%3A0", wantErr: "not a port number"},
