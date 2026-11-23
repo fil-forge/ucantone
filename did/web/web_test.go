@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"io"
 	"net/http"
+	"net/url"
 	"strings"
 	"testing"
 	"time"
@@ -127,6 +128,34 @@ func TestResolver(t *testing.T) {
 
 		transport := roundTripFunc(func(r *http.Request) (*http.Response, error) {
 			require.Equal(t, "https://example.com:3000/.well-known/did.json", r.URL.String())
+			return &http.Response{
+				StatusCode: http.StatusOK,
+				Header:     http.Header{"Content-Type": []string{"application/json"}},
+				Body:       io.NopCloser(bytes.NewReader(body)),
+			}, nil
+		})
+
+		resolver, err := web.NewResolver(web.WithTransport(transport))
+		require.NoError(t, err)
+
+		result, resolveErr := resolver.Resolve(t.Context(), id)
+		require.NoError(t, resolveErr)
+		require.Equal(t, id, result.ID)
+	})
+
+	t.Run("resolves a DID whose path has percent-encoded characters", func(t *testing.T) {
+		u, err := url.Parse("https://example.com/a%20b/c:d")
+		require.NoError(t, err)
+		id, err := web.New(*u)
+		require.NoError(t, err)
+		require.Equal(t, "did:web:example.com:a%20b:c%3Ad", id.String())
+
+		body, err := json.Marshal(did.NewDocument(id))
+		require.NoError(t, err)
+
+		transport := roundTripFunc(func(r *http.Request) (*http.Response, error) {
+			require.Equal(t, "https://example.com/a%20b/c%3Ad/did.json", r.URL.String())
+			require.Equal(t, "/a b/c:d/did.json", r.URL.Path)
 			return &http.Response{
 				StatusCode: http.StatusOK,
 				Header:     http.Header{"Content-Type": []string{"application/json"}},

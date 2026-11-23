@@ -301,15 +301,20 @@ func documentURL(d did.DID, insecure bool) url.URL {
 	// Unescape the percent-encoded colon in the host, to support port numbers.
 	// Hex digits in an escape are equivalent in either case.
 	host = strings.NewReplacer("%3A", ":", "%3a", ":").Replace(host)
-	path := ""
-	if len(segments) > 1 {
-		path = "/" + strings.Join(segments[1:], "/") + "/did.json"
-	} else {
-		path = WellKnownDIDPath
-	}
-	return url.URL{
+	u := url.URL{
 		Scheme: scheme,
 		Host:   host,
-		Path:   path,
+		Path:   WellKnownDIDPath,
 	}
+	if len(segments) > 1 {
+		// The segments are percent-encoded as they are in the DID. The request
+		// carries those escapes unchanged: they are not encoded a second time.
+		escaped := "/" + strings.Join(segments[1:], "/") + "/did.json"
+		u.Path = escaped
+		if path, err := url.PathUnescape(escaped); err == nil {
+			u.Path = path
+			u.RawPath = escaped
+		}
+	}
+	return u
 }
