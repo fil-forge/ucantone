@@ -154,18 +154,64 @@ func (d *DID) UnmarshalDagJSON(r io.Reader) error {
 	return nil
 }
 
-func New(method, identifier string) DID {
-	return DID{fmt.Sprintf("%s%s:%s", Prefix, method, identifier)}
+// New returns the DID with the given method and method-specific identifier.
+// It fails when the two do not make a DID that [Parse] accepts.
+func New(method, identifier string) (DID, error) {
+	return Parse(Prefix + method + ":" + identifier)
 }
 
+// Parse parses a DID string, checking it against the DID syntax:
+//
+//	did:<method>:<identifier>
+//
+// The method is lower case letters and digits. The identifier is letters,
+// digits, ".", "-", "_" and percent-escapes, in segments separated by colons,
+// and does not end with a colon. Anything else, such as a path, query or
+// fragment, makes the string a DID URL and is refused.
+//
+// A did:key is also checked to be Base58BTC encoded.
+//
+// https://www.w3.org/TR/did-core/#did-syntax
 func Parse(str string) (DID, error) {
-	if !strings.HasPrefix(str, Prefix) {
+	rest, ok := strings.CutPrefix(str, Prefix)
+	if !ok {
 		return DID{}, fmt.Errorf("must start with 'did:'")
+	}
+	method, id, ok := strings.Cut(rest, ":")
+	if !ok {
+		return DID{}, fmt.Errorf("must have a method and an identifier, as in 'did:method:identifier'")
+	}
+	if method == "" {
+		return DID{}, fmt.Errorf("method is empty")
+	}
+	for i := 0; i < len(method); i++ {
+		if c := method[i]; !('a' <= c && c <= 'z' || '0' <= c && c <= '9') {
+			return DID{}, fmt.Errorf("method %q must be lower case letters and digits", method)
+		}
+	}
+	if id == "" {
+		return DID{}, fmt.Errorf("identifier is empty")
+	}
+	if strings.HasSuffix(id, ":") {
+		return DID{}, fmt.Errorf("identifier must not end with ':'")
+	}
+	for i := 0; i < len(id); i++ {
+		c := id[i]
+		switch {
+		case isIDChar(c) || c == ':':
+		case c == '%':
+			if i+2 >= len(id) || !isHex(id[i+1]) || !isHex(id[i+2]) {
+				return DID{}, fmt.Errorf("identifier has a malformed percent-escape at %q", id[i:min(i+3, len(id))])
+			}
+			i += 2
+		default:
+			return DID{}, fmt.Errorf("identifier has the character %q, which must be percent-encoded", c)
+		}
 	}
 
 	// Convenience validation for `did:key` DIDs.
-	if strings.HasPrefix(str, KeyPrefix) {
-		code, _, err := mbase.Decode(str[len(KeyPrefix):])
+	if method == "key" {
+		code, _, err := mbase.Decode(id)
 		if err != nil {
 			return DID{}, err
 		}
@@ -175,6 +221,15 @@ func Parse(str string) (DID, error) {
 	}
 
 	return DID{str}, nil
+}
+
+// isIDChar reports whether c may appear unescaped in a DID identifier.
+func isIDChar(c byte) bool {
+	return 'a' <= c && c <= 'z' || 'A' <= c && c <= 'Z' || '0' <= c && c <= '9' || c == '.' || c == '-' || c == '_'
+}
+
+func isHex(c byte) bool {
+	return '0' <= c && c <= '9' || 'a' <= c && c <= 'f' || 'A' <= c && c <= 'F'
 }
 
 func MustParse(str string) DID {

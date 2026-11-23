@@ -137,7 +137,13 @@ func FormatVerifier(verifier Verifier) string {
 // definition the DID it was found on. If this key was found on, for example, a
 // `did:web` DID, then this is not.
 func KeyDID(v Verifier) did.DID {
-	return did.New(key.Method, FormatVerifier(v))
+	d, err := did.New(key.Method, FormatVerifier(v))
+	if err != nil {
+		// The identifier is the Base58BTC encoding of the key, which is always
+		// a valid did:key identifier.
+		panic(fmt.Errorf("creating did:key: %w", err))
+	}
+	return d
 }
 
 // KeyIssuer wraps a [Signer] to produce a [ucan.Issuer] using the signer's

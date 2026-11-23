@@ -101,11 +101,16 @@ func TestParse(t *testing.T) {
 		for _, id := range []string{
 			"EWVI7NXZYOUN6ZHXRHS64OIZ", // uppercase
 			"ewvi7nxzyoun6zhxrhs64oi0", // digit outside 2-7
-			"ewvi7nxzyoun6zhxrhs64oi=", // padding
+			"ewvi7nxzyoun6zhxrhs64oi1", // digit outside 2-7
 		} {
 			_, err := plc.Parse("did:plc:" + id)
 			require.ErrorContains(t, err, "not base32", "identifier %q", id)
 		}
+	})
+
+	t.Run("rejects base32 padding, which no DID can carry", func(t *testing.T) {
+		_, err := plc.Parse("did:plc:ewvi7nxzyoun6zhxrhs64oi=")
+		require.ErrorContains(t, err, "must be percent-encoded")
 	})
 }
 
